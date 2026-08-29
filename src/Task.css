@@ -1,0 +1,951 @@
+/* ==========================================================================
+   Tasks Page Scoped Styles
+   All selectors are strictly scoped under .tasks-page-wrapper to prevent
+   interfering with other pages in the application.
+   ========================================================================== */
+
+/* #region Global & Wrapper */
+.tasks-page-wrapper {
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    font-weight: 300;
+    background-color: #f2f4f5;
+    color: #393b3d;
+    line-height: 1.2;
+    min-height: 100vh;
+    padding: 0 0 40px 0;
+    box-sizing: border-box;
+}
+
+.tasks-page-wrapper #navbar-root {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+}
+
+/* Center Reload Button in Middle of Page */
+.tasks-page-wrapper .tasks-reload-center-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 480px;
+    width: 100%;
+}
+
+.tasks-page-wrapper .section-reload-btn {
+    width: 52px;
+    height: 48px;
+    background-color: #f0f2f4;
+    border: 2px solid #b8bac0;
+    border-radius: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease, transform 0.15s ease, background-color 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    outline: none;
+}
+
+.tasks-page-wrapper .section-reload-btn:hover {
+    background-color: #e4e7ea;
+    border-color: #999da4;
+}
+
+.tasks-page-wrapper .section-reload-btn:active {
+    opacity: 0.4;
+    transform: scale(0.94);
+}
+
+.tasks-page-wrapper .section-reload-btn.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+/* #endregion */
+
+/* #region Search Bar Component */
+.tasks-page-wrapper .search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.tasks-page-wrapper .search-icon {
+    position: absolute;
+    left: 10px;
+    pointer-events: none;
+    width: 14px;
+    height: 14px;
+    fill: #999999;
+    transition: fill 0.15s ease;
+}
+
+.tasks-page-wrapper .search-container:focus-within .search-icon {
+    fill: #00a2ff;
+}
+
+.tasks-page-wrapper .top-search-input {
+    width: 100%;
+    padding: 6px 12px 6px 32px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 500;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tasks-page-wrapper .top-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+.tasks-page-wrapper .top-search-input::placeholder {
+    color: #999999;
+    font-size: 16px;
+    font-weight: 400;
+}
+/* #endregion */
+
+/* #region Page Container & Header */
+.tasks-page-wrapper .page-container {
+    max-width: 1250px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.tasks-page-wrapper .tasks-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+}
+
+.tasks-page-wrapper .page-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #393b3d;
+    margin-bottom: 0;
+}
+
+.tasks-page-wrapper .tasks-search {
+    width: 280px;
+}
+/* #endregion */
+
+/* #region 4 Status Cards Kanban Board Wrapper (Horizontal Scroll) */
+.tasks-page-wrapper .kanban-board-scroll-container {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 14px;
+    margin-bottom: 22px;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Sideways scrollbar at the bottom of the 4 cards */
+.tasks-page-wrapper .kanban-board-scroll-container::-webkit-scrollbar {
+    height: 10px;
+}
+
+.tasks-page-wrapper .kanban-board-scroll-container::-webkit-scrollbar-track {
+    background: #e4e7ea;
+    border-radius: 6px;
+}
+
+.tasks-page-wrapper .kanban-board-scroll-container::-webkit-scrollbar-thumb {
+    background: #b5b7ba;
+    border-radius: 6px;
+}
+
+.tasks-page-wrapper .kanban-board-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #888888;
+}
+
+.tasks-page-wrapper .kanban-board-track {
+    display: flex;
+    gap: 20px;
+    min-width: fit-content;
+}
+/* #endregion */
+
+/* #region Status Column Cards */
+.tasks-page-wrapper .status-column-card {
+    flex: 0 0 calc((100% - 40px) / 3);
+    width: calc((100% - 40px) / 3);
+    min-width: calc((100% - 40px) / 3);
+    height: 560px;
+    background-color: #ffffff;
+    border: 2px solid #e0e2e5;
+    border-radius: 16px;
+    padding: 22px 18px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.tasks-page-wrapper .status-column-card:hover {
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* Column Status Borders */
+.tasks-page-wrapper .status-column-card.col-todo {
+    border: 2px solid #38b6ff;
+}
+
+.tasks-page-wrapper .status-column-card.col-in-progress {
+    border: 2px solid #fbd051;
+}
+
+.tasks-page-wrapper .status-column-card.col-completed {
+    border: 2px solid #48c774;
+}
+
+.tasks-page-wrapper .status-column-card.col-cancelled {
+    border: 2px solid #666666;
+}
+
+.tasks-page-wrapper .column-header {
+    text-align: center;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px dashed #e4e7ea;
+    flex-shrink: 0;
+}
+
+.tasks-page-wrapper .column-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #2c2e30;
+    text-transform: uppercase;
+}
+
+.tasks-page-wrapper .column-count-badge {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    background-color: #f0f2f5;
+    color: #666666;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+/* #endregion */
+
+/* #region Column Inner Tasks List (Vertical Scrollbar) */
+.tasks-page-wrapper .column-tasks-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* Vertical scrollbar on the side of status cards */
+.tasks-page-wrapper .column-tasks-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tasks-page-wrapper .column-tasks-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.tasks-page-wrapper .column-tasks-scroll::-webkit-scrollbar-thumb {
+    background: #c5c7ca;
+    border-radius: 4px;
+}
+
+.tasks-page-wrapper .column-tasks-scroll::-webkit-scrollbar-thumb:hover {
+    background: #888888;
+}
+
+.tasks-page-wrapper .column-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 200px;
+    color: #999999;
+    font-size: 14px;
+    text-align: center;
+    border: 1px dashed #e2e4e7;
+    border-radius: 12px;
+    padding: 20px;
+    background-color: #fafbfc;
+}
+/* #endregion */
+
+/* #region Task Card Item */
+.tasks-page-wrapper .task-card {
+    background-color: #ffffff;
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.tasks-page-wrapper .task-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);
+}
+
+/* Dynamic Task Priority Borders */
+.tasks-page-wrapper .task-card.priority-urgent {
+    border: 2px solid #e02424;
+}
+
+.tasks-page-wrapper .task-card.priority-high {
+    border: 2px solid #fbd051;
+}
+
+.tasks-page-wrapper .task-card.priority-medium {
+    border: 2px solid #38b6ff;
+}
+
+.tasks-page-wrapper .task-card.priority-low {
+    border: 2px solid #b0b3b8;
+}
+
+.tasks-page-wrapper .task-main-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tasks-page-wrapper .task-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tasks-page-wrapper .task-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #222222;
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+/* Priority Tag Pills */
+.tasks-page-wrapper .task-priority-tag {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tasks-page-wrapper .priority-tag-urgent {
+    background-color: #ffe5e5;
+    color: #d32f2f;
+    border: 1px solid #ffcdd2;
+}
+
+.tasks-page-wrapper .priority-tag-high {
+    background-color: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffe0b2;
+}
+
+.tasks-page-wrapper .priority-tag-medium {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.tasks-page-wrapper .priority-tag-low {
+    background-color: #f5f5f5;
+    color: #616161;
+    border: 1px solid #e0e0e0;
+}
+
+/* Assigner Badge */
+.tasks-page-wrapper .task-assigner-pill {
+    font-size: 11px;
+    color: #444444;
+    background-color: #f0f2f5;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tasks-page-wrapper .task-dates-row {
+    font-size: 12px;
+    color: #777777;
+    margin-top: 2px;
+}
+
+/* Task Action Button */
+.tasks-page-wrapper .btn-task-action {
+    width: 42px;
+    height: 42px;
+    border: 2px solid #00a2ff;
+    border-radius: 12px;
+    background-color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 162, 255, 0.1);
+}
+
+.tasks-page-wrapper .btn-task-action:hover {
+    background-color: #eaf6ff;
+    transform: scale(1.06);
+    border-color: #0088db;
+}
+
+.tasks-page-wrapper .btn-task-action:active {
+    transform: scale(0.94);
+}
+
+.tasks-page-wrapper .btn-task-action svg {
+    fill: #00a2ff;
+    margin-left: 2px;
+}
+/* #endregion */
+
+/* #region Bottom Section: Current Project Card & Switch Buttons */
+.tasks-page-wrapper .project-switch-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 4px;
+    margin-bottom: 24px;
+}
+
+.tasks-page-wrapper .current-project-card {
+    flex: 1;
+    background-color: #f8f9fa;
+    border-radius: 20px;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Project Status Dynamic Borders */
+.tasks-page-wrapper .current-project-card.status-planning {
+    border: 2px solid #b0b3b8;
+}
+
+.tasks-page-wrapper .current-project-card.status-active {
+    border: 2px solid #38b6ff;
+}
+
+.tasks-page-wrapper .current-project-card.status-on-hold,
+.tasks-page-wrapper .current-project-card.status-on_hold {
+    border: 2px solid #fbd051;
+}
+
+.tasks-page-wrapper .current-project-card.status-completed {
+    border: 2px solid #48c774;
+}
+
+.tasks-page-wrapper .current-project-card.status-archived {
+    border: 2px solid #666666;
+}
+
+.tasks-page-wrapper .project-card-left {
+    flex: 1.1;
+    min-width: 0;
+}
+
+.tasks-page-wrapper .project-title-header {
+    font-size: 20px;
+    font-weight: 700;
+    color: #393b3d;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.tasks-page-wrapper .project-id-sub {
+    font-size: 13px;
+    font-weight: 400;
+    color: #777777;
+}
+
+.tasks-page-wrapper .project-card-desc {
+    font-size: 14px;
+    color: #666666;
+    margin-top: 4px;
+}
+
+/* Middle Users Column */
+.tasks-page-wrapper .project-card-middle {
+    flex: 1.3;
+    min-width: 0;
+    border-left: 2px solid #d0d2d5;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tasks-page-wrapper .project-users-header-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+}
+
+.tasks-page-wrapper .project-users-names-text {
+    font-size: 13px;
+    color: #555555;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.tasks-page-wrapper .btn-project-info-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid #888888;
+    background-color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666666;
+    flex-shrink: 0;
+    padding: 0;
+    transition: all 0.15s ease;
+}
+
+.tasks-page-wrapper .btn-project-info-circle:hover {
+    background-color: #00a2ff;
+    border-color: #00a2ff;
+    color: #ffffff;
+    transform: scale(1.1);
+}
+
+.tasks-page-wrapper .project-users-avatars-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.tasks-page-wrapper .project-user-avatar-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 3px;
+    object-fit: cover;
+    background-color: #000000;
+    border: 1px solid #dcdcdc;
+    flex-shrink: 0;
+}
+
+.tasks-page-wrapper .project-users-extra-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: #777777;
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
+.tasks-page-wrapper .project-card-right {
+    text-align: right;
+    flex-shrink: 0;
+    min-width: 120px;
+}
+
+.tasks-page-wrapper .project-status-label {
+    font-size: 14px;
+    color: #222222;
+    font-weight: 700;
+}
+
+.tasks-page-wrapper .project-owner-label {
+    font-size: 12px;
+    color: #777777;
+    margin-top: 4px;
+}
+
+/* Project Switch Buttons */
+.tasks-page-wrapper .project-nav-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.tasks-page-wrapper .btn-nav-project {
+    width: 48px;
+    height: 48px;
+    border: 2.5px solid #222222;
+    border-radius: 12px;
+    background-color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tasks-page-wrapper .btn-nav-project:hover {
+    background-color: #e4e7ea;
+    border-color: #000000;
+    transform: scale(1.05);
+}
+
+.tasks-page-wrapper .btn-nav-project:active {
+    transform: scale(0.95);
+}
+
+.tasks-page-wrapper .btn-nav-project svg {
+    fill: #222222;
+}
+/* #endregion */
+
+/* #region Footer Row: Assign New Task & Add Members */
+.tasks-page-wrapper .new-task-footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding: 0 4px;
+}
+
+.tasks-page-wrapper .new-task-label {
+    font-size: 20px;
+    font-weight: 400;
+    color: #111111;
+}
+
+.tasks-page-wrapper .new-task-buttons-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tasks-page-wrapper .btn-add-members {
+    display: inline-block;
+    border: 1.5px solid #888888;
+    border-radius: 20px;
+    padding: 8px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #555555;
+    background-color: transparent;
+    cursor: pointer;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    transition: all 0.15s ease;
+}
+
+.tasks-page-wrapper .btn-add-members:hover {
+    background-color: #e4e7ea;
+    border-color: #555555;
+    color: #111111;
+}
+
+.tasks-page-wrapper .btn-assign-task {
+    display: inline-block;
+    border: 3px solid #00a2ff;
+    border-radius: 20px;
+    padding: 8px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #00a2ff;
+    background-color: transparent;
+    text-decoration: none;
+    cursor: pointer;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    transition: all 0.15s ease;
+}
+
+.tasks-page-wrapper .btn-assign-task:hover {
+    background-color: #00a2ff;
+    color: #ffffff;
+}
+/* #endregion */
+
+/* #region Add Members Global Users Modal */
+.tasks-page-wrapper .members-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeInModalOverlay 0.2s ease forwards;
+}
+
+.tasks-page-wrapper .members-modal-card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    width: 480px;
+    max-width: 95vw;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+    padding: 22px 24px 18px 24px;
+    animation: scaleInModalCard 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    position: relative;
+}
+
+.tasks-page-wrapper .members-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e8eaed;
+}
+
+.tasks-page-wrapper .members-modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111111;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.tasks-page-wrapper .members-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tasks-page-wrapper .members-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 180px;
+}
+
+.tasks-page-wrapper .members-search-icon {
+    position: absolute;
+    left: 10px;
+    width: 14px;
+    height: 14px;
+    fill: #888888;
+    pointer-events: none;
+}
+
+.tasks-page-wrapper .members-search-input {
+    width: 100%;
+    padding: 5px 10px 5px 30px;
+    background-color: #ffffff;
+    border: 1.5px solid #a8aab0;
+    border-radius: 16px;
+    font-size: 13px;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.tasks-page-wrapper .members-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.12);
+}
+
+.tasks-page-wrapper .members-search-input::placeholder {
+    color: #999999;
+}
+
+.tasks-page-wrapper .members-modal-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: #666666;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.tasks-page-wrapper .members-modal-close-btn:hover {
+    color: #111111;
+    transform: scale(1.15);
+}
+
+/* Members List Scroll */
+.tasks-page-wrapper .members-list-scroll {
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-top: 6px;
+}
+
+/* Custom Sleek Scrollbar matching mockup */
+.tasks-page-wrapper .members-list-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tasks-page-wrapper .members-list-scroll::-webkit-scrollbar-track {
+    background: #f1f2f4;
+    border-radius: 6px;
+}
+
+.tasks-page-wrapper .members-list-scroll::-webkit-scrollbar-thumb {
+    background: #b5b7ba;
+    border-radius: 6px;
+}
+
+.tasks-page-wrapper .members-list-scroll::-webkit-scrollbar-thumb:hover {
+    background: #888888;
+}
+
+/* Member Item Row */
+.tasks-page-wrapper .member-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-bottom: 1px solid #f0f2f4;
+    transition: background-color 0.15s ease;
+    border-radius: 6px;
+}
+
+.tasks-page-wrapper .member-item-row:last-child {
+    border-bottom: none;
+}
+
+.tasks-page-wrapper .member-item-row:hover {
+    background-color: #f7f9fa;
+}
+
+.tasks-page-wrapper .member-avatar-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    object-fit: cover;
+    background-color: #000000;
+    flex-shrink: 0;
+}
+
+.tasks-page-wrapper .member-info-text {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 15px;
+    flex: 1;
+    min-width: 0;
+}
+
+.tasks-page-wrapper .member-fullname {
+    font-weight: 700;
+    color: #111111;
+}
+
+.tasks-page-wrapper .member-username {
+    font-size: 13px;
+    color: #888888;
+    font-weight: 400;
+}
+
+/* Member Action Buttons (Add / Remove) */
+.tasks-page-wrapper .member-actions-wrapper {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.tasks-page-wrapper .btn-member-action {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.tasks-page-wrapper .btn-member-action.add-btn {
+    background-color: #00a2ff;
+    color: #ffffff;
+}
+
+.tasks-page-wrapper .btn-member-action.add-btn:hover {
+    background-color: #0088db;
+    transform: scale(1.1);
+}
+
+.tasks-page-wrapper .btn-member-action.remove-btn {
+    background-color: #ff3b30;
+    color: #ffffff;
+}
+
+.tasks-page-wrapper .btn-member-action.remove-btn:hover {
+    background-color: #d62b21;
+    transform: scale(1.1);
+}
+
+.tasks-page-wrapper .btn-member-action:active {
+    transform: scale(0.92);
+}
+
+.tasks-page-wrapper .btn-member-action:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.tasks-page-wrapper .members-empty-text {
+    text-align: center;
+    color: #888888;
+    font-size: 14px;
+    padding: 30px 0;
+    font-style: italic;
+}
+
+@keyframes fadeInModalOverlay {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes scaleInModalCard {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+/* #endregion */

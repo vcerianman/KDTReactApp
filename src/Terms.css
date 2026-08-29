@@ -1,0 +1,68 @@
+/* ==========================================================================
+   Terms Page Scoped Styles
+   All selectors are strictly scoped under .terms-page-wrapper to prevent
+   interfering with other pages in the application.
+   ========================================================================== */
+
+/* #region Terms Page Wrapper & Base */
+.terms-page-wrapper {
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    font-weight: 300;
+    background-color: #f2f4f5;
+    color: #393b3d;
+    line-height: 1.4;
+    min-height: 100vh;
+    padding: 0 0 40px 0;
+    box-sizing: border-box;
+}
+
+.terms-page-wrapper #navbar-root {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+}
+
+/* #region Page Container */
+.terms-page-wrapper .page-container {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+.terms-page-wrapper .page-title {
+    font-size: 40px;
+    font-weight: 700;
+    color: #393b3d;
+    margin-bottom: 28px;
+}
+/* #endregion */
+
+/* #region Main White Card Box */
+.terms-page-wrapper .home-main-card {
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-radius: 4px;
+    padding: 24px 50px 50px 50px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    margin-bottom: 20px;
+    color: #393b3d;
+    font-size: 15px;
+}
+
+.terms-page-wrapper .home-main-card p {
+    margin-bottom: 0;
+    line-height: 1.5;
+}
+/* #endregion */
+
+/* #region Footer & Small Text */
+.terms-page-wrapper .small-text {
+    font-size: 10px;
+    color: #393b3d;
+    text-decoration: none;
+    font-weight: 400;
+    margin-top: 10px;
+    display: block;
+}
+/* #endregion */

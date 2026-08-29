@@ -1,0 +1,290 @@
+/* ==========================================================================
+   Users Page Scoped Styles
+   All selectors are strictly scoped under .users-page-wrapper to prevent
+   interfering with other pages.
+   ========================================================================== */
+
+/* #region Wrapper & Layout */
+.users-page-wrapper {
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    font-weight: 300;
+    background-color: #f2f4f5;
+    color: #393b3d;
+    line-height: 1.2;
+    min-height: 100vh;
+    padding: 0 0 40px 0;
+    box-sizing: border-box;
+}
+
+.users-page-wrapper #navbar-root {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+}
+
+.users-page-wrapper .page-container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+/* #endregion */
+
+/* #region Search Bar Component */
+.users-page-wrapper .search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.users-page-wrapper .search-icon {
+    position: absolute;
+    left: 10px;
+    pointer-events: none;
+    width: 14px;
+    height: 14px;
+    fill: #999999;
+    transition: fill 0.15s ease;
+}
+
+.users-page-wrapper .search-container:focus-within .search-icon {
+    fill: #00a2ff;
+}
+
+.users-page-wrapper .top-search-input {
+    width: 100%;
+    padding: 6px 12px 6px 32px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    font-size: 18px;
+    font-weight: 500;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.users-page-wrapper .top-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+.users-page-wrapper .top-search-input::placeholder {
+    color: #999999;
+    font-size: 18px;
+    font-weight: 400;
+}
+/* #endregion */
+
+/* #region Header Row */
+.users-page-wrapper .users-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+}
+
+.users-page-wrapper .page-title {
+    font-size: 30px;
+    font-weight: 700;
+    color: #393b3d;
+}
+
+.users-page-wrapper .search-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.users-page-wrapper .search-category-select {
+    padding: 6px 28px 6px 12px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23888888'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.users-page-wrapper .search-category-select:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+.users-page-wrapper .users-search {
+    width: 220px;
+}
+/* #endregion */
+
+/* #region Outer Users Card Box */
+.users-page-wrapper .users-outer-card {
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-radius: 4px;
+    padding: 24px 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Inner Scrollable Container with Right Scrollbar */
+.users-page-wrapper .users-scroll-wrapper {
+    max-height: 480px;
+    overflow-y: auto;
+    padding-right: 14px;
+    flex: 1;
+}
+
+/* Custom Scrollbar Styling */
+.users-page-wrapper .users-scroll-wrapper::-webkit-scrollbar {
+    width: 10px;
+}
+
+.users-page-wrapper .users-scroll-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 5px;
+}
+
+.users-page-wrapper .users-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #b5b7ba;
+    border-radius: 5px;
+}
+
+.users-page-wrapper .users-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #888888;
+}
+/* #endregion */
+
+/* #region 2 Tiles Per Row Grid */
+.users-page-wrapper .users-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* User Card Tile Item */
+.users-page-wrapper .user-card {
+    background-color: #f2f3f5;
+    border: 1px solid #e0e2e5;
+    border-radius: 20px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.users-page-wrapper .user-card:hover {
+    border-color: #c0c2c5;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* Left Avatar Thumbnail */
+.users-page-wrapper .user-avatar-box {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #c5c7ca;
+    background-color: #d0d2d4;
+}
+
+.users-page-wrapper .user-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Right User Info */
+.users-page-wrapper .user-details {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.users-page-wrapper .user-fullname-link {
+    font-size: 18px;
+    font-weight: 700;
+    color: #393b3d;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 2px;
+    transition: color 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.users-page-wrapper .user-fullname-link:hover {
+    color: #00a2ff;
+    text-decoration: underline;
+}
+
+.users-page-wrapper .user-handle {
+    font-size: 13px;
+    color: #666666;
+    margin-bottom: 14px;
+}
+
+.users-page-wrapper .user-status-role {
+    font-size: 13px;
+    color: #444444;
+    font-weight: 600;
+}
+/* #endregion */
+
+/* #region Reload Button in Middle of Card */
+.users-page-wrapper .users-reload-center-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    width: 100%;
+    margin: auto 0;
+}
+
+.users-page-wrapper .section-reload-btn {
+    width: 52px;
+    height: 48px;
+    background-color: #f0f2f4;
+    border: 2px solid #b8bac0;
+    border-radius: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease, transform 0.15s ease, background-color 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    outline: none;
+}
+
+.users-page-wrapper .section-reload-btn:hover {
+    background-color: #e4e7ea;
+    border-color: #999da4;
+}
+
+.users-page-wrapper .section-reload-btn:active {
+    opacity: 0.4;
+    transform: scale(0.94);
+}
+
+.users-page-wrapper .section-reload-btn.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+/* #endregion */

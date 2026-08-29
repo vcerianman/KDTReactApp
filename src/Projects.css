@@ -1,0 +1,338 @@
+/* ==========================================================================
+   Projects Page Scoped Styles
+   All selectors are strictly scoped under .projects-page-wrapper to prevent
+   interfering with other pages.
+   ========================================================================== */
+
+/* #region Wrapper & Layout */
+.projects-page-wrapper {
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    font-weight: 300;
+    background-color: #f2f4f5;
+    color: #393b3d;
+    line-height: 1.2;
+    min-height: 100vh;
+    padding: 0 0 40px 0;
+    box-sizing: border-box;
+}
+
+.projects-page-wrapper #navbar-root {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+}
+
+.projects-page-wrapper .page-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+/* #endregion */
+
+/* #region Search Bar Component */
+.projects-page-wrapper .search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.projects-page-wrapper .search-icon {
+    position: absolute;
+    left: 10px;
+    pointer-events: none;
+    width: 14px;
+    height: 14px;
+    fill: #999999;
+    transition: fill 0.15s ease;
+}
+
+.projects-page-wrapper .search-container:focus-within .search-icon {
+    fill: #00a2ff;
+}
+
+.projects-page-wrapper .top-search-input {
+    width: 100%;
+    padding: 6px 12px 6px 32px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    font-size: 18px;
+    font-weight: 500;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.projects-page-wrapper .top-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+.projects-page-wrapper .top-search-input::placeholder {
+    color: #999999;
+    font-size: 18px;
+    font-weight: 400;
+}
+/* #endregion */
+
+/* #region Header Row */
+.projects-page-wrapper .projects-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+}
+
+.projects-page-wrapper .page-title {
+    font-size: 30px;
+    font-weight: 700;
+    color: #393b3d;
+    margin-bottom: 0;
+}
+
+.projects-page-wrapper .projects-search {
+    width: 280px;
+}
+/* #endregion */
+
+/* #region Outer Projects Card Box */
+.projects-page-wrapper .projects-outer-card {
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-radius: 4px;
+    padding: 24px 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Inner Scrollable Container with Right Scrollbar */
+.projects-page-wrapper .projects-scroll-wrapper {
+    max-height: 480px;
+    overflow-y: auto;
+    padding-right: 14px;
+    flex: 1;
+}
+
+/* Custom Scrollbar Styling */
+.projects-page-wrapper .projects-scroll-wrapper::-webkit-scrollbar {
+    width: 10px;
+}
+
+.projects-page-wrapper .projects-scroll-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 5px;
+}
+
+.projects-page-wrapper .projects-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #b5b7ba;
+    border-radius: 5px;
+}
+
+.projects-page-wrapper .projects-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #888888;
+}
+/* #endregion */
+
+/* #region Project Card Item (Pill Container) */
+.projects-page-wrapper .project-card {
+    background-color: #f2f3f5;
+    border: 1px solid #e0e2e5;
+    border-radius: 24px;
+    padding: 18px 25px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.projects-page-wrapper .project-card:last-child {
+    margin-bottom: 0;
+}
+
+.projects-page-wrapper .project-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Status Border Colors */
+.projects-page-wrapper .project-card.status-planning {
+    border: 2px solid #b0b3b8;
+}
+
+.projects-page-wrapper .project-card.status-active {
+    border: 2px solid #38b6ff;
+}
+
+.projects-page-wrapper .project-card.status-on-hold,
+.projects-page-wrapper .project-card.status-on_hold,
+.projects-page-wrapper .project-card.status-in_progress {
+    border: 2px solid #fbd051;
+}
+
+.projects-page-wrapper .project-card.status-completed {
+    border: 2px solid #48c774;
+}
+
+.projects-page-wrapper .project-card.status-archived {
+    border: 2px solid #666666;
+}
+
+/* Left Info Column */
+.projects-page-wrapper .project-info {
+    flex-grow: 1;
+}
+
+.projects-page-wrapper .project-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #555555;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.projects-page-wrapper .project-id {
+    font-size: 13px;
+    font-weight: 400;
+    color: #666666;
+}
+
+.projects-page-wrapper .project-desc {
+    font-size: 14px;
+    color: #777777;
+    margin-top: 5px;
+    font-weight: 400;
+}
+
+/* Middle Status Column */
+.projects-page-wrapper .project-status-box {
+    text-align: right;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.projects-page-wrapper .status-text {
+    font-size: 14px;
+    color: #555555;
+    font-weight: 400;
+}
+
+.projects-page-wrapper .project-dates {
+    font-size: 12px;
+    color: #777777;
+    margin-top: 4px;
+    font-weight: 400;
+}
+
+/* Right Tasks Action Button */
+.projects-page-wrapper .btn-tasks {
+    background-color: #c4c4c4;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.projects-page-wrapper .btn-tasks:hover {
+    background-color: #a8a8a8;
+    color: #111111;
+}
+
+.projects-page-wrapper .btn-tasks:active {
+    background-color: #909090;
+}
+/* #endregion */
+
+/* #region New Project Footer Row */
+.projects-page-wrapper .new-project-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 25px;
+    padding: 0 4px;
+}
+
+.projects-page-wrapper .new-project-label {
+    font-size: 20px;
+    font-weight: 400;
+    color: #111111;
+}
+
+.projects-page-wrapper .btn-create-project {
+    display: inline-block;
+    border: 3px solid #00a2ff;
+    border-radius: 20px;
+    padding: 8px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #00a2ff;
+    background-color: transparent;
+    text-decoration: none;
+    cursor: pointer;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    transition: all 0.15s ease;
+}
+
+.projects-page-wrapper .btn-create-project:hover {
+    background-color: #00a2ff;
+    color: #ffffff;
+}
+/* #endregion */
+
+/* #region Reload Button in Middle of Card */
+.projects-page-wrapper .projects-reload-center-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    width: 100%;
+    margin: auto 0;
+}
+
+.projects-page-wrapper .section-reload-btn {
+    width: 52px;
+    height: 48px;
+    background-color: #f0f2f4;
+    border: 2px solid #b8bac0;
+    border-radius: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease, transform 0.15s ease, background-color 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    outline: none;
+}
+
+.projects-page-wrapper .section-reload-btn:hover {
+    background-color: #e4e7ea;
+    border-color: #999da4;
+}
+
+.projects-page-wrapper .section-reload-btn:active {
+    opacity: 0.4;
+    transform: scale(0.94);
+}
+
+.projects-page-wrapper .section-reload-btn.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+/* #endregion */

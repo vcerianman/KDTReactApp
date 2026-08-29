@@ -1,0 +1,163 @@
+/* ==========================================================================
+   Create Projects Page Scoped Styles
+   All selectors are strictly scoped under .create-projects-page-wrapper to prevent
+   interfering with other pages in the application.
+   ========================================================================== */
+
+/* #region Global & Wrapper */
+.create-projects-page-wrapper {
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    font-weight: 300;
+    background-color: #f2f4f5;
+    color: #393b3d;
+    line-height: 1.2;
+    min-height: 100vh;
+    padding: 0 0 40px 0;
+    box-sizing: border-box;
+}
+
+.create-projects-page-wrapper #navbar-root {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+}
+/* #endregion */
+
+/* #region Page Container */
+.create-projects-page-wrapper .page-container {
+    max-width: 600px;
+    margin: 30px auto 0 auto;
+    padding: 0 15px;
+}
+/* #endregion */
+
+/* #region Centered Create Card */
+.create-projects-page-wrapper .create-card {
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    padding: 30px 40px 35px 40px;
+}
+
+.create-projects-page-wrapper .create-title {
+    font-family: Calibri, 'GothamSSm', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: #000000;
+    margin-bottom: 24px;
+    letter-spacing: -0.2px;
+}
+/* #endregion */
+
+/* #region Form Elements */
+.create-projects-page-wrapper .form-group {
+    margin-bottom: 16px;
+}
+
+.create-projects-page-wrapper .form-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #222222;
+    margin-bottom: 6px;
+}
+
+.create-projects-page-wrapper .form-input,
+.create-projects-page-wrapper .form-select {
+    width: 100%;
+    padding: 9px 12px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+
+.create-projects-page-wrapper .form-input:focus,
+.create-projects-page-wrapper .form-select:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+.create-projects-page-wrapper .form-textarea {
+    width: 100%;
+    padding: 9px 12px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+
+.create-projects-page-wrapper .form-textarea:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+/* Two Column Dates Row */
+.create-projects-page-wrapper .form-row-dates {
+    display: flex;
+    gap: 16px;
+}
+
+.create-projects-page-wrapper .half-width {
+    flex: 1;
+}
+
+.create-projects-page-wrapper .button-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.create-projects-page-wrapper .btn-cancel {
+    padding: 9px 20px;
+    border: 1px solid #c5c7ca;
+    border-radius: 6px;
+    background-color: #ffffff;
+    color: #555555;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.create-projects-page-wrapper .btn-cancel:hover {
+    background-color: #f0f2f4;
+    border-color: #a0a4a8;
+    color: #222222;
+}
+
+.create-projects-page-wrapper .btn-submit {
+    padding: 9px 28px;
+    border: none;
+    border-radius: 6px;
+    background-color: #00a2ff;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.create-projects-page-wrapper .btn-submit:hover {
+    background-color: #0088db;
+}
+/* #endregion */
