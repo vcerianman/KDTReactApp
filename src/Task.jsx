@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import './Task.css';
 import NavBar from './NavBar';
+import Notification from './Notification';
 import request from './api/Request';
 import {
     getTaskPriorityClass,
@@ -76,6 +77,7 @@ function TasksHeader({ searchQuery, onSearchChange }) {
 function TaskCard({ task, onTaskAction }) {
     const priorityClass = getTaskPriorityClass(task.priority);
     const tagClass = getPriorityTagClass(task.priority);
+    const taskDescription = task.desc || task.description || '';
 
     return (
         <div className={`task-card ${priorityClass}`} data-task-id={task.id}>
@@ -87,6 +89,11 @@ function TaskCard({ task, onTaskAction }) {
                         {task.assigner}
                     </span>
                 </div>
+                {taskDescription && (
+                    <div className="task-desc-row" title={taskDescription}>
+                        {taskDescription}
+                    </div>
+                )}
                 <div className="task-dates-row">
                     <span>{task.dates}</span>
                 </div>
@@ -247,7 +254,7 @@ function CurrentProjectSection({ currentProject, onPrevProject, onNextProject, o
                             aria-label="View all involved project users"
                             onClick={() => onOpenProjectUsers(projectUsers, currentProject.title)}
                         >
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                            <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
                                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
                             </svg>
                         </button>
@@ -315,7 +322,8 @@ function GlobalUsersModal({
     projectUserIds = [],
     isEditMode = false,
     onToggleMember,
-    actionLoadingId = null
+    actionLoadingId = null,
+    projectOwner = ''
 }) {
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -333,11 +341,30 @@ function GlobalUsersModal({
 
     if (!isOpen) return null;
 
+    const ownerName = typeof projectOwner === 'object' && projectOwner !== null
+        ? (projectOwner.username || projectOwner.id || projectOwner.name || projectOwner.fullname || '')
+        : String(projectOwner || '');
+
+    const isOwner = (u) => {
+        if (!ownerName) return false;
+        const o = ownerName.toLowerCase().trim();
+        return (
+            (u.username && u.username.toLowerCase().trim() === o) ||
+            (u.fullname && u.fullname.toLowerCase().trim() === o) ||
+            (u.name && u.name.toLowerCase().trim() === o) ||
+            (u.id && String(u.id).toLowerCase().trim() === o)
+        );
+    };
+
     const filteredUsers = [...(users || [])]
         .filter(u => {
+            // Exclude project owner from the list in edit mode
+            if (isEditMode && isOwner(u)) {
+                return false;
+            }
             const query = searchQuery.toLowerCase().trim();
             if (!query) return true;
-            const full = `${u.fullname} ${u.username}`.toLowerCase();
+            const full = `${u.fullname || ''} ${u.username || ''}`.toLowerCase();
             return full.includes(query);
         })
         .sort((a, b) => {
@@ -453,7 +480,7 @@ function GlobalUsersModal({
 }
 
 // New Task Footer Action
-function NewTaskFooter({ onOpenMembers }) {
+function NewTaskFooter({ onOpenMembers, currentProjectId }) {
     return (
         <div className="new-task-footer-row">
             <span className="new-task-label">Assign new task?</span>
@@ -465,7 +492,12 @@ function NewTaskFooter({ onOpenMembers }) {
                 >
                     Edit members
                 </button>
-                <Link to="/create-tasks" className="btn-assign-task">Assign new task</Link>
+                <Link
+                    to={currentProjectId ? `/create-tasks?projectId=${encodeURIComponent(currentProjectId)}` : "/create-tasks"}
+                    className="btn-assign-task"
+                >
+                    Assign new task
+                </Link>
             </div>
         </div>
     );
@@ -482,6 +514,9 @@ function Task() {
         username: "?",
         image: "/ProfilePic/0.jpg"
     });
+
+    // Notification Toast State
+    const [toast, setToast] = useState(null);
 
     // Modal State for Global or Project users prompt
     const [modalConfig, setModalConfig] = useState({
@@ -676,23 +711,53 @@ function Task() {
         setCurrentProjectIndex(prev => (prev < projects.length - 1 ? prev + 1 : 0));
     };
 
-    // Interactive Task Action Button: cycle status forward (TODO -> IN_PROGRESS -> COMPLETED)
-    const handleTaskAction = (taskToMove) => {
+    // Interactive Task Action Button: cycle status forward (TODO -> IN_PROGRESS -> DONE)
+    // and send PUT /api/tasks/{ID} request with "status": ...
+    const handleTaskAction = async (taskToMove) => {
+        let currentStatus = (taskToMove.status || '').toUpperCase();
+        let nextStatus = 'IN_PROGRESS';
+
+        if (currentStatus === 'TODO' || currentStatus === 'TO_DO' || currentStatus === 'PLANNING' || currentStatus === 'BACKLOG') {
+            nextStatus = 'IN_PROGRESS';
+        } else if (currentStatus === 'IN_PROGRESS' || currentStatus === 'DOING' || currentStatus === 'IN_REVIEW' || currentStatus === 'ON_HOLD') {
+            nextStatus = 'DONE';
+        } else if (currentStatus === 'DONE' || currentStatus === 'DONE' || currentStatus === 'FINISHED') {
+            nextStatus = 'CANCELLED';
+        } else if (currentStatus === 'CANCELLED' || currentStatus === 'CANCELED' || currentStatus === 'ARCHIVED') {
+            nextStatus = 'TODO';
+        } else {
+            nextStatus = 'IN_PROGRESS';
+        }
+
+        // 1. Update status immediately in local state
         setProjects(prevProjects => {
             return prevProjects.map((proj, pIdx) => {
                 if (pIdx !== currentProjectIndex) return proj;
                 const updatedTasks = proj.tasks.map(t => {
-                    if (t.id !== taskToMove.id) return t;
-                    let nextStatus = t.status;
-                    if (t.status === 'TODO') nextStatus = 'IN_PROGRESS';
-                    else if (t.status === 'IN_PROGRESS') nextStatus = 'COMPLETED';
-                    else if (t.status === 'COMPLETED') nextStatus = 'TODO';
-                    else if (t.status === 'CANCELLED') nextStatus = 'TODO';
+                    if (String(t.id) !== String(taskToMove.id)) return t;
                     return { ...t, status: nextStatus };
                 });
                 return { ...proj, tasks: updatedTasks };
             });
         });
+
+        // 2. Send PUT /api/tasks/{ID} request
+        try {
+            await request.put(`/api/tasks/${taskToMove.id}`, {
+                status: nextStatus
+            });
+            setToast({
+                message: `Task "${taskToMove.title}" moved to ${nextStatus}!`,
+                type: 'success'
+            });
+        } catch (err) {
+            console.error(`Failed to update status for task ${taskToMove.id} via PUT /api/tasks/${taskToMove.id}:`, err);
+            const errMsg = err?.response?.data?.message || err?.message || 'Failed to update task status!';
+            setToast({
+                message: errMsg,
+                type: 'error'
+            });
+        }
     };
 
     // Handle search and projectId query parameters
@@ -795,6 +860,22 @@ function Task() {
     // Add or remove user from the current project via PUT /api/users/{ID}
     const handleToggleMember = async (user, isCurrentlyInProject) => {
         if (!currentProject || !currentProject.id) return;
+
+        // Prevent removing the project owner
+        const ownerIdentifier = typeof currentProject.owner === 'object' && currentProject.owner !== null
+            ? (currentProject.owner.username || currentProject.owner.id || currentProject.owner.name || currentProject.owner.fullname || '')
+            : String(currentProject.owner || '');
+        const o = ownerIdentifier.toLowerCase().trim();
+        const isOwnerUser = o && (
+            (user.username && user.username.toLowerCase().trim() === o) ||
+            (user.fullname && user.fullname.toLowerCase().trim() === o) ||
+            (user.name && user.name.toLowerCase().trim() === o) ||
+            (user.id && String(user.id).toLowerCase().trim() === o)
+        );
+        if (isCurrentlyInProject && isOwnerUser) {
+            return;
+        }
+
         setActionLoadingId(String(user.id));
         try {
             // 1. Get user details from GET /api/users/{ID}
@@ -862,6 +943,9 @@ function Task() {
                 />
             </div>
 
+            {/* Universal Notification Toast */}
+            <Notification toast={toast} onClose={() => setToast(null)} />
+
             {/* Page Content Container */}
             <div className="page-container">
                 <TasksHeader
@@ -898,6 +982,7 @@ function Task() {
                         {/* Bottom Action Footer */}
                         <NewTaskFooter
                             onOpenMembers={handleOpenGlobalMembers}
+                            currentProjectId={currentProject?.id}
                         />
 
                         {/* Users Prompt Modal (Global Edit Mode or Project Involved Users View) */}
@@ -911,6 +996,7 @@ function Task() {
                             isEditMode={modalConfig.isEditMode}
                             onToggleMember={handleToggleMember}
                             actionLoadingId={actionLoadingId}
+                            projectOwner={currentProject?.owner}
                         />
                     </React.Fragment>
                 )}

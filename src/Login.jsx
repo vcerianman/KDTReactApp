@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import './Login.css';
 import request from './api/Request';
 
@@ -87,7 +88,7 @@ function Login() {
                     </div>
 
                     <p className="signup-text">
-                        New here? Create account now: <a href="SignUp.html" className="terms-link">Sign up</a>
+                        New here? Create account now: <Link to="/signup" className="terms-link">Sign up</Link>
                     </p>
 
                     {/* Submit Button */}

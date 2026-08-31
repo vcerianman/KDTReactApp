@@ -11,8 +11,11 @@ import Projects from './Projects';
 import Settings from './Settings';
 import Terms from './Terms';
 import Task from './Task';
+import SignUp from './SignUp';
 import CreateProjects from './CreateProjects';
 import CreateTasks from './CreateTasks';
+import AdminPanel from './AdminPanel';
+import Appeal from './Appeal';
 
 // Generic placeholder page component for pages still under construction
 function PlaceholderPage({ title, description }) {
@@ -214,6 +217,14 @@ const router = createBrowserRouter([
     element: <Login />,
   },
   {
+    path: "/signup",
+    element: <SignUp />,
+  },
+  {
+    path: "/sign-up",
+    element: <SignUp />,
+  },
+  {
     path: "/profile",
     element: <Profile />,
   },
@@ -260,6 +271,22 @@ const router = createBrowserRouter([
   {
     path: "/help",
     element: <PlaceholderPage title="Help & Support" description="Documentation, FAQs, and support." />,
+  },
+  {
+    path: "/admin",
+    element: <AdminPanel />,
+  },
+  {
+    path: "/admin-panel",
+    element: <AdminPanel />,
+  },
+  {
+    path: "/appeal",
+    element: <Appeal />,
+  },
+  {
+    path: "/appeals",
+    element: <Appeal />,
   },
 ]);
 

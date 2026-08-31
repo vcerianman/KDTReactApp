@@ -1,0 +1,67 @@
+/* Block Banner - Sticky underneath Navbar with top edge lining up with bottom edge of Navbar */
+.block-banner-container {
+    position: sticky;
+    top: 50px; /* Aligns with bottom edge of Navbar */
+    left: 0;
+    width: 100%;
+    height: 64px; /* Taller bar for prominent larger text */
+    background-color: #d32f2f;
+    color: #ffffff;
+    z-index: 990; /* Lower than navbar's 1000 */
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: -20px; /* Pull banner up so its top edge directly touches Navbar's bottom edge */
+    margin-bottom: 20px; /* Keep page title properly spaced below banner */
+    transform: translateY(-100%);
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    user-select: none;
+}
+
+.block-banner-container.slide-down {
+    transform: translateY(0);
+}
+
+.block-banner-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 0 24px;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.block-banner-text {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: #ffffff;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    line-height: 1.2;
+}
+
+.block-banner-appeal-link {
+    position: absolute;
+    right: 24px;
+    bottom: 8px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: underline;
+    opacity: 0.9;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.block-banner-appeal-link:hover {
+    opacity: 1;
+    transform: scale(1.05);
+}

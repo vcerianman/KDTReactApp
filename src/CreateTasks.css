@@ -160,4 +160,258 @@
 .create-tasks-page-wrapper .btn-submit:hover {
     background-color: #0088db;
 }
+
+.create-tasks-page-wrapper .btn-submit:disabled {
+    background-color: #a0d8ff;
+    cursor: not-allowed;
+}
+
+/* Input with Search Button Row */
+.create-tasks-page-wrapper .input-with-button-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.create-tasks-page-wrapper .input-with-button-row .form-input {
+    flex: 1;
+}
+
+.create-tasks-page-wrapper .btn-search-user {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 12px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    color: #4a4d52;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    height: 38px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.create-tasks-page-wrapper .btn-search-user:hover {
+    background-color: #f0f2f5;
+    border-color: #00a2ff;
+    color: #00a2ff;
+}
+
+/* #region User Selection Modal */
+.create-tasks-page-wrapper .members-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeInModalOverlay 0.2s ease forwards;
+}
+
+.create-tasks-page-wrapper .members-modal-card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    width: 480px;
+    max-width: 95vw;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+    padding: 22px 24px 18px 24px;
+    animation: scaleInModalCard 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    position: relative;
+}
+
+@keyframes fadeInModalOverlay {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleInModalCard {
+    from {
+        opacity: 0;
+        transform: scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.create-tasks-page-wrapper .members-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e8eaed;
+}
+
+.create-tasks-page-wrapper .members-modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111111;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.create-tasks-page-wrapper .members-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.create-tasks-page-wrapper .members-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 180px;
+}
+
+.create-tasks-page-wrapper .members-search-icon {
+    position: absolute;
+    left: 10px;
+    width: 14px;
+    height: 14px;
+    fill: #888888;
+    pointer-events: none;
+}
+
+.create-tasks-page-wrapper .members-search-input {
+    width: 100%;
+    padding: 5px 10px 5px 30px;
+    background-color: #ffffff;
+    border: 1.5px solid #a8aab0;
+    border-radius: 16px;
+    font-size: 13px;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.create-tasks-page-wrapper .members-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.12);
+}
+
+.create-tasks-page-wrapper .members-search-input::placeholder {
+    color: #999999;
+}
+
+.create-tasks-page-wrapper .members-modal-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: #666666;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.create-tasks-page-wrapper .members-modal-close-btn:hover {
+    color: #111111;
+    transform: scale(1.15);
+}
+
+.create-tasks-page-wrapper .members-list-scroll {
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-top: 6px;
+}
+
+.create-tasks-page-wrapper .members-list-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.create-tasks-page-wrapper .members-list-scroll::-webkit-scrollbar-track {
+    background: #f1f2f4;
+    border-radius: 6px;
+}
+
+.create-tasks-page-wrapper .members-list-scroll::-webkit-scrollbar-thumb {
+    background: #b5b7ba;
+    border-radius: 6px;
+}
+
+.create-tasks-page-wrapper .members-list-scroll::-webkit-scrollbar-thumb:hover {
+    background: #888888;
+}
+
+.create-tasks-page-wrapper .member-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 8px;
+    border-bottom: 1px solid #f0f2f4;
+    transition: background-color 0.15s ease;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.create-tasks-page-wrapper .member-item-row:last-child {
+    border-bottom: none;
+}
+
+.create-tasks-page-wrapper .member-item-row:hover {
+    background-color: #f0f7ff;
+}
+
+.create-tasks-page-wrapper .member-avatar-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    object-fit: cover;
+    background-color: #000000;
+    flex-shrink: 0;
+}
+
+.create-tasks-page-wrapper .member-info-text {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 15px;
+    flex: 1;
+    min-width: 0;
+}
+
+.create-tasks-page-wrapper .member-fullname {
+    font-weight: 700;
+    color: #111111;
+}
+
+.create-tasks-page-wrapper .member-username {
+    font-size: 13px;
+    color: #888888;
+    font-weight: 400;
+}
+
+.create-tasks-page-wrapper .btn-select-member {
+    padding: 5px 12px;
+    border: 1px solid #00a2ff;
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #00a2ff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.create-tasks-page-wrapper .btn-select-member:hover {
+    background-color: #00a2ff;
+    color: #ffffff;
+}
+
+.create-tasks-page-wrapper .members-empty-text {
+    text-align: center;
+    padding: 30px 10px;
+    font-size: 14px;
+    color: #888888;
+}
 /* #endregion */
+

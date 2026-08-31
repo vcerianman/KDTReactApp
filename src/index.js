@@ -4,18 +4,6 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
-// Suppress benign ResizeObserver loop errors in development overlay
-const suppressResizeObserver = (e) => {
-  const msg = e?.message || e?.reason?.message || '';
-  if (typeof msg === 'string' && msg.includes('ResizeObserver')) {
-    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-    if (typeof e.stopPropagation === 'function') e.stopPropagation();
-    if (typeof e.preventDefault === 'function') e.preventDefault();
-  }
-};
-window.addEventListener('error', suppressResizeObserver, true);
-window.addEventListener('unhandledrejection', suppressResizeObserver, true);
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>

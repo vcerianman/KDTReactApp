@@ -1,0 +1,215 @@
+/* ==========================================================================
+   Appeal Page Scoped Styles
+   All selectors are strictly scoped under .appeal-page-wrapper to prevent
+   interfering with other pages in the application.
+   ========================================================================== */
+
+/* #region Global & Wrapper */
+.appeal-page-wrapper {
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    font-weight: 300;
+    background-color: #f2f4f5;
+    color: #393b3d;
+    line-height: 1.2;
+    min-height: 100vh;
+    padding: 0 0 40px 0;
+    box-sizing: border-box;
+}
+
+.appeal-page-wrapper #navbar-root {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+}
+/* #endregion */
+
+/* #region Page Container */
+.appeal-page-wrapper .page-container {
+    max-width: 600px;
+    margin: 30px auto 0 auto;
+    padding: 0 15px;
+}
+/* #endregion */
+
+/* #region Centered Appeal Card */
+.appeal-page-wrapper .appeal-card {
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    padding: 30px 40px 35px 40px;
+}
+
+.appeal-page-wrapper .appeal-title {
+    font-family: Calibri, 'GothamSSm', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: #000000;
+    margin-bottom: 8px;
+    letter-spacing: -0.2px;
+}
+
+.appeal-page-wrapper .appeal-subtitle {
+    font-size: 14px;
+    color: #666666;
+    margin-bottom: 24px;
+    line-height: 1.4;
+}
+/* #endregion */
+
+/* #region Form Elements */
+.appeal-page-wrapper .form-group {
+    margin-bottom: 18px;
+}
+
+.appeal-page-wrapper .form-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #222222;
+    margin-bottom: 6px;
+}
+
+.appeal-page-wrapper .form-input {
+    width: 100%;
+    padding: 9px 12px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+
+.appeal-page-wrapper .form-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+.appeal-page-wrapper .form-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    color: #333333;
+    outline: none;
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.4;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+
+.appeal-page-wrapper .form-textarea:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+.appeal-page-wrapper .button-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.appeal-page-wrapper .btn-cancel {
+    padding: 9px 20px;
+    border: 1px solid #c5c7ca;
+    border-radius: 6px;
+    background-color: #ffffff;
+    color: #555555;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.appeal-page-wrapper .btn-cancel:hover {
+    background-color: #f0f2f4;
+    border-color: #a0a4a8;
+    color: #222222;
+}
+
+.appeal-page-wrapper .btn-submit {
+    padding: 9px 28px;
+    border: none;
+    border-radius: 6px;
+    background-color: #00a2ff;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.appeal-page-wrapper .btn-submit:hover:not(:disabled) {
+    background-color: #0088db;
+}
+
+.appeal-page-wrapper .btn-submit:disabled {
+    background-color: #80cfff;
+    cursor: not-allowed;
+}
+
+/* Success Message Box */
+.appeal-page-wrapper .appeal-success-box {
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.appeal-page-wrapper .appeal-success-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #166534;
+    margin-bottom: 8px;
+}
+
+/* Blank / Restricted Messages Inside Page Container */
+.appeal-page-wrapper .appeal-blank-card {
+    text-align: center;
+    padding: 60px 40px;
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.appeal-page-wrapper .appeal-restricted-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: #393b3d;
+    margin: 0;
+    text-align: center;
+}
+
+.appeal-page-wrapper .appeal-already-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: #393b3d;
+    margin: 0;
+    text-align: center;
+}
+
+.appeal-loading-container {
+    min-height: 100vh;
+    background-color: #f2f4f5;
+}
+/* #endregion */

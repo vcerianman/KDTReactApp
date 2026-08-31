@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './CreateProjects.css';
 import NavBar from './NavBar';
+import Notification from './Notification';
 import request from './api/Request';
 import { getUserAvatarUrl } from './utils';
 
@@ -117,6 +118,7 @@ function CreateProjects() {
         username: "?",
         image: "/ProfilePic/0.jpg"
     });
+    const [toast, setToast] = useState(null);
 
     // Fetch logged in user info for NavBar
     const fetchCurrentUser = useCallback(async () => {
@@ -144,7 +146,6 @@ function CreateProjects() {
     }, [fetchCurrentUser]);
 
     const handleCreateProject = (projectData) => {
-        alert(`Project "${projectData.projectTitle}" created successfully!`);
         navigate('/projects');
     };
 
@@ -159,6 +160,9 @@ function CreateProjects() {
                     userImg={currentUser.image}
                 />
             </div>
+
+            {/* Universal Notification Toast */}
+            <Notification toast={toast} onClose={() => setToast(null)} />
 
             {/* Page Content Container */}
             <div className="page-container">

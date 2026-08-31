@@ -1,0 +1,1401 @@
+/* AdminPanel.css - Scoped styles for Admin Panel */
+
+.admin-panel-page-wrapper {
+    min-height: 100vh;
+    background-color: #f2f4f5;
+    color: #393b3d;
+    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+    line-height: 1.2;
+    padding: 0 0 40px 0;
+}
+
+.admin-panel-page-wrapper #navbar-root {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+}
+
+/* #region Page Container & Base */
+.admin-panel-page-wrapper .page-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 160px 0 20px;
+    position: relative;
+}
+
+@media (max-width: 1100px) {
+    .admin-panel-page-wrapper .page-container {
+        max-width: 100%;
+        padding: 0 20px;
+    }
+}
+
+.admin-panel-page-wrapper .page-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #393b3d;
+    margin-bottom: 24px;
+}
+
+/* #endregion */
+
+/* #region Folder-style Admin Tabs */
+.admin-panel-page-wrapper .admin-tabs-nav {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+    margin-bottom: -1px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.admin-panel-page-wrapper .admin-tab {
+    position: relative;
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-bottom: 1px solid #d6d6d6;
+    border-radius: 8px 8px 0 0;
+    padding: 10px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #555555;
+    cursor: pointer;
+    outline: none;
+    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+
+.admin-panel-page-wrapper .admin-tab:hover:not(.active) {
+    background-color: #f8fafc;
+    color: #222222;
+}
+
+/* Selected / Active Tab Styling - Turns blue/pallet cleanly without bouncing */
+.admin-panel-page-wrapper .admin-tab.active {
+    background-color: #82d8ea;
+    border-color: #6ec7d9;
+    border-bottom: 1px solid #82d8ea;
+    color: #1e293b;
+    padding: 11px 28px;
+    font-size: 15.5px;
+    font-weight: 700;
+    z-index: 3;
+}
+
+/* Rightmost User Reports & Appeals Tabs */
+.admin-panel-page-wrapper .admin-tab.tab-reports {
+    margin-left: auto;
+    color: #d93025;
+    font-weight: 700;
+}
+
+.admin-panel-page-wrapper .admin-tab.tab-reports.active {
+    color: #b71c1c;
+    background-color: #82d8ea;
+}
+
+.admin-panel-page-wrapper .admin-tab.tab-appeals {
+    color: #e65100;
+    font-weight: 700;
+}
+
+.admin-panel-page-wrapper .admin-tab.tab-appeals.active {
+    color: #bf360c;
+    background-color: #82d8ea;
+}
+
+/* #endregion */
+
+/* #region Main Admin Content Card */
+.admin-panel-page-wrapper .admin-main-card {
+    position: relative;
+    z-index: 1;
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-radius: 6px;
+    padding: 18px 30px 24px 30px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    height: 600px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Custom Scrollbar for Main Card */
+.admin-panel-page-wrapper .admin-main-card::-webkit-scrollbar {
+    width: 8px;
+}
+
+.admin-panel-page-wrapper .admin-main-card::-webkit-scrollbar-track {
+    background: #f1f2f4;
+    border-radius: 6px;
+}
+
+.admin-panel-page-wrapper .admin-main-card::-webkit-scrollbar-thumb {
+    background: #b5b7ba;
+    border-radius: 6px;
+}
+
+.admin-panel-page-wrapper .admin-main-card::-webkit-scrollbar-thumb:hover {
+    background: #888888;
+}
+
+/* #endregion */
+
+.admin-panel-page-wrapper .tab-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.admin-panel-page-wrapper .btn-create-user-toolbar {
+    padding: 5px 16px;
+    background-color: #00a2ff;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    outline: none;
+}
+
+.admin-panel-page-wrapper .btn-create-user-toolbar:hover {
+    background-color: #008be6;
+}
+
+.admin-panel-page-wrapper .btn-create-user-toolbar:active {
+    transform: scale(0.96);
+}
+
+.admin-panel-page-wrapper .tab-search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 220px;
+}
+
+.admin-panel-page-wrapper .tab-search-icon {
+    position: absolute;
+    left: 12px;
+    pointer-events: none;
+    width: 14px;
+    height: 14px;
+    fill: #999999;
+    transition: fill 0.15s ease;
+}
+
+.admin-panel-page-wrapper .tab-search-container:focus-within .tab-search-icon {
+    fill: #00a2ff;
+}
+
+.admin-panel-page-wrapper .tab-search-input {
+    width: 100%;
+    padding: 4px 14px 4px 32px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    color: #333333;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-panel-page-wrapper .tab-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+.admin-panel-page-wrapper .tab-search-input::placeholder {
+    color: #999999;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+/* #endregion */
+
+/* #region Projects List */
+.admin-panel-page-wrapper .projects-scroll-wrapper {
+    overflow: visible;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-right: 0;
+}
+
+/* #endregion */
+
+/* #region Project Card Item (Detailed Card matching Tasks.jsx) */
+.admin-panel-page-wrapper .project-card-item {
+    position: relative;
+    background-color: #f8f9fa;
+    border: 1px solid #e0e2e5;
+    border-radius: 20px;
+    padding: 12px 12px;
+    margin-bottom: 16px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+.admin-panel-page-wrapper .project-card-item:hover {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Status Borders */
+.admin-panel-page-wrapper .project-card-item.status-planning {
+    border: 2px solid #b0b3b8;
+}
+
+.admin-panel-page-wrapper .project-card-item.status-active {
+    border: 2px solid #38b6ff;
+}
+
+.admin-panel-page-wrapper .project-card-item.status-on-hold,
+.admin-panel-page-wrapper .project-card-item.status-on_hold {
+    border: 2px solid #fbd051;
+}
+
+.admin-panel-page-wrapper .project-card-item.status-completed {
+    border: 2px solid #48c774;
+}
+
+.admin-panel-page-wrapper .project-card-item.status-archived {
+    border: 2px solid #666666;
+}
+
+/* #endregion */
+
+/* #region User Card Item (Edit Users Tab) */
+.admin-panel-page-wrapper .user-card-item {
+    position: relative;
+    background-color: #f8f9fa;
+    border: 2px solid #38b6ff;
+    border-radius: 20px;
+    padding: 14px 20px;
+    margin-bottom: 16px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+.admin-panel-page-wrapper .user-card-item:hover {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* User Role & Status Outlines: GOD (gold), ADMIN (darker yellow), MEMBER (light blue), INACTIVE (dark blue), BLOCKED (dark red), DELETED (light gray bg + gray text) */
+.admin-panel-page-wrapper .user-card-item.user-outline-god {
+    border: 2px solid #ffd700;
+}
+
+.admin-panel-page-wrapper .user-card-item.user-outline-admin {
+    border: 2px solid #e5a800;
+}
+
+.admin-panel-page-wrapper .user-card-item.user-outline-member {
+    border: 2px solid #38b6ff;
+}
+
+.admin-panel-page-wrapper .user-card-item.user-outline-inactive {
+    border: 2px solid #0d47a1; /* Dark blue outline */
+}
+
+.admin-panel-page-wrapper .user-card-item.user-outline-blocked {
+    border: 2px solid #8b0000; /* Dark red outline */
+}
+
+/* Deleted user card: light gray background with gray text inside */
+.admin-panel-page-wrapper .user-card-item.user-card-deleted {
+    background-color: #e5e7eb;
+    border: 2px solid #9ca3af;
+    color: #6b7280;
+}
+
+.admin-panel-page-wrapper .user-card-item.user-card-deleted .user-fullname {
+    color: #6b7280;
+}
+
+.admin-panel-page-wrapper .user-card-item.user-card-deleted .user-username {
+    color: #9ca3af;
+}
+
+.admin-panel-page-wrapper .user-card-item.user-card-deleted .user-role-label,
+.admin-panel-page-wrapper .user-card-item.user-card-deleted .user-status-label,
+.admin-panel-page-wrapper .user-card-item.user-card-deleted .user-joindate-label {
+    color: #6b7280;
+}
+
+.admin-panel-page-wrapper .user-card-item.user-card-deleted .user-avatar-thumb {
+    opacity: 0.6;
+    filter: grayscale(100%);
+}
+
+/* User Card Left Side */
+.admin-panel-page-wrapper .user-card-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.admin-panel-page-wrapper .user-id-badge {
+    font-size: 13px;
+    font-weight: 500;
+    color: #888888;
+    min-width: 14px;
+    text-align: center;
+}
+
+.admin-panel-page-wrapper .user-avatar-thumb {
+    width: 46px;
+    height: 46px;
+    border-radius: 4px;
+    object-fit: cover;
+    background-color: #000000;
+    flex-shrink: 0;
+    border: 1px solid #dcdcdc;
+}
+
+.admin-panel-page-wrapper .user-identity-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-panel-page-wrapper .user-name-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.admin-panel-page-wrapper .user-fullname {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111111;
+    line-height: 1.2;
+}
+
+.admin-panel-page-wrapper .user-username {
+    font-size: 13px;
+    color: #777777;
+    font-weight: 400;
+}
+
+.admin-panel-page-wrapper .user-role-label {
+    font-size: 12.5px;
+    color: #555555;
+    font-weight: 500;
+    margin-top: 4px;
+}
+
+/* User Card Right Side */
+.admin-panel-page-wrapper .user-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.admin-panel-page-wrapper .user-status-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-panel-page-wrapper .user-status-label {
+    font-size: 13.5px;
+    color: #222222;
+    font-weight: 700;
+}
+
+.admin-panel-page-wrapper .user-joindate-label {
+    font-size: 12px;
+    color: #777777;
+    font-style: italic;
+}
+
+/* #endregion */
+
+/* Project Card Left Details */
+.admin-panel-page-wrapper .project-card-left {
+    flex: 1.1;
+    min-width: 0;
+}
+
+.admin-panel-page-wrapper .project-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.admin-panel-page-wrapper .project-title-text {
+    font-size: 20px;
+    font-weight: 700;
+    color: #393b3d;
+    line-height: 1.2;
+}
+
+.admin-panel-page-wrapper .project-id-text {
+    font-size: 13px;
+    font-weight: 400;
+    color: #777777;
+}
+
+.admin-panel-page-wrapper .project-desc-text {
+    font-size: 14px;
+    color: #666666;
+    margin-top: 4px;
+    line-height: 1.35;
+}
+
+/* Middle Users Column */
+.admin-panel-page-wrapper .project-card-middle {
+    flex: 1.3;
+    min-width: 0;
+    border-left: 2px solid #d0d2d5;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.admin-panel-page-wrapper .project-users-header-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+}
+
+.admin-panel-page-wrapper .project-users-names-text {
+    font-size: 13px;
+    color: #555555;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.admin-panel-page-wrapper .btn-project-info-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 0px solid #888888;
+    background-color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666666;
+    flex-shrink: 0;
+    padding: 0;
+    transition: all 0.15s ease;
+}
+
+.admin-panel-page-wrapper .btn-project-info-circle:hover {
+    background-color: #00a2ff;
+    border-color: #00a2ff;
+    color: #ffffff;
+    transform: scale(1.1);
+}
+
+.admin-panel-page-wrapper .project-users-avatars-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.admin-panel-page-wrapper .project-user-avatar-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 3px;
+    object-fit: cover;
+    background-color: #000000;
+    border: 1px solid #dcdcdc;
+    flex-shrink: 0;
+}
+
+.admin-panel-page-wrapper .project-users-extra-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: #777777;
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
+/* Right Side: Status, Owner, Dates, 3-dots */
+.admin-panel-page-wrapper .project-card-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    min-width: 170px;
+    justify-content: flex-end;
+}
+
+.admin-panel-page-wrapper .project-meta-info {
+    text-align: right;
+}
+
+.admin-panel-page-wrapper .project-status-value {
+    font-size: 14px;
+    color: #222222;
+    font-weight: 700;
+}
+
+.admin-panel-page-wrapper .project-owner-value {
+    font-size: 12px;
+    color: #777777;
+    margin-top: 3px;
+}
+
+.admin-panel-page-wrapper .project-dates-value {
+    font-size: 11.5px;
+    color: #888888;
+    margin-top: 2px;
+    font-weight: 400;
+}
+
+/* Action 3-dots Menu Button */
+.admin-panel-page-wrapper .btn-more-actions {
+    background-color: transparent;
+    border: none;
+    font-size: 20px;
+    font-weight: 700;
+    color: #777777;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    position: relative;
+    outline: none;
+    letter-spacing: 1px;
+}
+
+.admin-panel-page-wrapper .btn-more-actions:hover {
+    color: #111111;
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+/* #endregion */
+
+/* #region Speech-Bubble Popup Menu Outside on the Right Side */
+.admin-panel-page-wrapper .action-popup-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.action-popup-bubble,
+.admin-panel-page-wrapper .action-popup-bubble {
+    width: 145px;
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+    padding: 6px 0;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    animation: fadeInBubble 0.15s ease-out;
+}
+
+.action-popup-bubble::before,
+.admin-panel-page-wrapper .action-popup-bubble::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -8px;
+    transform: translateY(-50%);
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-right: 8px solid #ffffff;
+    z-index: 2;
+}
+
+.action-popup-bubble::after,
+.admin-panel-page-wrapper .action-popup-bubble::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -9px;
+    transform: translateY(-50%);
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-right: 8px solid #d6d6d6;
+    z-index: 1;
+}
+
+.action-popup-bubble .popup-menu-btn,
+.admin-panel-page-wrapper .popup-menu-btn {
+    background: none;
+    border: none;
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #393b3d;
+    font-family: inherit;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    outline: none;
+}
+
+.action-popup-bubble .popup-menu-btn:hover,
+.admin-panel-page-wrapper .popup-menu-btn:hover {
+    background-color: #f4f6f8;
+    color: #000000;
+}
+
+.action-popup-bubble .popup-menu-btn.delete-btn,
+.admin-panel-page-wrapper .popup-menu-btn.delete-btn {
+    color: #e53935;
+}
+
+.action-popup-bubble .popup-menu-btn.delete-btn:hover,
+.admin-panel-page-wrapper .popup-menu-btn.delete-btn:hover {
+    background-color: #fee2e2;
+    color: #d32f2f;
+}
+
+.action-popup-bubble .popup-menu-divider,
+.admin-panel-page-wrapper .popup-menu-divider {
+    height: 1px;
+    background-color: #e8eaea;
+    margin: 2px 0;
+    border: none;
+}
+
+@keyframes fadeInBubble {
+    from {
+        opacity: 0;
+        transform: translateY(-46%) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(-50%) scale(1);
+    }
+}
+
+/* #endregion */
+
+/* #region Modal Dialogs (Edit & Confirmation) */
+.admin-panel-page-wrapper .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+    animation: overlayFadeIn 0.2s ease-out;
+}
+
+.admin-panel-page-wrapper .modal-card {
+    background-color: #ffffff;
+    border: 1px solid #d6d6d6;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+    width: 100%;
+    max-width: 520px;
+    padding: 28px 32px;
+    animation: modalSlideIn 0.2s ease-out;
+}
+
+.admin-panel-page-wrapper .modal-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #222222;
+    margin-bottom: 18px;
+}
+
+.admin-panel-page-wrapper .form-group {
+    margin-bottom: 16px;
+}
+
+.admin-panel-page-wrapper .form-label {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 6px;
+}
+
+.admin-panel-page-wrapper .form-input,
+.admin-panel-page-wrapper .form-select,
+.admin-panel-page-wrapper .form-textarea {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #333333;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-panel-page-wrapper .form-input:focus,
+.admin-panel-page-wrapper .form-select:focus,
+.admin-panel-page-wrapper .form-textarea:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+}
+
+.admin-panel-page-wrapper .form-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* Two Column Dates Row */
+.admin-panel-page-wrapper .form-row-dates {
+    display: flex;
+    gap: 14px;
+}
+
+.admin-panel-page-wrapper .half-width {
+    flex: 1;
+}
+
+/* Input with Search Button Row */
+.admin-panel-page-wrapper .input-with-button-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.admin-panel-page-wrapper .input-with-button-row .form-input {
+    flex: 1;
+}
+
+.admin-panel-page-wrapper .btn-search-user {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    border: 1px solid #c5c7ca;
+    border-radius: 4px;
+    color: #4a4d52;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    height: 35px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.admin-panel-page-wrapper .btn-search-user:hover {
+    background-color: #f0f2f5;
+    border-color: #00a2ff;
+    color: #00a2ff;
+}
+
+/* #region User Selection Modal */
+.admin-panel-page-wrapper .members-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeInModalOverlay 0.2s ease forwards;
+}
+
+.admin-panel-page-wrapper .members-modal-card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    width: 480px;
+    max-width: 95vw;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+    padding: 22px 24px 18px 24px;
+    animation: scaleInModalCard 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    position: relative;
+}
+
+@keyframes fadeInModalOverlay {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes scaleInModalCard {
+    from {
+        opacity: 0;
+        transform: scale(0.94);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.admin-panel-page-wrapper .members-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e8eaed;
+}
+
+.admin-panel-page-wrapper .members-modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111111;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.admin-panel-page-wrapper .members-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-panel-page-wrapper .members-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 180px;
+}
+
+.admin-panel-page-wrapper .members-search-icon {
+    position: absolute;
+    left: 10px;
+    width: 14px;
+    height: 14px;
+    fill: #888888;
+    pointer-events: none;
+}
+
+.admin-panel-page-wrapper .members-search-input {
+    width: 100%;
+    padding: 5px 10px 5px 30px;
+    background-color: #ffffff;
+    border: 1.5px solid #a8aab0;
+    border-radius: 16px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #333333;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.admin-panel-page-wrapper .members-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.12);
+}
+
+.admin-panel-page-wrapper .members-search-input::placeholder {
+    color: #999999;
+}
+
+.admin-panel-page-wrapper .members-modal-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: #666666;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.admin-panel-page-wrapper .members-modal-close-btn:hover {
+    color: #111111;
+    transform: scale(1.15);
+}
+
+.admin-panel-page-wrapper .members-list-scroll {
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-top: 6px;
+}
+
+.admin-panel-page-wrapper .members-list-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.admin-panel-page-wrapper .members-list-scroll::-webkit-scrollbar-track {
+    background: #f1f2f4;
+    border-radius: 6px;
+}
+
+.admin-panel-page-wrapper .members-list-scroll::-webkit-scrollbar-thumb {
+    background: #b5b7ba;
+    border-radius: 6px;
+}
+
+.admin-panel-page-wrapper .members-list-scroll::-webkit-scrollbar-thumb:hover {
+    background: #888888;
+}
+
+.admin-panel-page-wrapper .member-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 8px;
+    border-bottom: 1px solid #f0f2f4;
+    transition: background-color 0.15s ease;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.admin-panel-page-wrapper .member-item-row:last-child {
+    border-bottom: none;
+}
+
+.admin-panel-page-wrapper .member-item-row:hover {
+    background-color: #f0f7ff;
+}
+
+.admin-panel-page-wrapper .member-avatar-img {
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+    object-fit: cover;
+    background-color: #000000;
+    flex-shrink: 0;
+}
+
+.admin-panel-page-wrapper .member-info-text {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 15px;
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-panel-page-wrapper .member-fullname {
+    font-weight: 700;
+    color: #111111;
+}
+
+.admin-panel-page-wrapper .member-username {
+    font-size: 13px;
+    color: #888888;
+    font-weight: 400;
+}
+
+.admin-panel-page-wrapper .btn-select-member {
+    padding: 5px 12px;
+    border: 1px solid #00a2ff;
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #00a2ff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.admin-panel-page-wrapper .btn-select-member:hover {
+    background-color: #00a2ff;
+    color: #ffffff;
+}
+
+/* Member Action Buttons (Add / Remove) */
+.admin-panel-page-wrapper .member-actions-wrapper {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.admin-panel-page-wrapper .btn-member-action {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.admin-panel-page-wrapper .btn-member-action.add-btn {
+    background-color: #00a2ff;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper .btn-member-action.add-btn:hover {
+    background-color: #0088db;
+    transform: scale(1.1);
+}
+
+.admin-panel-page-wrapper .btn-member-action.remove-btn {
+    background-color: #ff3b30;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper .btn-member-action.remove-btn:hover {
+    background-color: #d62b21;
+    transform: scale(1.1);
+}
+
+.admin-panel-page-wrapper .btn-member-action:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.admin-panel-page-wrapper .members-empty-text {
+    text-align: center;
+    padding: 30px 10px;
+    font-size: 14px;
+    color: #888888;
+}
+
+/* #endregion */
+
+.admin-panel-page-wrapper .modal-btn-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.admin-panel-page-wrapper .btn-modal-cancel {
+    padding: 8px 18px;
+    border: 1px solid #c5c7ca;
+    border-radius: 6px;
+    background-color: #ffffff;
+    color: #555555;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+
+.admin-panel-page-wrapper .btn-modal-cancel:hover {
+    background-color: #f1f3f5;
+}
+
+.admin-panel-page-wrapper .btn-modal-save {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    background-color: #00a2ff;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 0.15s ease;
+}
+
+.admin-panel-page-wrapper .btn-modal-save:hover {
+    background-color: #008be6;
+}
+
+.admin-panel-page-wrapper .btn-modal-danger {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    background-color: #e53935;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 0.15s ease;
+}
+
+.admin-panel-page-wrapper .btn-modal-danger:hover {
+    background-color: #c62828;
+}
+
+@keyframes overlayFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* #endregion */
+
+/* #region Other Tabs Placeholder */
+.admin-panel-page-wrapper .placeholder-tab-content {
+    text-align: center;
+    padding: 60px 20px;
+    color: #777777;
+}
+
+.admin-panel-page-wrapper .placeholder-tab-content h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #444444;
+    margin-bottom: 8px;
+}
+
+.admin-panel-page-wrapper .placeholder-tab-content p {
+    font-size: 14px;
+}
+
+/* #endregion */
+
+/* #region Unauthorized / Failed to Load Blank View */
+.admin-panel-page-wrapper .unauthorized-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 55vh;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.admin-panel-page-wrapper .admin-reload-center-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+    width: 100%;
+    margin: auto 0;
+}
+
+.admin-panel-page-wrapper .unauthorized-message {
+    font-size: 22px;
+    font-weight: 700;
+    color: #393b3d;
+    margin-bottom: 24px;
+}
+
+.admin-panel-page-wrapper .section-reload-btn {
+    width: 52px;
+    height: 48px;
+    background-color: #f0f2f4;
+    border: 2px solid #b8bac0;
+    border-radius: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease, transform 0.15s ease, background-color 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    outline: none;
+}
+
+.admin-panel-page-wrapper .section-reload-btn:hover {
+    background-color: #e4e7ea;
+    border-color: #999da4;
+}
+
+.admin-panel-page-wrapper .section-reload-btn:active {
+    opacity: 0.4;
+    transform: scale(0.94);
+}
+
+.admin-panel-page-wrapper .section-reload-btn.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* #endregion */
+
+/* #region Appeals Tab & Cards */
+.admin-panel-page-wrapper .btn-view-appeal {
+    padding: 7px 22px;
+    background-color: #00a2ff;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    outline: none;
+}
+
+.admin-panel-page-wrapper .btn-view-appeal:hover {
+    background-color: #008be6;
+}
+
+.admin-panel-page-wrapper .btn-view-appeal:active {
+    transform: scale(0.96);
+}
+
+.admin-panel-page-wrapper .btn-appeal-action {
+    padding: 7px 18px;
+    background-color: #ffffff;
+    color: #444444;
+    border: 1px solid #c5c7ca;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    outline: none;
+}
+
+.admin-panel-page-wrapper .btn-appeal-action:hover {
+    background-color: #f0f2f5;
+    border-color: #a0a4a8;
+    color: #111111;
+}
+
+.admin-panel-page-wrapper .btn-appeal-action:active {
+    transform: scale(0.96);
+}
+
+.action-popup-bubble .popup-menu-btn.accept-btn,
+.admin-panel-page-wrapper .popup-menu-btn.accept-btn {
+    color: #2e7d32;
+}
+
+.action-popup-bubble .popup-menu-btn.accept-btn:hover,
+.admin-panel-page-wrapper .popup-menu-btn.accept-btn:hover {
+    background-color: #e8f5e9;
+    color: #1b5e20;
+}
+
+.admin-panel-page-wrapper .appeal-card-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* Appeal Details Modal Prompt */
+.admin-panel-page-wrapper .appeal-modal-card {
+    max-width: 540px;
+}
+
+.admin-panel-page-wrapper .appeal-modal-user-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background-color: #f8f9fa;
+    border: 1px solid #e2e4e8;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+.admin-panel-page-wrapper .appeal-modal-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid #dcdcdc;
+    background-color: #000000;
+    flex-shrink: 0;
+}
+
+.admin-panel-page-wrapper .appeal-modal-user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.admin-panel-page-wrapper .appeal-modal-name-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.admin-panel-page-wrapper .appeal-modal-fullname {
+    font-size: 17px;
+    font-weight: 800;
+    color: #111111;
+}
+
+.admin-panel-page-wrapper .appeal-modal-username {
+    font-size: 13px;
+    color: #777777;
+}
+
+.admin-panel-page-wrapper .appeal-modal-meta-row {
+    font-size: 12.5px;
+    color: #555555;
+    display: flex;
+    gap: 14px;
+}
+
+.admin-panel-page-wrapper .appeal-modal-reason-box {
+    background-color: #fdfdfd;
+    border: 1px solid #c5c7ca;
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: #333333;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+}
+/* #endregion */

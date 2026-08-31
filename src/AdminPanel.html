@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Taskflow</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
+            font-weight: 300;
+            background-color: #f2f4f5;
+            color: #393b3d;
+            line-height: 1.2;
+            padding: 0 0 40px 0;
+        }
+
+        #navbar-root {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            width: 100%;
+        }
+
+        /* #region Page Container & Base */
+        .page-container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 0 150px 0 20px;
+            position: relative;
+        }
+
+        @media (max-width: 1100px) {
+            .page-container {
+                max-width: 920px;
+                padding: 0 20px;
+            }
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #393b3d;
+            margin-bottom: 24px;
+        }
+
+        /* #endregion */
+
+        /* #region Folder-style Admin Tabs */
+        .admin-tabs-nav {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            position: relative;
+            z-index: 2;
+            margin-bottom: -1px;
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+
+        .admin-tab {
+            position: relative;
+            background-color: #ffffff;
+            border: 1px solid #d6d6d6;
+            border-bottom: 1px solid #d6d6d6;
+            border-radius: 8px 8px 0 0;
+            padding: 10px 24px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #555555;
+            cursor: pointer;
+            outline: none;
+            transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .admin-tab:hover:not(.active) {
+            background-color: #f8fafc;
+            color: #222222;
+        }
+
+        /* Selected / Active Tab Styling - Turns blue/pallet cleanly without bouncing */
+        .admin-tab.active {
+            background-color: #82d8ea;
+            border-color: #6ec7d9;
+            border-bottom: 1px solid #82d8ea;
+            color: #1e293b;
+            padding: 11px 28px;
+            font-size: 15.5px;
+            font-weight: 700;
+            z-index: 3;
+        }
+
+        /* Rightmost User Reports Tab */
+        .admin-tab.tab-reports {
+            margin-left: auto;
+            color: #d93025;
+            font-weight: 700;
+        }
+
+        .admin-tab.tab-reports.active {
+            color: #b71c1c;
+            background-color: #82d8ea;
+        }
+
+        /* #endregion */
+
+        /* #region Main Admin Content Card */
+        .admin-main-card {
+            position: relative;
+            z-index: 1;
+            background-color: #ffffff;
+            border: 1px solid #d6d6d6;
+            border-radius: 4px;
+            padding: 8px 30px 40px 30px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            min-height: 420px;
+            overflow: visible;
+        }
+
+        /* #endregion */
+
+        /* #region Projects Tab Specific Controls */
+        .tab-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .tab-search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 220px;
+        }
+
+        .tab-search-icon {
+            position: absolute;
+            left: 12px;
+            pointer-events: none;
+            width: 14px;
+            height: 14px;
+            fill: #999999;
+            transition: fill 0.15s ease;
+        }
+
+        .tab-search-container:focus-within .tab-search-icon {
+            fill: #00a2ff;
+        }
+
+        .tab-search-input {
+            width: 100%;
+            padding: 4px 14px 4px 32px;
+            background-color: #ffffff;
+            border: 1px solid #c5c7ca;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            color: #333333;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .tab-search-input:focus {
+            border-color: #00a2ff;
+            box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+        }
+
+        .tab-search-input::placeholder {
+            color: #999999;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        /* #endregion */
+
+        /* #region Projects List */
+        .projects-scroll-wrapper {
+            overflow: visible;
+            padding-top: 4px;
+            padding-bottom: 4px;
+        }
+
+        /* #endregion */
+
+        /* #region Project Card Item */
+        .project-card-item {
+            position: relative;
+            background-color: #f2f3f5;
+            border: 1px solid #e0e2e5;
+            border-radius: 24px;
+            padding: 16px 24px;
+            margin-bottom: 18px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .project-card-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Status Borders */
+        .project-card-item.status-planning {
+            border: 2px solid #b0b3b8;
+        }
+
+        .project-card-item.status-active {
+            border: 2px solid #38b6ff;
+        }
+
+        .project-card-item.status-on-hold,
+        .project-card-item.status-on_hold {
+            border: 2px solid #fbd051;
+        }
+
+        .project-card-item.status-completed {
+            border: 2px solid #48c774;
+        }
+
+        .project-card-item.status-archived {
+            border: 2px solid #666666;
+        }
+
+        /* Project Card Left Details */
+        .project-card-info {
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .project-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .project-title-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: #494c4e;
+            line-height: 1.2;
+        }
+
+        .project-id-text {
+            font-size: 13px;
+            font-weight: 400;
+            color: #666666;
+        }
+
+        /* Owner Tag Badge - Less round and mid dark grey */
+        .owner-tag-badge {
+            background-color: #e4e4e4;
+            color: #575757;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            letter-spacing: 0.2px;
+            line-height: 1.3;
+        }
+
+        .project-desc-text {
+            font-size: 13.5px;
+            color: #777777;
+            margin-top: 5px;
+            font-weight: 400;
+        }
+
+        /* Project Card Right Details & Action */
+        .project-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-shrink: 0;
+        }
+
+        .project-status-block {
+            text-align: right;
+        }
+
+        .project-status-value {
+            font-size: 13.5px;
+            color: #555555;
+            font-weight: 500;
+        }
+
+        .project-dates-value {
+            font-size: 11.5px;
+            color: #777777;
+            margin-top: 3px;
+            font-weight: 400;
+        }
+
+        /* Action 3-dots Menu Button */
+        .btn-more-actions {
+            background-color: transparent;
+            border: none;
+            font-size: 20px;
+            font-weight: 700;
+            color: #777777;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            position: relative;
+            outline: none;
+            letter-spacing: 1px;
+        }
+
+        .btn-more-actions:hover {
+            color: #111111;
+            background-color: rgba(0, 0, 0, 0.06);
+        }
+
+        /* #endregion */
+
+        /* #region Speech-Bubble Popup Menu Outside on the Right Side */
+        .action-popup-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .action-popup-bubble {
+            position: absolute;
+            top: 50%;
+            left: calc(100% + 46px);
+            transform: translateY(-50%);
+            width: 130px;
+            background-color: #ffffff;
+            border: 1px solid #d6d6d6;
+            border-radius: 16px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+            padding: 6px 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        /* Speech bubble left pointer arrow pointing towards the ... button */
+        .action-popup-bubble::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -8px;
+            transform: translateY(-50%);
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+            border-right: 8px solid #ffffff;
+            z-index: 2;
+        }
+
+        .action-popup-bubble::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -9px;
+            transform: translateY(-50%);
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+            border-right: 8px solid #d6d6d6;
+            z-index: 1;
+        }
+
+        @media (max-width: 1100px) {
+            .action-popup-bubble {
+                left: auto;
+                right: calc(100% + 12px);
+            }
+
+            .action-popup-bubble::before {
+                left: auto;
+                right: -8px;
+                border-right: none;
+                border-left: 8px solid #ffffff;
+            }
+
+            .action-popup-bubble::after {
+                left: auto;
+                right: -9px;
+                border-right: none;
+                border-left: 8px solid #d6d6d6;
+            }
+        }
+
+        .popup-menu-btn {
+            background: none;
+            border: none;
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #393b3d;
+            font-family: inherit;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+            outline: none;
+        }
+
+        .popup-menu-btn:hover {
+            background-color: #f4f6f8;
+            color: #000000;
+        }
+
+        .popup-menu-btn.delete-btn {
+            color: #e53935;
+        }
+
+        .popup-menu-btn.delete-btn:hover {
+            background-color: #fee2e2;
+            color: #d32f2f;
+        }
+
+        .popup-menu-divider {
+            height: 1px;
+            background-color: #e8eaea;
+            margin: 2px 0;
+            border: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-46%) scale(0.96);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(-50%) scale(1);
+            }
+        }
+
+        /* #endregion */
+
+        /* #region Modal Dialogs (Edit & Confirmation) */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+            animation: overlayFadeIn 0.2s ease-out;
+        }
+
+        .modal-card {
+            background-color: #ffffff;
+            border: 1px solid #d6d6d6;
+            border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+            width: 100%;
+            max-width: 520px;
+            padding: 28px 32px;
+            animation: modalSlideIn 0.2s ease-out;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #222222;
+            margin-bottom: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #333333;
+            margin-bottom: 6px;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: #ffffff;
+            border: 1px solid #c5c7ca;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            color: #333333;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            border-color: #00a2ff;
+            box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+        }
+
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .modal-btn-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            margin-top: 22px;
+        }
+
+        .btn-modal-cancel {
+            padding: 8px 18px;
+            border: 1px solid #c5c7ca;
+            border-radius: 6px;
+            background-color: #ffffff;
+            color: #555555;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s ease;
+        }
+
+        .btn-modal-cancel:hover {
+            background-color: #f1f3f5;
+        }
+
+        .btn-modal-save {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            background-color: #00a2ff;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background-color 0.15s ease;
+        }
+
+        .btn-modal-save:hover {
+            background-color: #008be6;
+        }
+
+        .btn-modal-danger {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            background-color: #e53935;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background-color 0.15s ease;
+        }
+
+        .btn-modal-danger:hover {
+            background-color: #c62828;
+        }
+
+        /* Toast notification */
+        .toast-notification {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background-color: #22252a;
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+            z-index: 3000;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes overlayFadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* #endregion */
+
+        /* #region Other Tabs Placeholder */
+        .placeholder-tab-content {
+            text-align: center;
+            padding: 60px 20px;
+            color: #777777;
+        }
+
+        .placeholder-tab-content h3 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #444444;
+            margin-bottom: 8px;
+        }
+
+        .placeholder-tab-content p {
+            font-size: 14px;
+        }
+
+        /* #endregion */
+    </style>
+
+    <!-- React, ReactDOM, and Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+
+<body>
+    <!-- React Root Mount Point -->
+    <div id="root"></div>
+
+    <!-- Shared Utilities & External Components -->
+    <script src="utils.js"></script>
+    <script type="text/babel" src="NavBar.js"></script>
+
+    <!-- React Application -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Action Dropdown Popup Component (Speech-bubble style pointing to '...')
+        function ProjectActionMenu({ project, onEdit, onArchive, onDelete }) {
+            const [isOpen, setIsOpen] = useState(false);
+            const menuRef = useRef(null);
+
+            useEffect(() => {
+                const handleClickOutside = (e) => {
+                    if (menuRef.current && !menuRef.current.contains(e.target)) {
+                        setIsOpen(false);
+                    }
+                };
+
+                if (isOpen) {
+                    document.addEventListener('click', handleClickOutside);
+                }
+                return () => {
+                    document.removeEventListener('click', handleClickOutside);
+                };
+            }, [isOpen]);
+
+            const handleToggle = (e) => {
+                e.stopPropagation();
+                setIsOpen((prev) => !prev);
+            };
+
+            return (
+                <div className="action-popup-wrapper" ref={menuRef}>
+                    <button
+                        type="button"
+                        className="btn-more-actions"
+                        onClick={handleToggle}
+                        title="Project actions"
+                    >
+                        ...
+                    </button>
+
+                    {isOpen && (
+                        <div className="action-popup-bubble">
+                            <button
+                                type="button"
+                                className="popup-menu-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsOpen(false);
+                                    onEdit(project);
+                                }}
+                            >
+                                Edit
+                            </button>
+                            <div className="popup-menu-divider"></div>
+                            <button
+                                type="button"
+                                className="popup-menu-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsOpen(false);
+                                    onArchive(project);
+                                }}
+                            >
+                                {project.status === 'ARCHIVED' ? 'Unarchive' : 'Archive'}
+                            </button>
+                            <div className="popup-menu-divider"></div>
+                            <button
+                                type="button"
+                                className="popup-menu-btn delete-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsOpen(false);
+                                    onDelete(project);
+                                }}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Single Project Card Component
+        function ProjectCardItem({ project, onEdit, onArchive, onDelete }) {
+            const statusClass = typeof getProjectStatusClass === 'function'
+                ? getProjectStatusClass(project.status)
+                : 'status-planning';
+
+            return (
+                <div className={`project-card-item ${statusClass}`}>
+                    {/* Left: Title, ID, Owner Tag, Description */}
+                    <div className="project-card-info">
+                        <div className="project-title-row">
+                            <span className="project-title-text">{project.title}</span>
+                            <span className="project-id-text">(id:{project.id})</span>
+                            {project.owner && (
+                                <span className="owner-tag-badge">{project.owner}</span>
+                            )}
+                        </div>
+                        <p className="project-desc-text">{project.desc || 'No description provided.'}</p>
+                    </div>
+
+                    {/* Right: Status, Dates, More actions popup trigger */}
+                    <div className="project-card-meta">
+                        <div className="project-status-block">
+                            <div className="project-status-value">Status: {project.status}</div>
+                            <div className="project-dates-value">{project.dates}</div>
+                        </div>
+
+                        <ProjectActionMenu
+                            project={project}
+                            onEdit={onEdit}
+                            onArchive={onArchive}
+                            onDelete={onDelete}
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        // Edit Project Modal Component
+        function EditProjectModal({ project, onSave, onCancel }) {
+            const [formData, setFormData] = useState({
+                title: project ? project.title : '',
+                owner: project ? project.owner : '',
+                status: project ? project.status : 'ACTIVE',
+                dates: project ? project.dates : '',
+                desc: project ? project.desc : ''
+            });
+
+            const handleChange = (field, value) => {
+                setFormData(prev => ({ ...prev, [field]: value }));
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave({
+                    ...project,
+                    ...formData
+                });
+            };
+
+            return (
+                <div className="modal-overlay" onClick={onCancel}>
+                    <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="modal-title">Edit Project (id:{project.id})</h2>
+                        <form onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label className="form-label">Project Title</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.title}
+                                    onChange={(e) => handleChange('title', e.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Owner Tag</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.owner}
+                                    onChange={(e) => handleChange('owner', e.target.value)}
+                                    placeholder="e.g. Khanig, KDT, NgoDo"
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Status</label>
+                                <select
+                                    className="form-select"
+                                    value={formData.status}
+                                    onChange={(e) => handleChange('status', e.target.value)}
+                                >
+                                    <option value="ACTIVE">ACTIVE</option>
+                                    <option value="ON_HOLD">ON_HOLD</option>
+                                    <option value="PLANNING">PLANNING</option>
+                                    <option value="COMPLETED">COMPLETED</option>
+                                    <option value="ARCHIVED">ARCHIVED</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Date Range</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.dates}
+                                    onChange={(e) => handleChange('dates', e.target.value)}
+                                    placeholder="DD/MM/YYYY - DD/MM/YYYY"
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Description</label>
+                                <textarea
+                                    className="form-textarea"
+                                    value={formData.desc}
+                                    onChange={(e) => handleChange('desc', e.target.value)}
+                                    placeholder="Project description..."
+                                />
+                            </div>
+
+                            <div className="modal-btn-row">
+                                <button type="button" className="btn-modal-cancel" onClick={onCancel}>
+                                    Cancel
+                                </button>
+                                <button type="submit" className="btn-modal-save">
+                                    Save Changes
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // Delete Confirmation Modal Component
+        function DeleteConfirmModal({ project, onConfirm, onCancel }) {
+            return (
+                <div className="modal-overlay" onClick={onCancel}>
+                    <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="modal-title" style={{ color: '#e53935' }}>Delete Project?</h2>
+                        <p style={{ fontSize: '14.5px', color: '#555555', lineHeight: 1.5, marginBottom: '20px' }}>
+                            Are you sure you want to permanently delete <strong>{project.title}</strong> (id:{project.id})? This action cannot be undone.
+                        </p>
+                        <div className="modal-btn-row">
+                            <button type="button" className="btn-modal-cancel" onClick={onCancel}>
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-modal-danger"
+                                onClick={() => onConfirm(project)}
+                            >
+                                Delete Project
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Edit Projects Tab Content
+        function ProjectsTabContent({
+            projects,
+            searchQuery,
+            onSearchChange,
+            onEditProject,
+            onArchiveProject,
+            onDeleteProject
+        }) {
+            const filteredProjects = projects.filter(project => {
+                const query = searchQuery.toLowerCase().trim();
+                if (!query) return true;
+                const fullText = `${project.title} ${project.id} ${project.owner || ''} ${project.desc || ''} ${project.status} ${project.dates}`.toLowerCase();
+                return fullText.includes(query);
+            });
+
+            return (
+                <div>
+                    {/* Top Right Search Bar */}
+                    <div className="tab-toolbar">
+                        <div className="tab-search-container">
+                            <svg className="tab-search-icon" viewBox="0 0 24 24">
+                                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                            </svg>
+                            <input
+                                type="text"
+                                className="tab-search-input"
+                                placeholder="Search"
+                                value={searchQuery}
+                                onChange={(e) => onSearchChange(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Global Projects List */}
+                    <div className="projects-scroll-wrapper">
+                        {filteredProjects.length > 0 ? (
+                            filteredProjects.map((project) => (
+                                <ProjectCardItem
+                                    key={project.id}
+                                    project={project}
+                                    onEdit={onEditProject}
+                                    onArchive={onArchiveProject}
+                                    onDelete={onDeleteProject}
+                                />
+                            ))
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#888888' }}>
+                                <p style={{ fontSize: '15px' }}>No global projects found matching "{searchQuery}".</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Main Application Component
+        function App() {
+            const [currentUser] = useState({
+                fullname: "KDT",
+                username: "KDT",
+                image: "KDT.jpg"
+            });
+
+            // Active Tab State ('projects', 'tasks', 'users', 'reports')
+            const [activeTab, setActiveTab] = useState('projects');
+
+            // Search query state within projects tab
+            const [projectSearch, setProjectSearch] = useState('');
+
+            // Global Projects State
+            const [projects, setProjects] = useState([
+                {
+                    id: "123",
+                    title: "Project A",
+                    owner: "Khanig",
+                    desc: "Description here...",
+                    status: "ON_HOLD",
+                    dates: "10/08/2026 - 22/05/2029"
+                },
+                {
+                    id: "124",
+                    title: "Project B",
+                    owner: "KDT",
+                    desc: "Great Description here...",
+                    status: "ARCHIVED",
+                    dates: "15/09/2026 - 10/12/2028"
+                },
+                {
+                    id: "125",
+                    title: "Project C",
+                    owner: "NgoDo",
+                    desc: "Taskflow Core Frontend Redesign",
+                    status: "ACTIVE",
+                    dates: "01/01/2026 - 30/11/2027"
+                },
+                {
+                    id: "126",
+                    title: "Project D",
+                    owner: "Khanig",
+                    desc: "Database Migration & Backend Optimization",
+                    status: "PLANNING",
+                    dates: "14/03/2026 - 18/08/2028"
+                },
+                {
+                    id: "127",
+                    title: "Project E",
+                    owner: "KDT",
+                    desc: "User Authentication & Security Module",
+                    status: "COMPLETED",
+                    dates: "05/05/2025 - 01/06/2026"
+                }
+            ]);
+
+            // Modal & Toast States
+            const [editingProject, setEditingProject] = useState(null);
+            const [deletingProject, setDeletingProject] = useState(null);
+            const [toastMessage, setToastMessage] = useState('');
+
+            const showToast = (msg) => {
+                setToastMessage(msg);
+                setTimeout(() => setToastMessage(''), 3000);
+            };
+
+            // Handlers
+            const handleEditProject = (project) => {
+                setEditingProject(project);
+            };
+
+            const handleSaveProject = (updatedProject) => {
+                setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+                setEditingProject(null);
+                showToast(`Project "${updatedProject.title}" updated successfully.`);
+            };
+
+            const handleArchiveProject = (project) => {
+                const newStatus = project.status === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED';
+                setProjects(prev => prev.map(p => {
+                    if (p.id === project.id) {
+                        return { ...p, status: newStatus };
+                    }
+                    return p;
+                }));
+                showToast(`Project "${project.title}" ${newStatus === 'ARCHIVED' ? 'archived' : 'unarchived'}.`);
+            };
+
+            const handleDeleteProject = (project) => {
+                setDeletingProject(project);
+            };
+
+            const handleConfirmDelete = (project) => {
+                setProjects(prev => prev.filter(p => p.id !== project.id));
+                setDeletingProject(null);
+                showToast(`Project "${project.title}" deleted.`);
+            };
+
+            return (
+                <React.Fragment>
+                    <div id="navbar-root">
+                        <NavBar userName={currentUser.fullname} userImg={currentUser.image} />
+                    </div>
+
+                    <div className="page-container">
+                        <h1 className="page-title">Admin Panel</h1>
+
+                        {/* Folder-style Tab Navigation Bar */}
+                        <div className="admin-tabs-nav">
+                            <button
+                                type="button"
+                                className={`admin-tab ${activeTab === 'projects' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('projects')}
+                            >
+                                Edit Projects
+                            </button>
+                            <button
+                                type="button"
+                                className={`admin-tab ${activeTab === 'tasks' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('tasks')}
+                            >
+                                Edit Tasks
+                            </button>
+                            <button
+                                type="button"
+                                className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('users')}
+                            >
+                                Edit Users
+                            </button>
+                            <button
+                                type="button"
+                                className={`admin-tab tab-reports ${activeTab === 'reports' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('reports')}
+                            >
+                                User Reports
+                            </button>
+                        </div>
+
+                        {/* Main White Content Card */}
+                        <div className="admin-main-card">
+                            {activeTab === 'projects' && (
+                                <ProjectsTabContent
+                                    projects={projects}
+                                    searchQuery={projectSearch}
+                                    onSearchChange={setProjectSearch}
+                                    onEditProject={handleEditProject}
+                                    onArchiveProject={handleArchiveProject}
+                                    onDeleteProject={handleDeleteProject}
+                                />
+                            )}
+
+                            {activeTab === 'tasks' && (
+                                <div className="placeholder-tab-content">
+                                    <h3>Edit Tasks Administration</h3>
+                                    <p>Manage and configure global tasks across all projects.</p>
+                                </div>
+                            )}
+
+                            {activeTab === 'users' && (
+                                <div className="placeholder-tab-content">
+                                    <h3>Edit Users Administration</h3>
+                                    <p>Manage global user roles, permissions, and account statuses.</p>
+                                </div>
+                            )}
+
+                            {activeTab === 'reports' && (
+                                <div className="placeholder-tab-content">
+                                    <h3 style={{ color: '#d93025' }}>User Reports Administration</h3>
+                                    <p>View and manage submitted user reports and moderation requests.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Edit Project Modal */}
+                    {editingProject && (
+                        <EditProjectModal
+                            project={editingProject}
+                            onSave={handleSaveProject}
+                            onCancel={() => setEditingProject(null)}
+                        />
+                    )}
+
+                    {/* Delete Confirmation Modal */}
+                    {deletingProject && (
+                        <DeleteConfirmModal
+                            project={deletingProject}
+                            onConfirm={handleConfirmDelete}
+                            onCancel={() => setDeletingProject(null)}
+                        />
+                    )}
+
+                    {/* Toast Notification */}
+                    {toastMessage && (
+                        <div className="toast-notification">
+                            {toastMessage}
+                        </div>
+                    )}
+                </React.Fragment>
+            );
+        }
+
+        // Mount React Root
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

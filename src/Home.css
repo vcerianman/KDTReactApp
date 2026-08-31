@@ -127,6 +127,7 @@
     opacity: 0.5;
     pointer-events: none;
 }
+
 /* #endregion */
 
 /* #region Users Row*/
@@ -184,16 +185,19 @@
 }
 
 .task-home-card {
-    background-color: #dcdedf;
+    background-color: #f2f4f6;
     border-radius: 6px;
     padding: 16px 18px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 140px;
+    height: 155px;
+    min-height: 155px;
+    max-height: 155px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.15s ease, transform 0.15s ease;
     text-decoration: none;
+    box-sizing: border-box;
 }
 
 .task-home-card:hover {
@@ -271,10 +275,15 @@
     color: #666666;
     margin-top: 6px;
     line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 
 .task-home-footer {
-    margin-top: 20px;
+    margin-top: 12px;
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
@@ -316,16 +325,19 @@
 }
 
 .project-home-card {
-    background-color: #dcdedf;
+    background-color: #f2f4f6;
     border-radius: 6px;
     padding: 16px 18px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 140px;
+    height: 155px;
+    min-height: 155px;
+    max-height: 155px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.15s ease, transform 0.15s ease;
     text-decoration: none;
+    box-sizing: border-box;
 }
 
 .project-home-card:hover {
@@ -353,10 +365,15 @@
     color: #666666;
     margin-top: 6px;
     line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 
 .project-home-footer {
-    margin-top: 20px;
+    margin-top: 12px;
     display: flex;
     justify-content: space-between;
     align-items: flex-end;

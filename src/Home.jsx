@@ -71,8 +71,10 @@ function UsersSection({ users, error, loading, onReload }) {
 
 // Tasks Grid Component
 function TasksSection({ tasks, error, loading, onReload }) {
-    // Filter out cancelled tasks
-    const activeTasks = (tasks || []).filter(task => !(task.status && task.status.toUpperCase().includes('CANCEL')));
+    // Filter out cancelled tasks and only show up to 6 tasks
+    const activeTasks = (tasks || [])
+        .filter(task => !(task.status && task.status.toUpperCase().includes('CANCEL')))
+        .slice(0, 6);
 
     return (
         <div className="home-section-block" id="tasks">

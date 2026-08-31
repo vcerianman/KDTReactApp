@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up to KDT Taskflow!</title>
+    <style>
+        /* #region Base & Body */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'GothamSSm', Helvetica Neue, Calibri;
+            font-weight: 300;
+            background: linear-gradient(to right, #9b59b6, #3498db);
+            color: #393b3d;
+            line-height: 1.2;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        /* #endregion */
+
+        /* #region Centered Sign Up Form Card */
+        .signup-card {
+            width: 100%;
+            max-width: 440px;
+            background-color: #d5d7d9;
+            border-radius: 8px;
+            padding: 30px 26px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Main Header Title */
+        .signup-title {
+            font-family: Calibri;
+            font-size: 26px;
+            font-weight: bold;
+            color: #000000;
+            text-align: center;
+            margin-bottom: 24px;
+            letter-spacing: -0.2px;
+        }
+        /* #endregion */
+
+        /* #region Form Group & Input Styling */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            color: #666666;
+            margin-bottom: 6px;
+            font-weight: 400;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            background-color: #f3f4f6;
+            border: 1px solid #c5c7ca;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'GothamSSm', Helvetica Neue, Calibri;
+            color: #333333;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .form-input::placeholder {
+            color: #b0b3b8;
+            font-size: 13px;
+        }
+
+        .form-input:focus {
+            background-color: #ffffff;
+            border-color: #00a2ff;
+            box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.15);
+        }
+
+        /* Terms & Conditions Text */
+        .terms-text {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111111;
+            margin-top: 22px;
+            margin-bottom: 18px;
+        }
+
+        .login-text {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111111;
+            margin-top: 10px;
+            margin-bottom: 18px;
+        }
+
+        .terms-link {
+            color: #00a2ff;
+            text-decoration: none;
+            transition: text-decoration 0.15s;
+        }
+
+        .terms-link:hover {
+            text-decoration: underline;
+        }
+        /* #endregion */
+
+        /* #region Sign Up Submit Button */
+        .btn-signup {
+            width: 100%;
+            background-color: #333333;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 20px;
+            font-weight: 600;
+            font-family: 'Calibri Light';
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-signup:hover {
+            background-color: #111111;
+        }
+        /* #endregion */
+    </style>
+</head>
+
+<body>
+
+    <!-- Centered Card Container -->
+    <div class="signup-card">
+
+        <!-- Title -->
+        <h1 class="signup-title">Sign Up to KDT Taskflow!</h1>
+
+        <!-- Sign Up Form -->
+        <form action="#" method="POST" onsubmit="event.preventDefault(); alert('Signed up successfully!');">
+
+            <!-- Full name -->
+            <div class="form-group">
+                <label for="fullname" class="form-label">Full name:</label>
+                <input type="text" id="fullname" name="fullname" class="form-input"
+                    placeholder="Your Display Name (3- 6700 characters)" required>
+            </div>
+
+            <!-- Username -->
+            <div class="form-group">
+                <label for="username" class="form-label">Username:</label>
+                <input type="text" id="username" name="username" class="form-input"
+                    placeholder="Your Username (3-6700 characters)" required>
+            </div>
+
+            <!-- Password -->
+            <div class="form-group">
+                <label for="password" class="form-label">Password:</label>
+                <input type="password" id="password" name="password" class="form-input"
+                    placeholder="Your secret password" required>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group">
+                <label for="email" class="form-label">Email:</label>
+                <input type="email" id="email" name="email" class="form-input" placeholder="Your great email" required>
+            </div>
+
+            <!-- Terms -->
+            <p class="terms-text">
+                By clicking Sign Up, you are agreeing to the <a href="Terms.html" class="terms-link">Terms of Use</a>
+            </p>
+            <p class="login-text">
+                Already have an account? Login here:<a href="Login.html" class="terms-link">Login</a>
+            </p>
+            <!-- Submit Button -->
+            <button type="submit" class="btn-signup">Sign Up</button>
+
+        </form>
+
+    </div>
+
+</body>
+
+</html>

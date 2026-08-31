@@ -1,16 +1,72 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import request from './api/Request';
+import Blockbanner from './Blockbanner';
 
-function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/ProfilePic/0.jpg" }) {
+function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/ProfilePic/0.jpg", userRole = "", role = "" }) {
     // 1. SCRIPTS
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+    const [currentUserId, setCurrentUserId] = useState(userId);
+    const [currentFullName, setCurrentFullName] = useState(fullName);
+    const [currentUserName, setCurrentUserName] = useState(userName);
+    const [currentUserImg, setCurrentUserImg] = useState(userImg);
+    const [currentRole, setCurrentRole] = useState(userRole || role || '');
+
     const settingsRef = useRef(null);
     const searchRef = useRef(null);
 
-    const profilePath = userId ? `/profile/${userId}` : '/profile';
+    // Synchronize props if changed
+    useEffect(() => {
+        if (userId && userId !== '?') setCurrentUserId(userId);
+        if (fullName && fullName !== '?') setCurrentFullName(fullName);
+        if (userName && userName !== '?') setCurrentUserName(userName);
+        if (userImg && userImg !== '/ProfilePic/0.jpg') setCurrentUserImg(userImg);
+        if (userRole || role) setCurrentRole(userRole || role);
+    }, [userId, fullName, userName, userImg, userRole, role]);
+
+    // Fetch logged in user data from GET /api/auth/me
+    useEffect(() => {
+        const fetchLoggedInUser = async () => {
+            try {
+                const data = await request.get('/api/auth/me');
+                if (data) {
+                    const uData = data.data || data;
+                    if (uData.id || uData.userId || uData._id) {
+                        setCurrentUserId(String(uData.id || uData.userId || uData._id));
+                    }
+                    const name = uData.fullname || uData.full_name || uData.fullName || uData.name;
+                    if (name) {
+                        setCurrentFullName(name);
+                    }
+                    const uname = uData.username || uData.userName;
+                    if (uname) {
+                        setCurrentUserName(uname);
+                    }
+                    const img = uData.image || uData.avatar || uData.profilePic;
+                    if (img) {
+                        setCurrentUserImg(img);
+                    } else if (uname) {
+                        setCurrentUserImg(prev => (!prev || prev === '/ProfilePic/0.jpg' ? `/ProfilePic/${uname}.jpg` : prev));
+                    }
+                    const r = uData.role || uData.userRole;
+                    if (r) {
+                        setCurrentRole(r);
+                    }
+                }
+            } catch (err) {
+                // ignore if unauthenticated
+            }
+        };
+
+        fetchLoggedInUser();
+    }, []);
+
+    const profilePath = currentUserId && currentUserId !== '?' ? `/profile/${currentUserId}` : '/profile';
+    const normalizedRole = String(currentRole || userRole || role || '').toUpperCase();
+    const isAdminOrGod = normalizedRole.includes('ADMIN') || normalizedRole.includes('GOD');
 
     const handleToggleSettings = (e) => {
         e.stopPropagation();
@@ -264,7 +320,8 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
     const trimmedSearch = searchQuery.trim();
 
     return (
-        <nav className="top-navbar" style={styles.topNavbar}>
+        <React.Fragment>
+            <nav className="top-navbar" style={styles.topNavbar}>
             {/* Left section: Brand & Navigation links */}
             <div className="nav-left" style={styles.navLeft}>
                 <Link to="/home" className="nav-brand" style={styles.navBrand}>TASKFLOW</Link>
@@ -272,6 +329,9 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
                     <Link to="/projects" className="nav-link" style={styles.navLink}>My Projects</Link>
                     <Link to="/tasks" className="nav-link" style={styles.navLink}>My Tasks</Link>
                     <Link to="/users" className="nav-link" style={styles.navLink}>Users</Link>
+                    {isAdminOrGod && (
+                        <Link to="/admin" className="nav-link" style={styles.navLink}>Admin panel</Link>
+                    )}
                 </div>
             </div>
 
@@ -331,8 +391,8 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
                 <div className="user-badge" style={styles.userBadge}>
                     <Link to={profilePath} style={styles.userBadgeLink} title="Go to my profile">
                         <img
-                            src={userImg || (userName && userName !== '?' ? `/ProfilePic/${userName}.jpg` : '/ProfilePic/0.jpg')}
-                            alt={fullName || userName || "?"}
+                            src={currentUserImg || (currentUserName && currentUserName !== '?' ? `/ProfilePic/${currentUserName}.jpg` : '/ProfilePic/0.jpg')}
+                            alt={currentFullName || currentUserName || "?"}
                             className="nav-avatar-img"
                             style={styles.navAvatarImg}
                             onError={(e) => {
@@ -340,9 +400,9 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
                                 e.target.src = '/ProfilePic/0.jpg';
                             }}
                         />
-                        <span className="logged-in-fullname" style={styles.loggedInFullname}>{fullName || "?"}</span>
+                        <span className="logged-in-fullname" style={styles.loggedInFullname}>{currentFullName || "?"}</span>
                     </Link>
-                    <span className="logged-in-username" style={styles.loggedInUsername}>@{userName || "?"}</span>
+                    <span className="logged-in-username" style={styles.loggedInUsername}>@{currentUserName || "?"}</span>
                 </div>
 
                 <button className="nav-icon-btn" style={styles.navIconBtn} title="Notifications" aria-label="Notifications">
@@ -384,7 +444,9 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
                     )}
                 </div>
             </div>
-        </nav>
+            </nav>
+            <Blockbanner />
+        </React.Fragment>
     );
 }
 
