@@ -4,7 +4,7 @@ import './AdminPanel.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
-import { getUserAvatarUrl, getProjectStatusClass } from './utils';
+import { getUserAvatarUrl, getProjectStatusClass, getPriorityTagClass } from './utils';
 
 // Section Reload Button Component matching the universal reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -1341,6 +1341,737 @@ function UsersTabContent({
     );
 }
 
+// Task Action Menu with Edit, Cancel (or Uncancel), Delete
+function TaskActionMenu({ task, onEdit, onToggleCancel, onDelete }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const btnRef = useRef(null);
+    const bubbleRef = useRef(null);
+    const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
+
+    const updatePosition = () => {
+        if (btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect();
+            setPopupPos({
+                top: rect.top + rect.height / 2,
+                left: rect.right + 24
+            });
+        }
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (
+                btnRef.current && !btnRef.current.contains(e.target) &&
+                bubbleRef.current && !bubbleRef.current.contains(e.target)
+            ) {
+                setIsOpen(false);
+            }
+        };
+
+        const handleScrollOrResize = () => {
+            if (isOpen) {
+                updatePosition();
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            window.addEventListener('scroll', handleScrollOrResize, true);
+            window.addEventListener('resize', handleScrollOrResize);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+            window.removeEventListener('resize', handleScrollOrResize);
+        };
+    }, [isOpen]);
+
+    const handleToggle = (e) => {
+        e.stopPropagation();
+        if (!isOpen) {
+            updatePosition();
+        }
+        setIsOpen((prev) => !prev);
+    };
+
+    const isCancelled = (task.status || '').toUpperCase() === 'CANCELLED';
+
+    return (
+        <div className="action-popup-wrapper">
+            <button
+                type="button"
+                ref={btnRef}
+                className="btn-more-actions"
+                onClick={handleToggle}
+                title="Task actions"
+                aria-label="Task actions"
+            >
+                ...
+            </button>
+
+            {isOpen && createPortal(
+                <div
+                    className="action-popup-bubble"
+                    ref={bubbleRef}
+                    style={{
+                        position: 'fixed',
+                        top: `${popupPos.top}px`,
+                        left: `${popupPos.left}px`,
+                        transform: 'translateY(-50%)'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        className="popup-menu-btn"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsOpen(false);
+                            onEdit(task);
+                        }}
+                    >
+                        Edit
+                    </button>
+                    <div className="popup-menu-divider"></div>
+                    <button
+                        type="button"
+                        className="popup-menu-btn"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsOpen(false);
+                            onToggleCancel(task);
+                        }}
+                    >
+                        {isCancelled ? 'Uncancel' : 'Cancel'}
+                    </button>
+                    <div className="popup-menu-divider"></div>
+                    <button
+                        type="button"
+                        className="popup-menu-btn delete-btn"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsOpen(false);
+                            onDelete(task);
+                        }}
+                    >
+                        Delete
+                    </button>
+                </div>,
+                document.body
+            )}
+        </div>
+    );
+}
+
+// Single Admin Task Card Component matching provided mockup design
+function AdminTaskCardItem({ task, onEdit, onToggleCancel, onDelete }) {
+    const priority = (task.priority || 'MEDIUM').toUpperCase();
+    const status = (task.status || 'TODO').toUpperCase();
+
+    // Border class calculation based on priority / status
+    let borderClass = 'task-border-medium';
+    if (status === 'CANCELLED') {
+        borderClass = 'task-border-cancelled';
+    } else if (priority === 'URGENT') {
+        borderClass = 'task-border-urgent';
+    } else if (priority === 'HIGH') {
+        borderClass = 'task-border-high';
+    } else if (priority === 'LOW') {
+        borderClass = 'task-border-low';
+    }
+
+    const tagClass = getPriorityTagClass(priority);
+
+    return (
+        <div className={`admin-task-card-item ${borderClass}`} data-task-id={task.id}>
+            {/* Left: ID + Title, Priority Tag, Status */}
+            <div className="admin-task-left-section">
+                <div className="admin-task-id-badge">{task.id}</div>
+                <div className="admin-task-title-group">
+                    <div className="admin-task-title-row">
+                        <span className="admin-task-title">{task.title}</span>
+                        <span className={`task-priority-tag ${tagClass}`}>{priority}</span>
+                    </div>
+                    <div className="admin-task-status-label">Status: {status}</div>
+                </div>
+            </div>
+
+            {/* Middle Vertical Divider */}
+            <div className="admin-task-middle-divider"></div>
+
+            {/* Middle: Project Title (id:...) & Description */}
+            <div className="admin-task-middle-section">
+                <div className="admin-task-project-title">
+                    {task.projectTitle || `Project ${task.projectId || 'N/A'}`}{' '}
+                    <span className="admin-task-project-id">(id:{task.projectId || 'N/A'})</span>
+                </div>
+                <div className="admin-task-desc" title={task.description || ''}>
+                    {task.description || 'No description provided.'}
+                </div>
+            </div>
+
+            {/* Right: Assignee, Assigner Badges & Date Range */}
+            <div className="admin-task-right-section">
+                <div className="admin-task-badges-row">
+                    <span className="admin-task-pill-badge">
+                        Assignee: <span className="admin-task-pill-bold">{task.assignee || 'Unassigned'}</span>
+                    </span>
+                    <span className="admin-task-pill-badge">
+                        Assigner: <span className="admin-task-pill-bold">{task.assigner || 'Admin'}</span>
+                    </span>
+                </div>
+                <div className="admin-task-dates">
+                    {task.dates || 'No dates set'}
+                </div>
+            </div>
+
+            {/* Far Right: '...' Actions Menu */}
+            <div className="admin-task-menu-section">
+                <TaskActionMenu
+                    task={task}
+                    onEdit={onEdit}
+                    onToggleCancel={onToggleCancel}
+                    onDelete={onDelete}
+                />
+            </div>
+        </div>
+    );
+}
+
+// Tasks Tab Content
+function TasksTabContent({
+    tasks,
+    searchQuery,
+    onSearchChange,
+    onEditTask,
+    onToggleCancelTask,
+    onDeleteTask,
+    onCreateTask,
+    loading
+}) {
+    const filteredTasks = (tasks || [])
+        .filter(task => {
+            const query = searchQuery.toLowerCase().trim();
+            if (!query) return true;
+            const fullText = `${task.id} ${task.title} ${task.projectTitle || ''} ${task.projectId || ''} ${task.assignee || ''} ${task.assigner || ''} ${task.priority || ''} ${task.status || ''} ${task.description || ''} ${task.dates || ''}`.toLowerCase();
+            return fullText.includes(query);
+        })
+        .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+
+    return (
+        <div>
+            {/* Top Toolbar: Create Task button + Search Bar on rightmost side */}
+            <div className="tab-toolbar">
+                <button
+                    type="button"
+                    className="btn-create-user-toolbar"
+                    onClick={onCreateTask}
+                >
+                    + Create Task
+                </button>
+                <div className="tab-search-container">
+                    <svg className="tab-search-icon" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                    <input
+                        type="text"
+                        className="tab-search-input"
+                        placeholder="Search tasks..."
+                        value={searchQuery}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {/* Global Tasks List */}
+            <div className="projects-scroll-wrapper">
+                {loading && tasks.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#888888' }}>
+                        <p style={{ fontSize: '15px' }}>Loading global tasks...</p>
+                    </div>
+                ) : filteredTasks.length > 0 ? (
+                    filteredTasks.map((task) => (
+                        <AdminTaskCardItem
+                            key={task.id}
+                            task={task}
+                            onEdit={onEditTask}
+                            onToggleCancel={onToggleCancelTask}
+                            onDelete={onDeleteTask}
+                        />
+                    ))
+                ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#888888' }}>
+                        <p style={{ fontSize: '15px' }}>No tasks found matching "{searchQuery}".</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// Create Task Modal Component
+function CreateTaskModal({ projects, users, loadingUsers, onFetchUsers, onSave, onCancel, isSubmitting, defaultAssigner }) {
+    const [formData, setFormData] = useState({
+        projectId: projects && projects.length > 0 ? String(projects[0].id) : '',
+        title: '',
+        description: '',
+        priority: 'MEDIUM',
+        status: 'TODO',
+        assignee: '',
+        assigner: defaultAssigner || 'Admin',
+        startDate: '',
+        dueDate: ''
+    });
+    const [userModalTarget, setUserModalTarget] = useState(null); // 'assignee' | 'assigner' | null
+
+    const handleChange = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleOpenUserModal = (target) => {
+        setUserModalTarget(target);
+        if ((!users || users.length === 0) && onFetchUsers) {
+            onFetchUsers();
+        }
+    };
+
+    const handleSelectUser = (u) => {
+        const selectedName = typeof u === 'string' ? u : (u?.username || u?.fullname || '');
+        if (userModalTarget === 'assignee') {
+            handleChange('assignee', selectedName);
+        } else if (userModalTarget === 'assigner') {
+            handleChange('assigner', selectedName);
+        }
+        setUserModalTarget(null);
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+    };
+
+    return (
+        <React.Fragment>
+            <div className="modal-overlay" onClick={onCancel}>
+                <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                    <h2 className="modal-title">Create Task</h2>
+                    <form onSubmit={handleSubmit}>
+                        {/* Target Project */}
+                        <div className="form-group">
+                            <label className="form-label">Project *</label>
+                            <select
+                                className="form-select"
+                                value={formData.projectId}
+                                onChange={(e) => handleChange('projectId', e.target.value)}
+                                required
+                            >
+                                {projects && projects.length > 0 ? (
+                                    projects.map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.title || p.name || `Project ${p.id}`} (id:{p.id})
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option value="1">Default Project (id:1)</option>
+                                )}
+                            </select>
+                        </div>
+
+                        {/* Task Title */}
+                        <div className="form-group">
+                            <label className="form-label">Task Title *</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={formData.title}
+                                onChange={(e) => handleChange('title', e.target.value)}
+                                placeholder="e.g. Implement feature..."
+                                required
+                            />
+                        </div>
+
+                        {/* Assignee Selection */}
+                        <div className="form-group">
+                            <label className="form-label">Assignee</label>
+                            <div className="input-with-button-row">
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.assignee}
+                                    onChange={(e) => handleChange('assignee', e.target.value)}
+                                    placeholder="e.g. Khanig, KDT"
+                                />
+                                <button
+                                    type="button"
+                                    className="btn-search-user"
+                                    title="Search and select assignee"
+                                    onClick={() => handleOpenUserModal('assignee')}
+                                >
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Assigner Selection */}
+                        <div className="form-group">
+                            <label className="form-label">Assigner</label>
+                            <div className="input-with-button-row">
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.assigner}
+                                    onChange={(e) => handleChange('assigner', e.target.value)}
+                                    placeholder="e.g. Admin, KDT"
+                                />
+                                <button
+                                    type="button"
+                                    className="btn-search-user"
+                                    title="Search and select assigner"
+                                    onClick={() => handleOpenUserModal('assigner')}
+                                >
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Priority & Status */}
+                        <div className="form-row-dates">
+                            <div className="form-group half-width">
+                                <label className="form-label">Priority</label>
+                                <select
+                                    className="form-select"
+                                    value={formData.priority}
+                                    onChange={(e) => handleChange('priority', e.target.value)}
+                                >
+                                    <option value="LOW">LOW</option>
+                                    <option value="MEDIUM">MEDIUM</option>
+                                    <option value="HIGH">HIGH</option>
+                                    <option value="URGENT">URGENT</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group half-width">
+                                <label className="form-label">Status</label>
+                                <select
+                                    className="form-select"
+                                    value={formData.status}
+                                    onChange={(e) => handleChange('status', e.target.value)}
+                                >
+                                    <option value="TODO">TODO</option>
+                                    <option value="IN_PROGRESS">IN_PROGRESS</option>
+                                    <option value="DONE">DONE</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Dates */}
+                        <div className="form-row-dates">
+                            <div className="form-group half-width">
+                                <label className="form-label">Start Date</label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={formData.startDate}
+                                    onChange={(e) => handleChange('startDate', e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group half-width">
+                                <label className="form-label">Due Date</label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={formData.dueDate}
+                                    onChange={(e) => handleChange('dueDate', e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Description */}
+                        <div className="form-group">
+                            <label className="form-label">Description</label>
+                            <textarea
+                                className="form-textarea"
+                                value={formData.description}
+                                onChange={(e) => handleChange('description', e.target.value)}
+                                placeholder="Task description..."
+                            />
+                        </div>
+
+                        <div className="modal-btn-row">
+                            <button type="button" className="btn-modal-cancel" onClick={onCancel}>
+                                Cancel
+                            </button>
+                            <button type="submit" className="btn-modal-save" disabled={isSubmitting}>
+                                {isSubmitting ? 'Creating...' : 'Create Task'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {/* User Selection Modal Prompt */}
+            <UserSelectModal
+                isOpen={!!userModalTarget}
+                onClose={() => setUserModalTarget(null)}
+                users={users}
+                loading={loadingUsers}
+                onSelectUser={handleSelectUser}
+            />
+        </React.Fragment>
+    );
+}
+
+// Edit Task Modal Component
+function EditTaskModal({ task, projects, users, loadingUsers, onFetchUsers, onSave, onCancel }) {
+    const [formData, setFormData] = useState({
+        projectId: task.projectId || (projects && projects.length > 0 ? String(projects[0].id) : ''),
+        title: task.title || '',
+        description: task.description || task.desc || '',
+        priority: (task.priority || 'MEDIUM').toUpperCase(),
+        status: (task.status || 'TODO').toUpperCase(),
+        assignee: task.assignee || '',
+        assigner: task.assigner || '',
+        startDate: task.startDate || '',
+        dueDate: task.dueDate || ''
+    });
+    const [userModalTarget, setUserModalTarget] = useState(null); // 'assignee' | 'assigner' | null
+
+    const handleChange = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleOpenUserModal = (target) => {
+        setUserModalTarget(target);
+        if ((!users || users.length === 0) && onFetchUsers) {
+            onFetchUsers();
+        }
+    };
+
+    const handleSelectUser = (u) => {
+        const selectedName = typeof u === 'string' ? u : (u?.username || u?.fullname || '');
+        if (userModalTarget === 'assignee') {
+            handleChange('assignee', selectedName);
+        } else if (userModalTarget === 'assigner') {
+            handleChange('assigner', selectedName);
+        }
+        setUserModalTarget(null);
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData, task);
+    };
+
+    return (
+        <React.Fragment>
+            <div className="modal-overlay" onClick={onCancel}>
+                <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                    <h2 className="modal-title">Edit Task (id:{task.id})</h2>
+                    <form onSubmit={handleSubmit}>
+                        {/* Target Project */}
+                        <div className="form-group">
+                            <label className="form-label">Project</label>
+                            <select
+                                className="form-select"
+                                value={formData.projectId}
+                                onChange={(e) => handleChange('projectId', e.target.value)}
+                            >
+                                {projects && projects.length > 0 ? (
+                                    projects.map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.title || p.name || `Project ${p.id}`} (id:{p.id})
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option value={task.projectId || "1"}>
+                                        {task.projectTitle || `Project ${task.projectId || '1'}`} (id:{task.projectId || '1'})
+                                    </option>
+                                )}
+                            </select>
+                        </div>
+
+                        {/* Task Title */}
+                        <div className="form-group">
+                            <label className="form-label">Task Title</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={formData.title}
+                                onChange={(e) => handleChange('title', e.target.value)}
+                                placeholder="Task title..."
+                                required
+                            />
+                        </div>
+
+                        {/* Assignee Selection */}
+                        <div className="form-group">
+                            <label className="form-label">Assignee</label>
+                            <div className="input-with-button-row">
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.assignee}
+                                    onChange={(e) => handleChange('assignee', e.target.value)}
+                                    placeholder="e.g. Khanig, KDT"
+                                />
+                                <button
+                                    type="button"
+                                    className="btn-search-user"
+                                    title="Search and select assignee"
+                                    onClick={() => handleOpenUserModal('assignee')}
+                                >
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Assigner Selection */}
+                        <div className="form-group">
+                            <label className="form-label">Assigner</label>
+                            <div className="input-with-button-row">
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.assigner}
+                                    onChange={(e) => handleChange('assigner', e.target.value)}
+                                    placeholder="e.g. Admin, KDT"
+                                />
+                                <button
+                                    type="button"
+                                    className="btn-search-user"
+                                    title="Search and select assigner"
+                                    onClick={() => handleOpenUserModal('assigner')}
+                                >
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Priority & Status */}
+                        <div className="form-row-dates">
+                            <div className="form-group half-width">
+                                <label className="form-label">Priority</label>
+                                <select
+                                    className="form-select"
+                                    value={formData.priority}
+                                    onChange={(e) => handleChange('priority', e.target.value)}
+                                >
+                                    <option value="LOW">LOW</option>
+                                    <option value="MEDIUM">MEDIUM</option>
+                                    <option value="HIGH">HIGH</option>
+                                    <option value="URGENT">URGENT</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group half-width">
+                                <label className="form-label">Status</label>
+                                <select
+                                    className="form-select"
+                                    value={formData.status}
+                                    onChange={(e) => handleChange('status', e.target.value)}
+                                >
+                                    <option value="TODO">TODO</option>
+                                    <option value="IN_PROGRESS">IN_PROGRESS</option>
+                                    <option value="DONE">DONE</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Dates */}
+                        <div className="form-row-dates">
+                            <div className="form-group half-width">
+                                <label className="form-label">Start Date</label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={formData.startDate}
+                                    onChange={(e) => handleChange('startDate', e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group half-width">
+                                <label className="form-label">Due Date</label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={formData.dueDate}
+                                    onChange={(e) => handleChange('dueDate', e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Description */}
+                        <div className="form-group">
+                            <label className="form-label">Description</label>
+                            <textarea
+                                className="form-textarea"
+                                value={formData.description}
+                                onChange={(e) => handleChange('description', e.target.value)}
+                                placeholder="Task description..."
+                            />
+                        </div>
+
+                        <div className="modal-btn-row">
+                            <button type="button" className="btn-modal-cancel" onClick={onCancel}>
+                                Cancel
+                            </button>
+                            <button type="submit" className="btn-modal-save">
+                                Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {/* User Selection Modal Prompt */}
+            <UserSelectModal
+                isOpen={!!userModalTarget}
+                onClose={() => setUserModalTarget(null)}
+                users={users}
+                loading={loadingUsers}
+                onSelectUser={handleSelectUser}
+            />
+        </React.Fragment>
+    );
+}
+
+// Delete Task Confirmation Modal
+function DeleteTaskConfirmModal({ task, onConfirm, onCancel }) {
+    return (
+        <div className="modal-overlay" onClick={onCancel}>
+            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                <h2 className="modal-title" style={{ color: '#e53935' }}>Delete Task?</h2>
+                <p style={{ fontSize: '14.5px', color: '#555555', lineHeight: 1.5, marginBottom: '20px' }}>
+                    Are you sure you want to permanently delete <strong>{task.title}</strong> (id:{task.id})? This action cannot be undone.
+                </p>
+                <div className="modal-btn-row">
+                    <button type="button" className="btn-modal-cancel" onClick={onCancel}>
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-modal-danger"
+                        onClick={() => onConfirm(task)}
+                    >
+                        Delete Task
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // Appeal Action Menu Component with Accept and Reject
 function AppealActionMenu({ appeal, onAccept, onReject }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -1610,6 +2341,253 @@ function ViewAppealModal({ appeal, onClose }) {
     );
 }
 
+// Single User Report Card Component
+function ReportCardItem({ report, onView }) {
+    return (
+        <div className="report-card-item">
+            {/* Left side: ID (simple number), Author Avatar, Author Fullname, (id:{id}) & @username */}
+            <div className="report-card-left">
+                <span className="report-card-id-number">{report.id}</span>
+                <img
+                    src={report.authorImage || getUserAvatarUrl(report.author)}
+                    alt={report.authorFullname || report.author}
+                    className="report-card-avatar"
+                    onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                />
+                <div className="report-card-user-info">
+                    <div className="report-user-name-row">
+                        <span className="report-card-fullname">{report.authorFullname || report.author}</span>
+                        {report.authorId && <span className="report-user-id-text">(id:{report.authorId})</span>}
+                    </div>
+                    <span className="report-card-username">@{report.author}</span>
+                </div>
+            </div>
+
+            {/* Right side: reporting user, target avatar, target fullname, (id:{id}) & @username (slightly red), view button in light blue */}
+            <div className="report-card-right">
+                <div className="report-target-group">
+                    <span className="report-target-label">reporting user:</span>
+                    <img
+                        src={report.targetImage || getUserAvatarUrl(report.targetUsername)}
+                        alt={report.targetFullname || report.targetUsername}
+                        className="report-card-avatar"
+                        onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                    />
+                    <div className="report-card-user-info">
+                        <div className="report-user-name-row">
+                            <span className="report-card-fullname">{report.targetFullname || report.targetUsername}</span>
+                            {report.targetId && <span className="report-user-id-text">(id:{report.targetId})</span>}
+                        </div>
+                        <span className="report-card-username">@{report.targetUsername}</span>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    className="btn-view-report"
+                    onClick={() => onView(report)}
+                >
+                    View
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// User Reports Tab Content Component
+function ReportsTabContent({
+    reports,
+    searchQuery,
+    onSearchChange,
+    onViewReport,
+    loading
+}) {
+    const filteredReports = (reports || [])
+        .filter(r => {
+            const query = searchQuery.toLowerCase().trim();
+            if (!query) return true;
+            const fullText = `${r.id} ${r.type || ''} ${r.author || ''} ${r.authorFullname || ''} ${r.authorId || ''} ${r.targetUsername || ''} ${r.targetFullname || ''} ${r.targetId || ''} ${r.reason || ''} ${r.explanation || ''}`.toLowerCase();
+            return fullText.includes(query);
+        })
+        .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+
+    return (
+        <div>
+            {/* Top Search Bar */}
+            <div className="tab-toolbar">
+                <div className="tab-search-container">
+                    <svg className="tab-search-icon" viewBox="0 0 24 24">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                    <input
+                        type="text"
+                        className="tab-search-input"
+                        placeholder="Search reports..."
+                        value={searchQuery}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {/* Reports List */}
+            <div className="projects-scroll-wrapper">
+                {loading && reports.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#888888' }}>
+                        <p style={{ fontSize: '15px' }}>Loading reports...</p>
+                    </div>
+                ) : filteredReports.length > 0 ? (
+                    filteredReports.map((report) => (
+                        <ReportCardItem
+                            key={report.id}
+                            report={report}
+                            onView={onViewReport}
+                        />
+                    ))
+                ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#888888' }}>
+                        <p style={{ fontSize: '15px' }}>No reports found matching "{searchQuery}".</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// View Report Details Modal Prompt
+function ViewReportModal({ report, onClose, onBlock, onDismiss }) {
+    if (!report) return null;
+
+    // Helper to parse PostgreSQL list string e.g. {"line 1","line 2"} or array
+    const parseExplanationLines = (exp) => {
+        if (!exp) return [];
+        if (Array.isArray(exp)) return exp;
+        if (typeof exp === 'string') {
+            const trimmed = exp.trim();
+            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                const inner = trimmed.slice(1, -1);
+                const matched = inner.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
+                if (matched) {
+                    return matched.map(item => item.replace(/^"|"$/g, '').replace(/\\"/g, '"').trim());
+                }
+            }
+            return trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        }
+        return [String(exp)];
+    };
+
+    const explanationLines = parseExplanationLines(report.explanation);
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-card report-modal-card" onClick={(e) => e.stopPropagation()}>
+                <div className="members-modal-header" style={{ marginBottom: '16px', paddingBottom: '12px' }}>
+                    <h2 className="modal-title" style={{ margin: 0 }}>Report Details (id:{report.id})</h2>
+                    <button
+                        type="button"
+                        className="members-modal-close-btn"
+                        aria-label="Close"
+                        onClick={onClose}
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div className="report-modal-users-grid">
+                    {/* Reporter User Box */}
+                    <div className="report-modal-user-box">
+                        <div className="report-modal-box-title">Submitted By</div>
+                        <div className="report-modal-user-row">
+                            <img
+                                src={report.authorImage || getUserAvatarUrl(report.author)}
+                                alt={report.authorFullname || report.author}
+                                className="report-card-avatar"
+                                onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                            />
+                            <div className="report-card-user-info">
+                                <div className="report-user-name-row">
+                                    <span className="report-card-fullname">{report.authorFullname || report.author}</span>
+                                    {report.authorId && <span className="report-user-id-text">(id:{report.authorId})</span>}
+                                </div>
+                                <span className="report-card-username">@{report.author}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Reported Target Box */}
+                    <div className="report-modal-user-box target-user-box">
+                        <div className="report-modal-box-title">Reported User (Target)</div>
+                        <div className="report-modal-user-row">
+                            <img
+                                src={report.targetImage || getUserAvatarUrl(report.targetUsername)}
+                                alt={report.targetFullname || report.targetUsername}
+                                className="report-card-avatar"
+                                onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                            />
+                            <div className="report-card-user-info">
+                                <div className="report-user-name-row">
+                                    <span className="report-card-fullname">{report.targetFullname || report.targetUsername}</span>
+                                    {report.targetId && <span className="report-user-id-text">(id:{report.targetId})</span>}
+                                </div>
+                                <span className="report-card-username">@{report.targetUsername}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' }}>
+                    <span className="report-modal-meta-tag">Category: {report.type ? String(report.type).toUpperCase() : 'POST'}</span>
+                    {report.createdAt && (
+                        <span className="report-modal-meta-tag" style={{ backgroundColor: '#fafafa', color: '#777' }}>
+                            Created: {report.createdAt}
+                        </span>
+                    )}
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                    <label className="form-label">Violation Reason</label>
+                    <div style={{ fontSize: '14.5px', fontWeight: '600', color: '#d93025' }}>
+                        {report.reason || 'Inappropriate Content'}
+                    </div>
+                </div>
+
+                <div className="form-group">
+                    <label className="form-label">Explanation</label>
+                    <div className="report-modal-explanation-box">
+                        {explanationLines.length > 1 ? (
+                            <ul className="report-explanation-list">
+                                {explanationLines.map((line, idx) => (
+                                    <li key={idx}>{line}</li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p style={{ margin: 0 }}>{explanationLines[0] || 'No detailed explanation provided.'}</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="modal-btn-row" style={{ marginTop: '20px' }}>
+                    <button type="button" className="btn-modal-cancel" onClick={onClose}>
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-modal-dismiss"
+                        onClick={() => onDismiss(report)}
+                    >
+                        DISMISS
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-modal-block"
+                        onClick={() => onBlock(report)}
+                    >
+                        BLOCK
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // Initial Sample Admin Users
 const initialAdminUsers = [
     {
@@ -1674,15 +2652,24 @@ function AdminPanel() {
     // Active Tab State ('projects', 'tasks', 'users', 'reports')
     const [activeTab, setActiveTab] = useState('projects');
 
-    // Search query state within projects tab, users tab & appeals tab
+    // Search query state within projects tab, users tab, appeals tab & reports tab
     const [projectSearch, setProjectSearch] = useState('');
     const [userSearch, setUserSearch] = useState('');
     const [appealSearch, setAppealSearch] = useState('');
+    const [reportSearch, setReportSearch] = useState('');
 
     // Global Projects State
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [projectsError, setProjectsError] = useState(false);
+
+    // Global Tasks State
+    const [adminTasks, setAdminTasks] = useState([]);
+    const [tasksLoading, setTasksLoading] = useState(false);
+    const [tasksError, setTasksError] = useState(false);
+    const [taskSearch, setTaskSearch] = useState('');
+    const [editingTask, setEditingTask] = useState(null);
+    const [deletingTask, setDeletingTask] = useState(null);
 
     // Admin Users State
     const [adminUsers, setAdminUsers] = useState(initialAdminUsers);
@@ -1694,12 +2681,20 @@ function AdminPanel() {
     const [appealsError, setAppealsError] = useState(false);
     const [viewingAppeal, setViewingAppeal] = useState(null);
 
+    // User Reports State
+    const [reportsList, setReportsList] = useState([]);
+    const [reportsLoading, setReportsLoading] = useState(false);
+    const [reportsError, setReportsError] = useState(false);
+    const [viewingReport, setViewingReport] = useState(null);
+
     // Modal & Universal Toast States
     const [editingProject, setEditingProject] = useState(null);
     const [deletingProject, setDeletingProject] = useState(null);
     const [editingUser, setEditingUser] = useState(null);
     const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
     const [creatingUser, setCreatingUser] = useState(false);
+    const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+    const [creatingTask, setCreatingTask] = useState(false);
     const [actionLoadingId, setActionLoadingId] = useState(null);
     const [membersModalConfig, setMembersModalConfig] = useState({
         isOpen: false,
@@ -1809,6 +2804,64 @@ function AdminPanel() {
             setAppealsError(true);
         } finally {
             setAppealsLoading(false);
+        }
+    }, []);
+
+    // Fetch all user reports from GET /api/reports (with fallback to /api/report)
+    const fetchReports = useCallback(async () => {
+        setReportsLoading(true);
+        setReportsError(false);
+        try {
+            let data;
+            try {
+                data = await request.get('/api/reports');
+            } catch (err1) {
+                data = await request.get('/api/report');
+            }
+            const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+            if (list && list.length > 0) {
+                const knownUsers = usersListRef.current || [];
+                const formatted = list.map((r, idx) => {
+                    const reportId = String(r.id || r._id || idx + 1);
+                    const authorName = r.author || r.authorUsername || r.userName || '';
+                    const targetName = r.targetUsername || r.target_username || r.target || '';
+
+                    const authorMatch = knownUsers.find(u =>
+                        (authorName && u.username && u.username.toLowerCase() === authorName.toLowerCase()) ||
+                        (r.authorId && String(u.id) === String(r.authorId))
+                    );
+                    const targetMatch = knownUsers.find(u =>
+                        (targetName && u.username && u.username.toLowerCase() === targetName.toLowerCase()) ||
+                        (r.targetId && String(u.id) === String(r.targetId))
+                    );
+
+                    return {
+                        id: reportId,
+                        type: r.type || 'post',
+                        authorId: String(r.authorId || r.author_id || (authorMatch ? authorMatch.id : '')),
+                        author: authorName || (authorMatch ? authorMatch.username : 'Unknown'),
+                        authorFullname: r.authorFullname || r.author_fullname || (authorMatch ? authorMatch.fullname : authorName),
+                        authorImage: r.authorImage || (authorMatch ? authorMatch.image : (authorName ? getUserAvatarUrl(authorName) : '/ProfilePic/0.jpg')),
+                        targetId: String(r.targetId || r.target_id || (targetMatch ? targetMatch.id : '')),
+                        targetUsername: targetName || (targetMatch ? targetMatch.username : 'Unknown'),
+                        targetFullname: r.targetFullname || r.target_fullname || (targetMatch ? targetMatch.fullname : targetName),
+                        targetImage: r.targetImage || (targetMatch ? targetMatch.image : (targetName ? getUserAvatarUrl(targetName) : '/ProfilePic/0.jpg')),
+                        reason: r.reason || '',
+                        explanation: r.explanation || '',
+                        createdAt: r.createdAt || r.created_at || r.date || ''
+                    };
+                }).sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+
+                setReportsList(formatted);
+            } else {
+                setReportsList([]);
+            }
+        } catch (err) {
+            console.error('Failed to fetch reports (/api/reports):', err);
+            setReportsList([]);
+            setReportsError(true);
+        } finally {
+            setReportsLoading(false);
         }
     }, []);
 
@@ -2194,6 +3247,68 @@ function AdminPanel() {
         }
     }, []);
 
+    // Fetch all global tasks across projects
+    const fetchAllTasks = useCallback(async () => {
+        setTasksLoading(true);
+        setTasksError(false);
+        try {
+            let projs = [];
+            try {
+                const pData = await request.get('/api/projects');
+                projs = Array.isArray(pData) ? pData : (pData && Array.isArray(pData.data) ? pData.data : []);
+            } catch (pErr) {
+                console.error('Failed to get projects for task fetching:', pErr);
+            }
+
+            let allTasks = [];
+            if (projs && projs.length > 0) {
+                const taskPromises = projs.map(async (p) => {
+                    const projId = p.id;
+                    const projTitle = p.title || p.name || `Project ${projId}`;
+                    try {
+                        const taskRes = await request.get(`/api/projects/${projId}/tasks`);
+                        const tList = Array.isArray(taskRes) ? taskRes : (taskRes && Array.isArray(taskRes.data) ? taskRes.data : []);
+                        return tList.map(t => {
+                            const parsed = parseStartAndDueDate(t);
+                            const datesFormatted = t.dates || (parsed.startDate && parsed.dueDate
+                                ? `${parsed.startDate} - ${parsed.dueDate}`
+                                : (parsed.startDate || parsed.dueDate || ''));
+
+                            return {
+                                id: String(t.id || t._id || ''),
+                                title: t.title || t.name || 'Task',
+                                priority: (t.priority || 'MEDIUM').toUpperCase(),
+                                status: (t.status || 'TODO').toUpperCase(),
+                                projectId: String(projId),
+                                projectTitle: projTitle,
+                                description: t.description || t.desc || '',
+                                assignee: t.assignee || t.assignedTo || t.userName || t.username || 'Unassigned',
+                                assigner: t.assigner || t.createdBy || t.owner || 'Admin',
+                                startDate: parsed.startDate,
+                                dueDate: parsed.dueDate,
+                                dates: datesFormatted
+                            };
+                        });
+                    } catch (tErr) {
+                        console.error(`Failed to fetch tasks for project ${projId}:`, tErr);
+                        return [];
+                    }
+                });
+
+                const results = await Promise.all(taskPromises);
+                allTasks = results.flat().sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+            }
+
+            setAdminTasks(allTasks);
+        } catch (err) {
+            console.error('Failed to fetch global tasks:', err);
+            setAdminTasks([]);
+            setTasksError(true);
+        } finally {
+            setTasksLoading(false);
+        }
+    }, []);
+
     // Fetch current user from /api/auth/me
     const fetchCurrentUser = useCallback(async () => {
         setAuthChecking(true);
@@ -2213,8 +3328,10 @@ function AdminPanel() {
                 const normRole = String(uRole).toUpperCase();
                 if (normRole.includes('ADMIN') || normRole.includes('GOD')) {
                     fetchAllProjects();
+                    fetchAllTasks();
                     fetchUsers();
                     fetchAppeals();
+                    fetchReports();
                 }
             }
         } catch (err) {
@@ -2223,7 +3340,7 @@ function AdminPanel() {
             setAuthChecking(false);
             setAuthChecked(true);
         }
-    }, [fetchAllProjects, fetchUsers, fetchAppeals]);
+    }, [fetchAllProjects, fetchAllTasks, fetchUsers, fetchAppeals, fetchReports]);
 
     useEffect(() => {
         fetchCurrentUser();
@@ -2330,6 +3447,124 @@ function AdminPanel() {
         setDeletingProject(null);
     };
 
+    // Task Tab Handlers
+    const handleEditTask = (task) => {
+        setEditingTask(task);
+    };
+
+    const handleSaveTask = async (formData, originalTask) => {
+        const origStartDate = originalTask.startDate || '';
+        const origDueDate = originalTask.dueDate || '';
+        const newStartDate = formData.startDate || '';
+        const newDueDate = formData.dueDate || '';
+        const isDatesUnchanged = origStartDate === newStartDate && origDueDate === newDueDate;
+
+        const targetProjId = formData.projectId || originalTask.projectId;
+
+        const payload = {
+            title: (formData.title || '').trim() || null,
+            description: (formData.description || '').trim() || null,
+            desc: (formData.description || '').trim() || null,
+            priority: (formData.priority || 'MEDIUM').toUpperCase(),
+            status: (formData.status || 'TODO').toUpperCase(),
+            assignee: (formData.assignee || '').trim() || null,
+            assigner: (formData.assigner || '').trim() || null,
+            start_date: isDatesUnchanged ? null : (newStartDate || null),
+            end_date: isDatesUnchanged ? null : (newDueDate || null),
+            startDate: isDatesUnchanged ? null : (newStartDate || null),
+            dueDate: isDatesUnchanged ? null : (newDueDate || null),
+            dates: isDatesUnchanged ? null : (newStartDate && newDueDate ? `${newStartDate} - ${newDueDate}` : null),
+            projectId: String(targetProjId)
+        };
+
+        try {
+            try {
+                await request.put(`/api/projects/${targetProjId}/tasks/${originalTask.id}`, payload);
+            } catch (putErr1) {
+                await request.put(`/api/tasks/${originalTask.id}`, payload);
+            }
+
+            const datesFormatted = (formData.startDate && formData.dueDate)
+                ? `${formData.startDate} - ${formData.dueDate}`
+                : (formData.startDate || formData.dueDate || originalTask.dates || '');
+
+            const selectedProj = (projects || []).find(p => String(p.id) === String(targetProjId));
+            const newProjectTitle = selectedProj ? (selectedProj.title || selectedProj.name) : originalTask.projectTitle;
+
+            const updatedTaskObj = {
+                ...originalTask,
+                projectId: String(targetProjId),
+                projectTitle: newProjectTitle,
+                title: formData.title || originalTask.title,
+                description: formData.description !== undefined ? formData.description : originalTask.description,
+                priority: formData.priority || originalTask.priority,
+                status: formData.status || originalTask.status,
+                assignee: formData.assignee !== undefined ? formData.assignee : originalTask.assignee,
+                assigner: formData.assigner !== undefined ? formData.assigner : originalTask.assigner,
+                startDate: formData.startDate,
+                dueDate: formData.dueDate,
+                dates: datesFormatted
+            };
+
+            setAdminTasks(prev => prev.map(t => t.id === originalTask.id ? updatedTaskObj : t));
+            showToast(`Task "${formData.title}" updated successfully.`, 'success');
+            setEditingTask(null);
+        } catch (err) {
+            console.error(`Failed to update task ${originalTask.id}:`, err);
+            showToast(`Failed to update task "${formData.title}".`, 'error');
+        }
+    };
+
+    const handleToggleCancelTask = async (task) => {
+        const isCancelled = (task.status || '').toUpperCase() === 'CANCELLED';
+        const newStatus = isCancelled ? 'TODO' : 'CANCELLED';
+
+        try {
+            try {
+                await request.put(`/api/projects/${task.projectId}/tasks/${task.id}`, {
+                    status: newStatus
+                });
+            } catch (putErr1) {
+                await request.put(`/api/tasks/${task.id}`, {
+                    status: newStatus
+                });
+            }
+
+            setAdminTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+            showToast(
+                isCancelled
+                    ? `Restored task "${task.title}".`
+                    : `Cancelled task "${task.title}".`,
+                isCancelled ? 'success' : 'error'
+            );
+        } catch (err) {
+            console.error(`Failed to toggle cancel for task ${task.id}:`, err);
+            showToast(`Failed to update status for task "${task.title}".`, 'error');
+        }
+    };
+
+    const handleDeleteTask = (task) => {
+        setDeletingTask(task);
+    };
+
+    const handleConfirmDeleteTask = async (task) => {
+        try {
+            try {
+                await request.delete(`/api/projects/${task.projectId}/tasks/${task.id}`);
+            } catch (delErr1) {
+                await request.delete(`/api/tasks/${task.id}`);
+            }
+
+            setAdminTasks(prev => prev.filter(t => t.id !== task.id));
+            showToast(`Task "${task.title}" deleted.`, 'success');
+        } catch (err) {
+            console.error(`Failed to delete task ${task.id}:`, err);
+            showToast(`Failed to delete task "${task.title}".`, 'error');
+        }
+
+        setDeletingTask(null);
+    };
+
     const handleAcceptAppeal = async (appeal) => {
         const targetUserId = appeal.userId !== 'N/A' && appeal.userId ? appeal.userId : null;
         const targetUsername = appeal.username;
@@ -2408,6 +3643,68 @@ function AdminPanel() {
         }
     };
 
+    const handleBlockReportUser = async (report) => {
+        let targetId = report.targetId;
+        const targetUsername = report.targetUsername;
+
+        if (!targetId || targetId === 'N/A') {
+            const found = (usersListRef.current || []).find(u => u.username?.toLowerCase() === (targetUsername || '').toLowerCase());
+            if (found) targetId = found.id;
+        }
+
+        try {
+            if (targetId) {
+                try {
+                    await request.put(`/api/admin/users/${targetId}`, {
+                        fullname: null,
+                        username: null,
+                        role: null,
+                        status: 'BLOCKED',
+                        about: null,
+                        email: null,
+                        deleted: null
+                    });
+                } catch (err1) {
+                    await request.put(`/api/users/${targetId}`, {
+                        status: 'BLOCKED'
+                    });
+                }
+
+                // Update local users state
+                setAdminUsers(prev => prev.map(u => String(u.id) === String(targetId) ? { ...u, status: 'BLOCKED' } : u));
+                setUsersList(prev => prev.map(u => String(u.id) === String(targetId) ? { ...u, status: 'BLOCKED' } : u));
+            }
+
+            showToast(`Blocked user @${targetUsername || targetId}.`, 'error');
+            setViewingReport(null);
+        } catch (err) {
+            console.error(`Failed to block user ${targetUsername || targetId}:`, err);
+            showToast(`Failed to block user @${targetUsername || targetId}. Either he is GOD or the great server has fallen`, 'error');
+        }
+    };
+
+    const handleDismissReport = async (report) => {
+        try {
+            try {
+                await request.delete(`/api/reports/${report.id}`);
+            } catch (delErr1) {
+                try {
+                    await request.delete(`/api/report/${report.id}`);
+                } catch (delErr2) {
+                    // ignore
+                }
+            }
+
+            // Remove report from local state
+            setReportsList(prev => prev.filter(r => String(r.id) !== String(report.id)));
+            showToast(`Dismissed report (id:${report.id}).`, 'success');
+            setViewingReport(null);
+        } catch (err) {
+            console.error(`Failed to dismiss report ${report.id}:`, err);
+            showToast(`Failed to dismiss report (id:${report.id}).`, 'error');
+        }
+    };
+
     const handleCreateUser = async (formData) => {
         setCreatingUser(true);
         const payload = {
@@ -2431,6 +3728,44 @@ function AdminPanel() {
             showToast(errMsg, 'error');
         } finally {
             setCreatingUser(false);
+        }
+    };
+
+    const handleCreateTask = async (formData) => {
+        setCreatingTask(true);
+        const targetProjId = formData.projectId || (projects[0]?.id || '1');
+        const payload = {
+            title: (formData.title || '').trim(),
+            description: (formData.description || '').trim(),
+            desc: (formData.description || '').trim(),
+            priority: (formData.priority || 'MEDIUM').toUpperCase(),
+            status: (formData.status || 'TODO').toUpperCase(),
+            assignee: (formData.assignee || '').trim() || null,
+            assigner: (formData.assigner || currentUser.username || 'Admin').trim() || null,
+            startDate: formData.startDate || null,
+            dueDate: formData.dueDate || null,
+            start_date: formData.startDate || null,
+            end_date: formData.dueDate || null,
+            dates: formData.startDate && formData.dueDate ? `${formData.startDate} - ${formData.dueDate}` : null,
+            projectId: String(targetProjId)
+        };
+
+        try {
+            try {
+                await request.post(`/api/projects/${targetProjId}/tasks`, payload);
+            } catch (postErr1) {
+                await request.post('/api/tasks', payload);
+            }
+
+            showToast(`Task "${payload.title}" created successfully.`, 'success');
+            setIsCreateTaskOpen(false);
+            await fetchAllTasks();
+        } catch (err) {
+            console.error('Failed to create task:', err);
+            const errMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Failed to create task.';
+            showToast(errMsg, 'error');
+        } finally {
+            setCreatingTask(false);
         }
     };
 
@@ -2470,7 +3805,7 @@ function AdminPanel() {
 
                 <div className="unauthorized-container">
                     <div className="unauthorized-message">Failed To load content</div>
-                    <ReloadButton onReload={() => {}} isLoading={false} />
+                    <ReloadButton onReload={() => { }} isLoading={false} />
                 </div>
             </div>
         );
@@ -2506,7 +3841,10 @@ function AdminPanel() {
                     <button
                         type="button"
                         className={`admin-tab ${activeTab === 'tasks' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('tasks')}
+                        onClick={() => {
+                            setActiveTab('tasks');
+                            fetchAllTasks();
+                        }}
                     >
                         Edit Tasks
                     </button>
@@ -2520,7 +3858,10 @@ function AdminPanel() {
                     <button
                         type="button"
                         className={`admin-tab tab-reports ${activeTab === 'reports' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('reports')}
+                        onClick={() => {
+                            setActiveTab('reports');
+                            fetchReports();
+                        }}
                     >
                         User Reports
                     </button>
@@ -2562,10 +3903,22 @@ function AdminPanel() {
                     )}
 
                     {activeTab === 'tasks' && (
-                        <div className="placeholder-tab-content">
-                            <h3>Edit Tasks Administration</h3>
-                            <p>Manage and configure global tasks across all projects.</p>
-                        </div>
+                        tasksError ? (
+                            <div className="admin-reload-center-box">
+                                <ReloadButton onReload={fetchAllTasks} isLoading={tasksLoading} />
+                            </div>
+                        ) : (
+                            <TasksTabContent
+                                tasks={adminTasks}
+                                searchQuery={taskSearch}
+                                onSearchChange={setTaskSearch}
+                                onEditTask={handleEditTask}
+                                onToggleCancelTask={handleToggleCancelTask}
+                                onDeleteTask={handleDeleteTask}
+                                onCreateTask={() => setIsCreateTaskOpen(true)}
+                                loading={tasksLoading}
+                            />
+                        )
                     )}
 
                     {activeTab === 'users' && (
@@ -2589,10 +3942,19 @@ function AdminPanel() {
                     )}
 
                     {activeTab === 'reports' && (
-                        <div className="placeholder-tab-content">
-                            <h3 style={{ color: '#d93025' }}>User Reports Administration</h3>
-                            <p>View and manage submitted user reports and moderation requests.</p>
-                        </div>
+                        reportsError ? (
+                            <div className="admin-reload-center-box">
+                                <ReloadButton onReload={fetchReports} isLoading={reportsLoading} />
+                            </div>
+                        ) : (
+                            <ReportsTabContent
+                                reports={reportsList}
+                                searchQuery={reportSearch}
+                                onSearchChange={setReportSearch}
+                                onViewReport={(report) => setViewingReport(report)}
+                                loading={reportsLoading}
+                            />
+                        )
                     )}
 
                     {activeTab === 'appeals' && (
@@ -2627,6 +3989,19 @@ function AdminPanel() {
                 />
             )}
 
+            {/* Edit Task Modal */}
+            {editingTask && (
+                <EditTaskModal
+                    task={editingTask}
+                    projects={projects}
+                    users={usersList}
+                    loadingUsers={loadingUsers}
+                    onFetchUsers={fetchUsers}
+                    onSave={handleSaveTask}
+                    onCancel={() => setEditingTask(null)}
+                />
+            )}
+
             {/* Edit User Modal */}
             {editingUser && (
                 <EditUserModal
@@ -2646,7 +4021,21 @@ function AdminPanel() {
                 />
             )}
 
-            {/* Delete Confirmation Modal */}
+            {/* Create Task Modal */}
+            {isCreateTaskOpen && (
+                <CreateTaskModal
+                    projects={projects}
+                    users={usersList}
+                    loadingUsers={loadingUsers}
+                    onFetchUsers={fetchUsers}
+                    onSave={handleCreateTask}
+                    onCancel={() => setIsCreateTaskOpen(false)}
+                    isSubmitting={creatingTask}
+                    defaultAssigner={currentUser.username || 'Admin'}
+                />
+            )}
+
+            {/* Delete Project Confirmation Modal */}
             {deletingProject && (
                 <DeleteConfirmModal
                     project={deletingProject}
@@ -2655,11 +4044,30 @@ function AdminPanel() {
                 />
             )}
 
+            {/* Delete Task Confirmation Modal */}
+            {deletingTask && (
+                <DeleteTaskConfirmModal
+                    task={deletingTask}
+                    onConfirm={handleConfirmDeleteTask}
+                    onCancel={() => setDeletingTask(null)}
+                />
+            )}
+
             {/* View Appeal Modal */}
             {viewingAppeal && (
                 <ViewAppealModal
                     appeal={viewingAppeal}
                     onClose={() => setViewingAppeal(null)}
+                />
+            )}
+
+            {/* View Report Modal */}
+            {viewingReport && (
+                <ViewReportModal
+                    report={viewingReport}
+                    onClose={() => setViewingReport(null)}
+                    onBlock={handleBlockReportUser}
+                    onDismiss={handleDismissReport}
                 />
             )}
 

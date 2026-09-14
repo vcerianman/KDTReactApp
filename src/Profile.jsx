@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import './Profile.css';
 import NavBar from './NavBar';
 import request from './api/Request';
@@ -81,7 +81,18 @@ function ProfileHeader({ profile, onOpenStats }) {
                     >
                         Statistics
                     </button>
-                    <a href="Report.html" className="options-menu-item">Report</a>
+                    <Link
+                        to={`/report?username=${encodeURIComponent(profile.username_viewing || '')}&type=user`}
+                        state={{
+                            username: profile.username_viewing || '',
+                            type: 'user',
+                            fullname: profile.fullname_viewing || ''
+                        }}
+                        className="options-menu-item"
+                        onClick={() => setIsMenuOpen(false)}
+                    >
+                        Report
+                    </Link>
                 </div>
             </div>
 
@@ -446,6 +457,53 @@ function Profile() {
             }
         } catch (err) {
             console.error(`User ID ${viewingId} failed to load (/api/users/${viewingId}):`, err);
+
+            // Try fallback: lookup in /api/users by username or id
+            try {
+                const allUsersRes = await request.get('/api/users');
+                const uList = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes?.data && Array.isArray(allUsersRes.data) ? allUsersRes.data : []);
+                const matchedUser = uList.find(u => {
+                    const uid = String(u.id ?? u.ID ?? u.Id ?? u._id ?? '');
+                    const uname = String(u.username ?? u.userName ?? '').toLowerCase();
+                    const target = String(viewingId).toLowerCase().trim();
+                    return uid === target || uname === target;
+                });
+
+                if (matchedUser) {
+                    const uname = matchedUser.username || matchedUser.userName || `user_${viewingId}`;
+                    const fname = matchedUser.full_name || matchedUser.fullName || matchedUser.fullname || matchedUser.name || uname;
+                    const strengthsList = Array.isArray(matchedUser.about)
+                        ? matchedUser.about
+                        : (matchedUser.about?.strengths || (matchedUser.about ? [matchedUser.about] : []));
+
+                    setUserViewing({
+                        id: String(matchedUser.id ?? matchedUser.ID ?? matchedUser.Id ?? matchedUser._id ?? viewingId),
+                        username: uname,
+                        fullname: fname,
+                        role: matchedUser.role || matchedUser.userRole || 'MEMBER',
+                        image: matchedUser.image || matchedUser.avatar || (uname ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg'),
+                        about: {
+                            strengths: strengthsList.length > 0 ? strengthsList : ['Collaboration', 'Communication', 'Execution'],
+                            skills: Array.isArray(matchedUser.skills) ? matchedUser.skills : ['Team Management', 'React', 'Problem Solving']
+                        },
+                        contacts: {
+                            email: matchedUser.email || `${uname.toLowerCase()}@example.com`
+                        },
+                        stats: {
+                            dateJoined: '01/01/2026',
+                            accountStatus: matchedUser.status || 'ACTIVE',
+                            accountRole: matchedUser.role || 'MEMBER'
+                        },
+                        projects: []
+                    });
+                    setUserNotFound(false);
+                    setLoadError(false);
+                    return;
+                }
+            } catch (fallbackErr) {
+                // ignore
+            }
+
             const status = err?.response?.status;
             setUserViewing(null);
             if (status === 404) {

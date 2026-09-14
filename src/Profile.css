@@ -76,6 +76,19 @@
     opacity: 0.5;
     pointer-events: none;
 }
+
+.profile-page-wrapper .section-reload-btn.loading svg {
+    animation: reload-spin 1s linear infinite;
+}
+
+@keyframes reload-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
 /* #endregion */
 
 /* #region Search Bar Component */

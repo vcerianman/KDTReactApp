@@ -405,6 +405,19 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
                     <span className="logged-in-username" style={styles.loggedInUsername}>@{currentUserName || "?"}</span>
                 </div>
 
+                <Link
+                    to="/communication"
+                    className="nav-icon-btn"
+                    style={styles.navIconBtn}
+                    title="Communication"
+                    aria-label="Communication"
+                >
+                    <svg viewBox="0 0 24 24" width="32" height="32" fill="#000000">
+                        <path d="M4 2h16c1.1 0 2 .9 2 2v18l-4-4H4c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm0 14h14l2 2V4H4v12z" />
+                        <path d="M6 6h12v2H6zm0 3.5h12v2H6zm0 3.5h12v2H6z" />
+                    </svg>
+                </Link>
+
                 <button className="nav-icon-btn" style={styles.navIconBtn} title="Notifications" aria-label="Notifications">
                     <svg viewBox="0 0 24 24" width="32" height="32" fill="#000000">
                         <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />

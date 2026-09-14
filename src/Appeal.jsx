@@ -119,7 +119,7 @@ function Appeal() {
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
 
-    // Helper: checks if a given username has already submitted an appeal (exact and case-insensitive matching)
+    //checks if a given username has already submitted an appeal
     const isUsernameAppealed = (usernameToCheck, list) => {
         if (!usernameToCheck) return false;
         const target = String(usernameToCheck).trim();
@@ -140,7 +140,7 @@ function Appeal() {
         });
     };
 
-    // Helper: fetches the latest appeals list from GET /api/appeals
+    // fetches the latest appeals list from GET /api/appeals
     const fetchAppeals = async () => {
         try {
             const data = await request.get('/api/appeals');

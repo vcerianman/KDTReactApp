@@ -73,9 +73,10 @@ function UsersHeader({ searchQuery, onSearchChange, category, onCategoryChange }
 // Single User Card Component
 function UserCard({ user }) {
     const avatarSrc = user.image || getUserAvatarUrl(user.username);
+    const isBlocked = String(user.status || '').toUpperCase() === 'BLOCKED';
 
     return (
-        <div className="user-card">
+        <div className={`user-card ${isBlocked ? 'user-card-blocked' : ''}`}>
             <div className="user-avatar-box">
                 <img
                     src={avatarSrc}

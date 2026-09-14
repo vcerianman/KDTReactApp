@@ -16,6 +16,8 @@ import CreateProjects from './CreateProjects';
 import CreateTasks from './CreateTasks';
 import AdminPanel from './AdminPanel';
 import Appeal from './Appeal';
+import Communication from './Communication';
+import Report from './Report';
 
 // Generic placeholder page component for pages still under construction
 function PlaceholderPage({ title, description }) {
@@ -272,22 +274,7 @@ const router = createBrowserRouter([
     path: "/help",
     element: <PlaceholderPage title="Help & Support" description="Documentation, FAQs, and support." />,
   },
-  {
-    path: "/admin",
-    element: <AdminPanel />,
-  },
-  {
-    path: "/admin-panel",
-    element: <AdminPanel />,
-  },
-  {
-    path: "/appeal",
-    element: <Appeal />,
-  },
-  {
-    path: "/appeals",
-    element: <Appeal />,
-  },
+
 ]);
 
 export default function App() {

@@ -241,12 +241,25 @@ function Home() {
         setTasksLoading(true);
         setTasksError(false);
         try {
-            // Priority ordering dictionary
+            // Priority ordering dictionary: URGENT > HIGH > MEDIUM > LOW
             const priorityOrder = {
                 'URGENT': 0,
                 'HIGH': 1,
                 'MEDIUM': 2,
                 'LOW': 3
+            };
+
+            // Status ordering dictionary: TODO > IN_PROGRESS > DONE > CANCELLED
+            const statusOrder = {
+                'TODO': 0,
+                'TO_DO': 0,
+                'IN_PROGRESS': 1,
+                'IN PROGRESS': 1,
+                'DOING': 1,
+                'DONE': 2,
+                'COMPLETED': 2,
+                'CANCELLED': 3,
+                'CANCELED': 3
             };
 
             // 1. Get logged-in user ID
@@ -303,11 +316,17 @@ function Home() {
                 allTasks = taskResults.flat();
             }
 
-            // 4. Sort tasks by priority: URGENT, HIGH, MEDIUM, LOW
+            // 4. Sort tasks: 1st by priority (URGENT > HIGH > MEDIUM > LOW), 2nd by completion status (TODO > IN_PROGRESS > DONE > CANCELLED)
             allTasks.sort((a, b) => {
                 const pA = priorityOrder[(a.priority || '').toUpperCase()] ?? 4;
                 const pB = priorityOrder[(b.priority || '').toUpperCase()] ?? 4;
-                return pA - pB;
+                if (pA !== pB) {
+                    return pA - pB;
+                }
+
+                const sA = statusOrder[(a.status || '').toUpperCase()] ?? 4;
+                const sB = statusOrder[(b.status || '').toUpperCase()] ?? 4;
+                return sA - sB;
             });
 
             setTasks(allTasks);
