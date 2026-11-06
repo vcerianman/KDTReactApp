@@ -14,7 +14,6 @@
     min-height: 100vh;
     padding: 0 0 40px 0;
     box-sizing: border-box;
-    transition: background-color 0.2s, color 0.2s;
 }
 
 .settings-page-wrapper #navbar-root {
@@ -330,6 +329,26 @@
 .settings-page-wrapper.dark-mode .btn-save-setting:hover {
     background-color: #383c40;
     color: #ffffff;
+}
+
+/* Disable all transitions during page load */
+.settings-page-wrapper.no-theme-transition,
+.settings-page-wrapper.no-theme-transition * {
+    transition: none !important;
+}
+
+/* Only transition colors when user explicitly changes theme */
+.settings-page-wrapper.theme-transition {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.settings-page-wrapper.theme-transition .sidebar-card,
+.settings-page-wrapper.theme-transition .sidebar-tab-item,
+.settings-page-wrapper.theme-transition .setting-input-box,
+.settings-page-wrapper.theme-transition .setting-select-box,
+.settings-page-wrapper.theme-transition .btn-upload,
+.settings-page-wrapper.theme-transition .btn-save-setting {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 /* #endregion */

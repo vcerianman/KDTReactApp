@@ -349,3 +349,128 @@
     }
 }
 /* #endregion */
+
+/* #region Dark Mode Theme Overrides */
+.projects-page-wrapper.dark-mode {
+    background-color: #1a1c1e;
+    color: #e1e3e6;
+}
+
+.projects-page-wrapper.dark-mode .page-title,
+.projects-page-wrapper.dark-mode .project-title,
+.projects-page-wrapper.dark-mode .status-text,
+.projects-page-wrapper.dark-mode .new-project-label {
+    color: #ffffff;
+}
+
+.projects-page-wrapper.dark-mode .project-id,
+.projects-page-wrapper.dark-mode .project-dates {
+    color: #888888;
+}
+
+.projects-page-wrapper.dark-mode .project-desc {
+    color: #b0b3b8;
+}
+
+/* Dark Mode Outer Card */
+.projects-page-wrapper.dark-mode .projects-outer-card {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+}
+
+/* Dark Mode Project Tile */
+.projects-page-wrapper.dark-mode .project-card {
+    background-color: #2c3034;
+}
+
+.projects-page-wrapper.dark-mode .project-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* Dark Mode Action Button */
+.projects-page-wrapper.dark-mode .btn-tasks {
+    background-color: #383c40;
+    color: #ffffff;
+}
+
+.projects-page-wrapper.dark-mode .btn-tasks:hover {
+    background-color: #4a4f54;
+    color: #ffffff;
+}
+
+.projects-page-wrapper.dark-mode .btn-tasks:active {
+    background-color: #2c3034;
+}
+
+/* Dark Mode Search Input */
+.projects-page-wrapper.dark-mode .top-search-input {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.projects-page-wrapper.dark-mode .top-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.25);
+}
+
+.projects-page-wrapper.dark-mode .top-search-input::placeholder {
+    color: #888888;
+}
+
+.projects-page-wrapper.dark-mode .search-icon {
+    fill: #888888;
+}
+
+.projects-page-wrapper.dark-mode .search-container:focus-within .search-icon {
+    fill: #00a2ff;
+}
+
+/* Dark Mode Scrollbar */
+.projects-page-wrapper.dark-mode .projects-scroll-wrapper::-webkit-scrollbar-track {
+    background: #1e2023;
+}
+
+.projects-page-wrapper.dark-mode .projects-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #44494f;
+}
+
+.projects-page-wrapper.dark-mode .projects-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #5c626a;
+}
+
+/* Dark Mode Reload Button */
+.projects-page-wrapper.dark-mode .section-reload-btn {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+}
+
+.projects-page-wrapper.dark-mode .section-reload-btn svg {
+    stroke: #b0b3b8;
+}
+
+.projects-page-wrapper.dark-mode .section-reload-btn:hover {
+    background-color: #383c40;
+    border-color: #60646c;
+}
+
+/* Disable all transitions during page load */
+.projects-page-wrapper.no-theme-transition,
+.projects-page-wrapper.no-theme-transition * {
+    transition: none !important;
+}
+
+/* Only transition colors when user explicitly changes theme */
+.projects-page-wrapper.theme-transition {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.projects-page-wrapper.theme-transition .projects-outer-card,
+.projects-page-wrapper.theme-transition .project-card,
+.projects-page-wrapper.theme-transition .top-search-input,
+.projects-page-wrapper.theme-transition .btn-tasks,
+.projects-page-wrapper.theme-transition .section-reload-btn {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+/* #endregion */
+

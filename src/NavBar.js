@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import request from './api/Request';
 import Blockbanner from './Blockbanner';
+import { useCurrentUser } from './useCurrentUser';
 
-function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/ProfilePic/0.jpg", userRole = "", role = "" }) {
+function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/ProfilePic/0.jpg", userRole = "", role = "", theme = "", themeTransition = false }) {
+    const navigate = useNavigate();
+    const { currentUser: cachedUser } = useCurrentUser();
     // 1. SCRIPTS
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -14,6 +17,13 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
     const [currentUserName, setCurrentUserName] = useState(userName);
     const [currentUserImg, setCurrentUserImg] = useState(userImg);
     const [currentRole, setCurrentRole] = useState(userRole || role || '');
+    const [currentTheme, setCurrentTheme] = useState(() => {
+        if (theme) return theme;
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('taskflow_theme') || 'light';
+        }
+        return 'light';
+    });
 
     const settingsRef = useRef(null);
     const searchRef = useRef(null);
@@ -25,44 +35,52 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
         if (userName && userName !== '?') setCurrentUserName(userName);
         if (userImg && userImg !== '/ProfilePic/0.jpg') setCurrentUserImg(userImg);
         if (userRole || role) setCurrentRole(userRole || role);
-    }, [userId, fullName, userName, userImg, userRole, role]);
+        if (theme) setCurrentTheme(theme);
+    }, [userId, fullName, userName, userImg, userRole, role, theme]);
 
-    // Fetch logged in user data from GET /api/auth/me
+    // Listen for global theme changes
     useEffect(() => {
-        const fetchLoggedInUser = async () => {
-            try {
-                const data = await request.get('/api/auth/me');
-                if (data) {
-                    const uData = data.data || data;
-                    if (uData.id || uData.userId || uData._id) {
-                        setCurrentUserId(String(uData.id || uData.userId || uData._id));
-                    }
-                    const name = uData.fullname || uData.full_name || uData.fullName || uData.name;
-                    if (name) {
-                        setCurrentFullName(name);
-                    }
-                    const uname = uData.username || uData.userName;
-                    if (uname) {
-                        setCurrentUserName(uname);
-                    }
-                    const img = uData.image || uData.avatar || uData.profilePic;
-                    if (img) {
-                        setCurrentUserImg(img);
-                    } else if (uname) {
-                        setCurrentUserImg(prev => (!prev || prev === '/ProfilePic/0.jpg' ? `/ProfilePic/${uname}.jpg` : prev));
-                    }
-                    const r = uData.role || uData.userRole;
-                    if (r) {
-                        setCurrentRole(r);
-                    }
-                }
-            } catch (err) {
-                // ignore if unauthenticated
+        const handleThemeEvent = (e) => {
+            if (e?.detail?.theme) {
+                setCurrentTheme(e.detail.theme);
             }
         };
-
-        fetchLoggedInUser();
+        const handleStorage = (e) => {
+            if (e.key === 'taskflow_theme' && e.newValue) {
+                setCurrentTheme(e.newValue);
+            }
+        };
+        window.addEventListener('taskflow_theme_change', handleThemeEvent);
+        window.addEventListener('storage', handleStorage);
+        return () => {
+            window.removeEventListener('taskflow_theme_change', handleThemeEvent);
+            window.removeEventListener('storage', handleStorage);
+        };
     }, []);
+
+    // Synchronize logged-in user data from shared cache
+    useEffect(() => {
+        if (cachedUser && cachedUser.id && cachedUser.id !== '?') {
+            if (!userId || userId === '?') {
+                setCurrentUserId(cachedUser.id);
+            }
+            if (!fullName || fullName === '?') {
+                setCurrentFullName(cachedUser.fullname);
+            }
+            if (!userName || userName === '?') {
+                setCurrentUserName(cachedUser.username);
+            }
+            if (!userImg || userImg === '/ProfilePic/0.jpg') {
+                setCurrentUserImg(cachedUser.image);
+            }
+            if (!userRole && !role && cachedUser.role) {
+                setCurrentRole(cachedUser.role);
+            }
+            if (!theme && cachedUser.theme) {
+                setCurrentTheme(cachedUser.theme);
+            }
+        }
+    }, [cachedUser, userId, fullName, userName, userImg, userRole, role, theme]);
 
     const profilePath = currentUserId && currentUserId !== '?' ? `/profile/${currentUserId}` : '/profile';
     const normalizedRole = String(currentRole || userRole || role || '').toUpperCase();
@@ -89,6 +107,16 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
         }
     };
 
+    const handleLogout = (e) => {
+        e.preventDefault();
+        setIsSettingsOpen(false);
+        // Clear all persistent user tokens, cached info, and theme state
+        localStorage.clear();
+        sessionStorage.clear();
+        // Redirect and reload page memory to prevent state leakage
+        window.location.href = '/login';
+    };
+
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (settingsRef.current && !settingsRef.current.contains(e.target)) {
@@ -106,13 +134,17 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
     }, []);
 
     // 2. CSS
+    const activeTheme = theme || currentTheme || (typeof document !== 'undefined' && document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+    const isDark = String(activeTheme).toLowerCase() === 'dark';
+    const transitionStyle = themeTransition ? 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease' : 'none';
+
     const styles = {
         topNavbar: {
             position: 'sticky',
             top: 0,
             zIndex: 1000,
-            backgroundColor: '#e3e5e6',
-            borderBottom: '1px solid #d6d6d6',
+            backgroundColor: isDark ? '#24272a' : '#e3e5e6',
+            borderBottom: isDark ? '1px solid #383c40' : '1px solid #d6d6d6',
             padding: '8px 24px',
             display: 'flex',
             justifyContent: 'space-between',
@@ -120,8 +152,9 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
             width: '100%',
             marginBottom: '20px',
             fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif",
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
+            boxShadow: isDark ? '0 1px 3px rgba(0, 0, 0, 0.2)' : '0 1px 3px rgba(0, 0, 0, 0.03)',
             boxSizing: 'border-box',
+            transition: transitionStyle,
         },
         navLeft: {
             display: 'flex',
@@ -132,9 +165,10 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
         navBrand: {
             fontWeight: 700,
             fontSize: '30px',
-            color: '#000000',
+            color: isDark ? '#ffffff' : '#000000',
             letterSpacing: '0.5px',
             textDecoration: 'none',
+            transition: themeTransition ? 'color 0.2s ease' : 'none',
         },
         navLinks: {
             display: 'flex',
@@ -143,12 +177,12 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
         },
         navLink: {
             fontSize: '20px',
-            color: '#393b3d',
+            color: isDark ? '#c5c8cc' : '#393b3d',
             textDecoration: 'none',
             fontWeight: 400,
             marginRight: '25px',
             marginLeft: '25px',
-            transition: 'color 0.15s ease',
+            transition: themeTransition ? 'color 0.2s ease' : 'color 0.15s ease',
         },
         navCenter: {
             display: 'flex',
@@ -171,16 +205,16 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
         topSearchInput: {
             width: '100%',
             padding: '5px 12px 5px 30px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #c5c7ca',
+            backgroundColor: isDark ? '#2c3034' : '#ffffff',
+            border: isDark ? '1px solid #4a4f54' : '1px solid #c5c7ca',
             borderRadius: '8px',
             fontSize: '18px',
             fontWeight: 500,
             fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif",
-            color: '#333333',
+            color: isDark ? '#ffffff' : '#333333',
             outline: 'none',
             boxSizing: 'border-box',
-            transition: 'border-color 0.15s, box-shadow 0.15s',
+            transition: themeTransition ? 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease' : 'border-color 0.15s, box-shadow 0.15s',
         },
         searchDropdownCard: {
             display: 'block',
@@ -188,10 +222,10 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
             top: 'calc(100% + 6px)',
             left: 0,
             right: 0,
-            backgroundColor: '#ffffff',
-            border: '1px solid #d6d6d6',
+            backgroundColor: isDark ? '#24272a' : '#ffffff',
+            border: isDark ? '1px solid #383c40' : '1px solid #d6d6d6',
             borderRadius: '8px',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+            boxShadow: isDark ? '0 4px 16px rgba(0, 0, 0, 0.3)' : '0 4px 16px rgba(0, 0, 0, 0.12)',
             zIndex: 1005,
             overflow: 'hidden',
             padding: '4px 0',
@@ -201,14 +235,14 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
             alignItems: 'center',
             padding: '9px 14px',
             fontSize: '20px',
-            color: '#393b3d',
+            color: isDark ? '#e1e3e6' : '#393b3d',
             textDecoration: 'none',
             fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif",
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             cursor: 'pointer',
-            borderBottom: '1px solid #f2f3f5',
+            borderBottom: isDark ? '1px solid #383c40' : '1px solid #f2f3f5',
             transition: 'background-color 0.15s ease, color 0.15s ease',
         },
         searchOptionIcon: {
@@ -216,7 +250,7 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
-            color: '#888888',
+            color: isDark ? '#9da0a5' : '#888888',
             transition: 'color 0.15s ease',
         },
         searchUserInputText: {
@@ -241,7 +275,8 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
             alignItems: 'center',
             gap: '6px',
             fontSize: '13px',
-            color: '#393b3d',
+            color: isDark ? '#e1e3e6' : '#393b3d',
+            transition: themeTransition ? 'color 0.2s ease' : 'none',
         },
         userBadgeLink: {
             display: 'flex',
@@ -255,16 +290,17 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
             height: '30px',
             borderRadius: '50%',
             objectFit: 'cover',
-            border: '1px solid #d0d2d4',
+            border: isDark ? '1px solid #4a4f54' : '1px solid #d0d2d4',
         },
         loggedInFullname: {
             fontWeight: 600,
-            color: '#111111',
+            color: isDark ? '#ffffff' : '#111111',
             textDecoration: 'none',
-            transition: 'color 0.15s ease',
+            transition: themeTransition ? 'color 0.2s ease' : 'color 0.15s ease',
         },
         loggedInUsername: {
-            color: '#666666',
+            color: isDark ? '#9da0a5' : '#666666',
+            transition: themeTransition ? 'color 0.2s ease' : 'none',
         },
         navIconBtn: {
             background: 'transparent',
@@ -286,10 +322,10 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
             position: 'absolute',
             right: 0,
             top: '42px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #d6d6d6',
+            backgroundColor: isDark ? '#24272a' : '#ffffff',
+            border: isDark ? '1px solid #383c40' : '1px solid #d6d6d6',
             borderRadius: '6px',
-            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.12)',
+            boxShadow: isDark ? '0 4px 14px rgba(0, 0, 0, 0.3)' : '0 4px 14px rgba(0, 0, 0, 0.12)',
             width: '170px',
             zIndex: 1002,
             overflow: 'hidden',
@@ -298,21 +334,22 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
             display: 'block',
             padding: '10px 16px',
             fontSize: '16px',
-            color: '#393b3d',
+            color: isDark ? '#e1e3e6' : '#393b3d',
             textDecoration: 'none',
             fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif",
-            borderBottom: '1px solid #e8eaea',
+            borderBottom: isDark ? '1px solid #383c40' : '1px solid #e8eaea',
             transition: 'background-color 0.15s ease, color 0.15s ease',
         },
         logoutItem: {
             display: 'block',
             padding: '10px 16px',
             fontSize: '16px',
-            color: '#393b3d',
+            color: isDark ? '#e1e3e6' : '#393b3d',
             textDecoration: 'none',
             fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif",
             borderBottom: 'none',
             transition: 'background-color 0.15s ease, color 0.15s ease',
+            cursor: 'pointer'
         },
     };
 
@@ -321,142 +358,149 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
 
     return (
         <React.Fragment>
-            <nav className="top-navbar" style={styles.topNavbar}>
-            {/* Left section: Brand & Navigation links */}
-            <div className="nav-left" style={styles.navLeft}>
-                <Link to="/home" className="nav-brand" style={styles.navBrand}>TASKFLOW</Link>
-                <div className="nav-links" style={styles.navLinks}>
-                    <Link to="/projects" className="nav-link" style={styles.navLink}>My Projects</Link>
-                    <Link to="/tasks" className="nav-link" style={styles.navLink}>My Tasks</Link>
-                    <Link to="/users" className="nav-link" style={styles.navLink}>Users</Link>
-                    {isAdminOrGod && (
-                        <Link to="/admin" className="nav-link" style={styles.navLink}>Admin panel</Link>
-                    )}
+            <style>{`
+                .top-navbar.dark-mode .nav-link:hover { color: #ffffff !important; }
+                .top-navbar.dark-mode .settings-menu-item:hover { background-color: #2c3034 !important; color: #00a2ff !important; }
+                .top-navbar.dark-mode .search-dropdown-option:hover { background-color: #2c3034 !important; }
+                .top-navbar.dark-mode .nav-icon-btn:hover { background-color: rgba(255, 255, 255, 0.08) !important; }
+                .top-navbar:not(.dark-mode) .nav-link:hover { color: #000000 !important; }
+                .top-navbar:not(.dark-mode) .settings-menu-item:hover { background-color: #f8f9fa !important; color: #00a2ff !important; }
+                .top-navbar:not(.dark-mode) .search-dropdown-option:hover { background-color: #f8f9fa !important; }
+                .top-navbar:not(.dark-mode) .nav-icon-btn:hover { background-color: rgba(0, 0, 0, 0.05) !important; }
+            `}</style>
+            <nav className={`top-navbar ${isDark ? 'dark-mode' : ''}`} style={styles.topNavbar}>
+                {/* Left section: Brand & Navigation links */}
+                <div className="nav-left" style={styles.navLeft}>
+                    <Link to="/home" className="nav-brand" style={styles.navBrand}>TASKFLOW</Link>
+                    <div className="nav-links" style={styles.navLinks}>
+                        <Link to="/projects" className="nav-link" style={styles.navLink}>My Projects</Link>
+                        <Link to="/tasks" className="nav-link" style={styles.navLink}>My Tasks</Link>
+                        <Link to="/users" className="nav-link" style={styles.navLink}>Users</Link>
+                        {isAdminOrGod && (
+                            <Link to="/admin" className="nav-link" style={styles.navLink}>Admin panel</Link>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* Center section: Search input & live suggestions */}
-            <div className="nav-center" style={styles.navCenter}>
-                <div className="search-container" style={styles.searchContainer} ref={searchRef}>
-                    <svg className="search-icon" style={styles.searchIcon} viewBox="0 0 24 24" width="24" height="24" fill="#999">
-                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                    </svg>
-                    <input
-                        type="text"
-                        className="top-search-input"
-                        id="topSearchInput"
-                        style={styles.topSearchInput}
-                        placeholder=" Search"
-                        autoComplete="off"
-                        value={searchQuery}
-                        onChange={handleSearchChange}
-                        onFocus={handleSearchFocus}
-                    />
-                    {isSearchOpen && trimmedSearch.length > 0 && (
-                        <div className="search-dropdown-card show" id="searchDropdownCard" style={styles.searchDropdownCard}>
-                            <Link
-                                to={`/projects?search=${encodeURIComponent(trimmedSearch)}`}
-                                className="search-dropdown-option"
-                                id="searchOptionProjects"
-                                style={styles.searchDropdownOption}
-                                onClick={() => setIsSearchOpen(false)}
-                            >
-                                <span>Search "<span className="search-user-input-text" style={styles.searchUserInputText}>{trimmedSearch}</span>" in Projects</span>
-                            </Link>
-                            <Link
-                                to={`/tasks?search=${encodeURIComponent(trimmedSearch)}`}
-                                className="search-dropdown-option"
-                                id="searchOptionTasks"
-                                style={styles.searchDropdownOption}
-                                onClick={() => setIsSearchOpen(false)}
-                            >
-                                <span>Search "<span className="search-user-input-text" style={styles.searchUserInputText}>{trimmedSearch}</span>" in Tasks</span>
-                            </Link>
-                            <Link
-                                to={`/users?search=${encodeURIComponent(trimmedSearch)}`}
-                                className="search-dropdown-option"
-                                id="searchOptionUsers"
-                                style={styles.searchDropdownOption}
-                                onClick={() => setIsSearchOpen(false)}
-                            >
-                                <span>Search "<span className="search-user-input-text" style={styles.searchUserInputText}>{trimmedSearch}</span>" in Users</span>
-                            </Link>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Right section: Profile badge, Notifications, Settings */}
-            <div className="nav-right" style={styles.navRight}>
-                <div className="user-badge" style={styles.userBadge}>
-                    <Link to={profilePath} style={styles.userBadgeLink} title="Go to my profile">
-                        <img
-                            src={currentUserImg || (currentUserName && currentUserName !== '?' ? `/ProfilePic/${currentUserName}.jpg` : '/ProfilePic/0.jpg')}
-                            alt={currentFullName || currentUserName || "?"}
-                            className="nav-avatar-img"
-                            style={styles.navAvatarImg}
-                            onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = '/ProfilePic/0.jpg';
-                            }}
+                {/* Center section: Search input & live suggestions */}
+                <div className="nav-center" style={styles.navCenter}>
+                    <div className="search-container" style={styles.searchContainer} ref={searchRef}>
+                        <svg className="search-icon" style={styles.searchIcon} viewBox="0 0 24 24" width="24" height="24" fill={isDark ? '#888888' : '#999999'}>
+                            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                        </svg>
+                        <input
+                            type="text"
+                            className="top-search-input"
+                            id="topSearchInput"
+                            style={styles.topSearchInput}
+                            placeholder=" Search"
+                            autoComplete="off"
+                            value={searchQuery}
+                            onChange={handleSearchChange}
+                            onFocus={handleSearchFocus}
                         />
-                        <span className="logged-in-fullname" style={styles.loggedInFullname}>{currentFullName || "?"}</span>
-                    </Link>
-                    <span className="logged-in-username" style={styles.loggedInUsername}>@{currentUserName || "?"}</span>
+                        {isSearchOpen && trimmedSearch.length > 0 && (
+                            <div className="search-dropdown-card show" id="searchDropdownCard" style={styles.searchDropdownCard}>
+                                <Link
+                                    to={`/projects?search=${encodeURIComponent(trimmedSearch)}`}
+                                    className="search-dropdown-option"
+                                    id="searchOptionProjects"
+                                    style={styles.searchDropdownOption}
+                                    onClick={() => setIsSearchOpen(false)}
+                                >
+                                    <span>Search "<span className="search-user-input-text" style={styles.searchUserInputText}>{trimmedSearch}</span>" in Projects</span>
+                                </Link>
+                                <Link
+                                    to={`/tasks?search=${encodeURIComponent(trimmedSearch)}`}
+                                    className="search-dropdown-option"
+                                    id="searchOptionTasks"
+                                    style={styles.searchDropdownOption}
+                                    onClick={() => setIsSearchOpen(false)}
+                                >
+                                    <span>Search "<span className="search-user-input-text" style={styles.searchUserInputText}>{trimmedSearch}</span>" in Tasks</span>
+                                </Link>
+                                <Link
+                                    to={`/users?search=${encodeURIComponent(trimmedSearch)}`}
+                                    className="search-dropdown-option"
+                                    id="searchOptionUsers"
+                                    style={styles.searchDropdownOption}
+                                    onClick={() => setIsSearchOpen(false)}
+                                >
+                                    <span>Search "<span className="search-user-input-text" style={styles.searchUserInputText}>{trimmedSearch}</span>" in Users</span>
+                                </Link>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                <Link
-                    to="/communication"
-                    className="nav-icon-btn"
-                    style={styles.navIconBtn}
-                    title="Communication"
-                    aria-label="Communication"
-                >
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="#000000">
-                        <path d="M4 2h16c1.1 0 2 .9 2 2v18l-4-4H4c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm0 14h14l2 2V4H4v12z" />
-                        <path d="M6 6h12v2H6zm0 3.5h12v2H6zm0 3.5h12v2H6z" />
-                    </svg>
-                </Link>
+                {/* Right section: Profile badge, Notifications, Settings */}
+                <div className="nav-right" style={styles.navRight}>
+                    <div className="user-badge" style={styles.userBadge}>
+                        <Link to={profilePath} style={styles.userBadgeLink} title="Go to my profile">
+                            <img
+                                src={currentUserImg || (currentUserName && currentUserName !== '?' ? `/ProfilePic/${currentUserName}.jpg` : '/ProfilePic/0.jpg')}
+                                alt={currentFullName || currentUserName || "?"}
+                                className="nav-avatar-img"
+                                style={styles.navAvatarImg}
+                                onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = '/ProfilePic/0.jpg';
+                                }}
+                            />
+                            <span className="logged-in-fullname" style={styles.loggedInFullname}>{currentFullName || "?"}</span>
+                        </Link>
+                        <span className="logged-in-username" style={styles.loggedInUsername}>@{currentUserName || "?"}</span>
+                    </div>
 
-                <button className="nav-icon-btn" style={styles.navIconBtn} title="Notifications" aria-label="Notifications">
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="#000000">
-                        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
-                    </svg>
-                </button>
-
-                <div className="settings-dropdown-wrapper" style={styles.settingsDropdownWrapper} ref={settingsRef}>
-                    <button
+                    <Link
+                        to="/communication"
                         className="nav-icon-btn"
-                        id="topSettingsBtn"
                         style={styles.navIconBtn}
-                        title="Settings"
-                        aria-label="Settings"
-                        onClick={handleToggleSettings}
+                        title="Communication"
+                        aria-label="Communication"
                     >
-                        <svg viewBox="0 0 24 24" width="32" height="32" fill="#393b3d">
-                            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                        <svg viewBox="0 0 24 24" width="32" height="32" fill={isDark ? '#e1e3e6' : '#000000'}>
+                            <path d="M4 2h16c1.1 0 2 .9 2 2v18l-4-4H4c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm0 14h14l2 2V4H4v12z" />
+                            <path d="M6 6h12v2H6zm0 3.5h12v2H6zm0 3.5h12v2H6z" />
+                        </svg>
+                    </Link>
+
+                    <button className="nav-icon-btn" style={styles.navIconBtn} title="Notifications" aria-label="Notifications">
+                        <svg viewBox="0 0 24 24" width="32" height="32" fill={isDark ? '#e1e3e6' : '#000000'}>
+                            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
                         </svg>
                     </button>
-                    {isSettingsOpen && (
-                        <div className="settings-menu show" id="topSettingsMenu" style={styles.settingsMenu}>
-                            <Link to="/settings" className="settings-menu-item" style={styles.settingsMenuItem} onClick={() => setIsSettingsOpen(false)}>Settings</Link>
-                            <Link to="/help" className="settings-menu-item" style={styles.settingsMenuItem} onClick={() => setIsSettingsOpen(false)}>Help</Link>
-                            <Link to="/terms" className="settings-menu-item" style={styles.settingsMenuItem} onClick={() => setIsSettingsOpen(false)}>Terms of service</Link>
-                            <Link
-                                to="/login"
-                                className="settings-menu-item logout-item"
-                                style={styles.logoutItem}
-                                onClick={() => {
-                                    setIsSettingsOpen(false);
-                                    localStorage.removeItem('token');
-                                }}
-                            >
-                                Logout
-                            </Link>
-                        </div>
-                    )}
+
+                    <div className="settings-dropdown-wrapper" style={styles.settingsDropdownWrapper} ref={settingsRef}>
+                        <button
+                            className="nav-icon-btn"
+                            id="topSettingsBtn"
+                            style={styles.navIconBtn}
+                            title="Settings"
+                            aria-label="Settings"
+                            onClick={handleToggleSettings}
+                        >
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill={isDark ? '#e1e3e6' : '#393b3d'}>
+                                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                            </svg>
+                        </button>
+                        {isSettingsOpen && (
+                            <div className="settings-menu show" id="topSettingsMenu" style={styles.settingsMenu}>
+                                <Link to="/settings" className="settings-menu-item" style={styles.settingsMenuItem} onClick={() => setIsSettingsOpen(false)}>Settings</Link>
+                                <Link to="/help" className="settings-menu-item" style={styles.settingsMenuItem} onClick={() => setIsSettingsOpen(false)}>Help</Link>
+                                <Link to="/terms" className="settings-menu-item" style={styles.settingsMenuItem} onClick={() => setIsSettingsOpen(false)}>Terms of service</Link>
+                                <a
+                                    href="/login"
+                                    className="settings-menu-item logout-item"
+                                    style={styles.logoutItem}
+                                    onClick={handleLogout}
+                                >
+                                    Logout
+                                </a>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
             </nav>
             <Blockbanner />
         </React.Fragment>

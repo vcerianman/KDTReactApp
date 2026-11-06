@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './CreateProjects.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
-import { getUserAvatarUrl } from './utils';
+import useCurrentUser from './useCurrentUser';
 
-// Create Project Form Component
-function CreateProjectForm({ onSubmit }) {
+// Custom Hook to handle form state, validation, and API interactions
+// Custom Hook to handle form state, validation, and API interactions
+function useCreateProjectForm() {
+    const navigate = useNavigate();
+    const { currentUser } = useCurrentUser();
+
     const [formData, setFormData] = useState({
         projectTitle: '',
         projectDesc: '',
@@ -16,21 +20,103 @@ function CreateProjectForm({ onSubmit }) {
         dueDate: ''
     });
 
-    const handleChange = (e) => {
+    const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState(null);
+
+    const handleChange = useCallback((e) => {
         const { id, value } = e.target;
-        setFormData(prev => ({ ...prev, [id]: value }));
-    };
+        setFormData((prev) => ({ ...prev, [id]: value }));
+    }, []);
 
-    const handleSubmit = (e) => {
+    const handleCloseToast = useCallback(() => {
+        setToast(null);
+    }, []);
+
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
-        onSubmit(formData);
-    };
 
+        if (!formData.projectTitle || !formData.projectDesc || !formData.dueDate) {
+            setToast({ message: 'Please fill in all required fields.', type: 'error' });
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // 1. Create project: POST /api/projects
+            const payload = {
+                name: formData.projectTitle.trim(),
+                description: formData.projectDesc.trim(),
+                status: formData.projectStatus.toUpperCase(),
+                owner: currentUser?.username || '',
+                start_date: formData.startDate || null,
+                due_date: formData.dueDate
+            };
+
+            const projectRes = await request.post('/api/projects', payload);
+            const projectData = projectRes?.data || projectRes;
+
+            // Extract the new project ID from response
+            const newProjectId = projectData?.id ?? projectData?._id ?? projectData;
+
+            // 2. If user ID and new project ID are valid, update the user's projects list
+            if (currentUser?.id && newProjectId != null) {
+                try {
+                    // Fetch current user data to get existing projects array
+                    const userRes = await request.get(`/api/users/${currentUser.id}`);
+                    const userData = userRes?.data || userRes;
+
+                    let existingProjects = [];
+                    if (Array.isArray(userData?.projects)) {
+                        existingProjects = userData.projects;
+                    } else if (typeof userData?.projects === 'string') {
+                        // Handle comma-separated string formats like "1,2" or "{1,2}" if applicable
+                        existingProjects = userData.projects
+                            .replace(/[{}]/g, '')
+                            .split(',')
+                            .map(p => p.trim())
+                            .filter(Boolean);
+                    }
+
+                    // Append the newest created project ID to the array/list
+                    const updatedProjects = [...existingProjects, newProjectId];
+
+                    // PATCH /api/users/{id} to update the user's projects array
+                    await request.patch(`/api/users/${currentUser.id}`, {
+                        projects: updatedProjects
+                    });
+                } catch (userUpdateErr) {
+                    console.error('Failed to update user projects list:', userUpdateErr);
+                }
+            }
+
+            // Redirect user to projects page on success
+            navigate('/projects');
+        } catch (error) {
+            console.error('Failed to create project (/api/projects):', error);
+            const msg = error?.response?.data?.message || error?.message || 'Failed to create project. Please try again.';
+            setToast({ message: msg, type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    }, [formData, currentUser, navigate]);
+
+    return {
+        formData,
+        loading,
+        toast,
+        handleChange,
+        handleSubmit,
+        handleCloseToast
+    };
+}
+
+// Create Project Form Component
+function CreateProjectForm({ formData, loading, onChange, onSubmit }) {
     return (
         <div className="create-card">
             <h1 className="create-title">Create New Project</h1>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={onSubmit}>
                 {/* Project Title */}
                 <div className="form-group">
                     <label htmlFor="projectTitle" className="form-label">Project Title:</label>
@@ -40,7 +126,7 @@ function CreateProjectForm({ onSubmit }) {
                         className="form-input"
                         placeholder="Your great project name..."
                         value={formData.projectTitle}
-                        onChange={handleChange}
+                        onChange={onChange}
                         required
                     />
                 </div>
@@ -53,7 +139,7 @@ function CreateProjectForm({ onSubmit }) {
                         className="form-textarea"
                         placeholder="Brief description..."
                         value={formData.projectDesc}
-                        onChange={handleChange}
+                        onChange={onChange}
                         required
                     />
                 </div>
@@ -65,7 +151,7 @@ function CreateProjectForm({ onSubmit }) {
                         id="projectStatus"
                         className="form-select"
                         value={formData.projectStatus}
-                        onChange={handleChange}
+                        onChange={onChange}
                     >
                         <option value="Active">Active</option>
                         <option value="In Progress">In Progress</option>
@@ -82,7 +168,7 @@ function CreateProjectForm({ onSubmit }) {
                             id="startDate"
                             className="form-input"
                             value={formData.startDate}
-                            onChange={handleChange}
+                            onChange={onChange}
                         />
                     </div>
 
@@ -93,7 +179,7 @@ function CreateProjectForm({ onSubmit }) {
                             id="dueDate"
                             className="form-input"
                             value={formData.dueDate}
-                            onChange={handleChange}
+                            onChange={onChange}
                             required
                         />
                     </div>
@@ -101,7 +187,9 @@ function CreateProjectForm({ onSubmit }) {
 
                 <div className="button-row">
                     <Link to="/projects" className="btn-cancel">Cancel</Link>
-                    <button type="submit" className="btn-submit">Create Project</button>
+                    <button type="submit" className="btn-submit" disabled={loading}>
+                        {loading ? 'Creating...' : 'Create Project'}
+                    </button>
                 </div>
             </form>
         </div>
@@ -110,44 +198,15 @@ function CreateProjectForm({ onSubmit }) {
 
 // Main Create Projects Page Component
 function CreateProjects() {
-    const navigate = useNavigate();
-
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "?",
-        image: "/ProfilePic/0.jpg"
-    });
-    const [toast, setToast] = useState(null);
-
-    // Fetch logged in user info for NavBar
-    const fetchCurrentUser = useCallback(async () => {
-        try {
-            const data = await request.get('/api/auth/me');
-            if (data) {
-                const uname = data.username || "?";
-                const fname = data.full_name || data.fullName || data.fullname || data.name || uname;
-                const img = data.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg');
-
-                setCurrentUser({
-                    id: String(data.id || "?"),
-                    fullname: fname,
-                    username: uname,
-                    image: img
-                });
-            }
-        } catch (err) {
-            console.error('Failed to fetch current user (/api/auth/me):', err);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchCurrentUser();
-    }, [fetchCurrentUser]);
-
-    const handleCreateProject = (projectData) => {
-        navigate('/projects');
-    };
+    const { currentUser } = useCurrentUser();
+    const {
+        formData,
+        loading,
+        toast,
+        handleChange,
+        handleSubmit,
+        handleCloseToast
+    } = useCreateProjectForm();
 
     return (
         <div className="create-projects-page-wrapper">
@@ -162,11 +221,16 @@ function CreateProjects() {
             </div>
 
             {/* Universal Notification Toast */}
-            <Notification toast={toast} onClose={() => setToast(null)} />
+            <Notification toast={toast} onClose={handleCloseToast} />
 
             {/* Page Content Container */}
             <div className="page-container">
-                <CreateProjectForm onSubmit={handleCreateProject} />
+                <CreateProjectForm
+                    formData={formData}
+                    loading={loading}
+                    onChange={handleChange}
+                    onSubmit={handleSubmit}
+                />
             </div>
         </div>
     );

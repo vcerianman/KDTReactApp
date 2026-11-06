@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import './Terms.css';
 import NavBar from './NavBar';
-import request from './api/Request';
-import { getUserAvatarUrl } from './utils';
+import useCurrentUser from './useCurrentUser';
 
 // Terms Content Component
 function TermsContent() {
@@ -142,37 +141,7 @@ function TermsContent() {
 
 // Main Terms Page Component
 function Terms() {
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "?",
-        image: "/ProfilePic/0.jpg"
-    });
-
-    // Fetch logged in user info for top NavBar
-    const fetchCurrentUser = useCallback(async () => {
-        try {
-            const data = await request.get('/api/auth/me');
-            if (data) {
-                const uname = data.username || "?";
-                const fname = data.full_name || data.fullName || data.fullname || data.name || uname;
-                const img = data.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg');
-
-                setCurrentUser({
-                    id: String(data.id || "?"),
-                    fullname: fname,
-                    username: uname,
-                    image: img
-                });
-            }
-        } catch (err) {
-            console.error('Failed to fetch current user (/api/auth/me):', err);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchCurrentUser();
-    }, [fetchCurrentUser]);
+    const { currentUser } = useCurrentUser();
 
     return (
         <div className="terms-page-wrapper">

@@ -4,6 +4,8 @@ import './Projects.css';
 import NavBar from './NavBar';
 import request from './api/Request';
 import { getProjectStatusClass, getUserAvatarUrl } from './utils';
+import { useTheme } from './useTheme';
+import useCurrentUser from './useCurrentUser';
 
 // Section Reload Button Component matching the reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -131,16 +133,12 @@ function NewProjectFooter() {
 
 // Main Projects Component
 function Projects() {
+    const { isDark } = useTheme();
     const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
 
-    // Current logged in user
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "?",
-        image: "/ProfilePic/0.jpg"
-    });
+    // Current logged in user from shared cache
+    const { currentUser } = useCurrentUser();
 
     // Projects state & error
     const [projects, setProjects] = useState([]);
@@ -149,34 +147,19 @@ function Projects() {
 
     // Fetch logged-in user profile & their assigned projects via GET /api/users/{ID}
     const fetchUserAndProjects = useCallback(async () => {
+        if (!currentUser || currentUser.id === '?') return;
         setProjectsLoading(true);
         setProjectsError(false);
         try {
-            // 1. Fetch current logged-in user info from /api/auth/me
-            let userId = "?";
-            let uname = "?";
-            try {
-                const authData = await request.get('/api/auth/me');
-                if (authData) {
-                    userId = String(authData.id || "?");
-                    uname = authData.username || "?";
-                    setCurrentUser({
-                        id: userId,
-                        fullname: authData.full_name || authData.fullName || authData.fullname || authData.name || uname,
-                        username: uname,
-                        image: authData.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg'),
-                    });
-                }
-            } catch (authErr) {
-                console.error('Failed to fetch current user (/api/auth/me):', authErr);
-            }
+            const userId = currentUser.id;
+            const uname = currentUser.username;
 
-            // 2. Fetch logged-in user details to get project ID list via GET /api/users/{ID}
+            // Fetch logged-in user details to get project ID list via GET /api/users/{ID}
             const userRes = await request.get(`/api/users/${userId}`);
             const userData = userRes?.data || userRes;
 
             if (userData && Array.isArray(userData.projects) && userData.projects.length > 0) {
-                // 3. For each project ID in the list, fetch project details via GET /api/projects/{ID}
+                // For each project ID in the list, fetch project details via GET /api/projects/{ID}
                 const projectPromises = userData.projects.map(async (item) => {
                     if (typeof item === 'object' && item !== null && item.title) {
                         return item;
@@ -234,11 +217,13 @@ function Projects() {
         } finally {
             setProjectsLoading(false);
         }
-    }, []);
+    }, [currentUser]);
 
     useEffect(() => {
-        fetchUserAndProjects();
-    }, [fetchUserAndProjects]);
+        if (currentUser && currentUser.id !== '?') {
+            fetchUserAndProjects();
+        }
+    }, [currentUser, fetchUserAndProjects]);
 
     // Synchronize query parameter if changed in URL
     useEffect(() => {
@@ -249,10 +234,10 @@ function Projects() {
     }, [searchParams]);
 
     return (
-        <div className="projects-page-wrapper">
+        <div className={`projects-page-wrapper${isDark ? ' dark-mode' : ''}`}>
             {/* Top Navigation Bar Component */}
             <div id="navbar-root">
-                <NavBar userId={currentUser.id} fullName={currentUser.fullname} userName={currentUser.username} userImg={currentUser.image} />
+                <NavBar userId={currentUser.id} fullName={currentUser.fullname} userName={currentUser.username} userImg={currentUser.image} theme={isDark ? 'dark' : 'light'} />
             </div>
 
             {/* Page Container */}

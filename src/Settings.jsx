@@ -4,6 +4,7 @@ import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
 import { getUserAvatarUrl } from './utils';
+import useCurrentUser from './useCurrentUser';
 
 // Sidebar Navigation Component
 function SettingsSidebar({ activeTab, onSelectTab }) {
@@ -320,6 +321,7 @@ const compileAboutList = (aboutText) => {
 // Main Settings Page Component
 function Settings() {
     const [activeTab, setActiveTab] = useState('account');
+    const { currentUser: authUser, invalidateCurrentUser } = useCurrentUser();
 
     // Current logged-in user info
     const [currentUser, setCurrentUser] = useState({
@@ -330,13 +332,16 @@ function Settings() {
     });
 
     // Account settings state
-    const [account, setAccount] = useState({
+    const [account, setAccount] = useState(() => ({
         fullname: "?",
         username: "?",
         email: "",
         language: "en",
-        theme: "light"
-    });
+        theme: typeof window !== 'undefined' ? (localStorage.getItem('taskflow_theme') || "light") : "light"
+    }));
+
+    const [themeTransitionEnabled, setThemeTransitionEnabled] = useState(false);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     // Profile info state
     const [profileInfo, setProfileInfo] = useState({
@@ -372,64 +377,74 @@ function Settings() {
         }
     }, [toast]);
 
-    // Fetch logged in user via GET /api/auth/me and GET /api/users/{ID}
+    // Fetch logged in user details via GET /api/users/{ID}
     const fetchCurrentUser = useCallback(async () => {
+        if (!authUser || authUser.id === '?') return;
         try {
-            const data = await request.get('/api/auth/me');
-            if (data) {
-                const userId = String(data.id || "?");
-                const uname = data.username || "?";
-                const fname = data.full_name || data.fullName || data.fullname || data.name || uname;
-                const email = data.email || "";
-                const img = data.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg');
+            const userId = authUser.id;
+            const uname = authUser.username;
+            const fname = authUser.fullname;
+            const email = authUser.email || "";
+            const img = authUser.image;
 
-                setCurrentUser({
-                    id: userId,
-                    fullname: fname,
-                    username: uname,
-                    image: img
-                });
+            setCurrentUser({
+                id: userId,
+                fullname: fname,
+                username: uname,
+                image: img
+            });
 
-                setAccount(prev => ({
-                    ...prev,
-                    fullname: fname,
-                    username: uname,
-                    email: email
-                }));
+            // Fetch detailed user profile for about, status, and theme
+            let userAboutText = "";
+            let userStatus = (authUser.status || "ACTIVE").toUpperCase();
+            let userTheme = authUser.theme || "light";
 
-                // Fetch detailed user profile for about and status
-                let userAboutText = "";
-                let userStatus = "ACTIVE";
-
-                if (userId && userId !== "?") {
-                    try {
-                        const userRes = await request.get(`/api/users/${userId}`);
-                        const uData = userRes?.data || userRes;
-                        if (uData) {
-                            if (Array.isArray(uData.about)) {
-                                userAboutText = uData.about.join('\n');
-                            } else if (typeof uData.about === 'string') {
-                                userAboutText = uData.about;
-                            }
-                            userStatus = (uData.status || "ACTIVE").toUpperCase();
-                        }
-                    } catch (uErr) {
-                        console.error(`Failed to fetch user details for ID ${userId}:`, uErr);
+            try {
+                const userRes = await request.get(`/api/users/${userId}`);
+                const uData = userRes?.data || userRes;
+                if (uData) {
+                    if (Array.isArray(uData.about)) {
+                        userAboutText = uData.about.join('\n');
+                    } else if (typeof uData.about === 'string') {
+                        userAboutText = uData.about;
+                    }
+                    if (uData.status) {
+                        userStatus = String(uData.status).toUpperCase();
+                    }
+                    if (uData.theme) {
+                        userTheme = uData.theme;
                     }
                 }
-
-                setProfileInfo(prev => ({
-                    ...prev,
-                    avatar: img,
-                    avatarName: uname !== '?' ? `${uname}.jpg` : '0.jpg',
-                    status: userStatus,
-                    about: userAboutText
-                }));
+            } catch (uErr) {
+                console.error(`Failed to fetch user details for ID ${userId}:`, uErr);
             }
+
+            const finalTheme = String(userTheme || 'light').toLowerCase();
+            try {
+                localStorage.setItem('taskflow_theme', finalTheme);
+            } catch (e) {}
+
+            setAccount(prev => ({
+                ...prev,
+                fullname: fname,
+                username: uname,
+                email: email,
+                theme: finalTheme
+            }));
+
+            setProfileInfo(prev => ({
+                ...prev,
+                avatar: img,
+                avatarName: uname !== '?' ? `${uname}.jpg` : '0.jpg',
+                status: userStatus,
+                about: userAboutText
+            }));
         } catch (err) {
-            console.error('Failed to fetch current user (/api/auth/me):', err);
+            console.error('Failed to initialize settings user:', err);
+        } finally {
+            setIsInitialLoad(false);
         }
-    }, []);
+    }, [authUser]);
 
     useEffect(() => {
         fetchCurrentUser();
@@ -448,6 +463,13 @@ function Settings() {
     }, [account.theme]);
 
     const handleAccountChange = (key, value) => {
+        if (key === 'theme') {
+            setThemeTransitionEnabled(true);
+            try {
+                localStorage.setItem('taskflow_theme', value);
+            } catch (e) {}
+            window.dispatchEvent(new CustomEvent('taskflow_theme_change', { detail: { theme: value } }));
+        }
         setAccount(prev => ({ ...prev, [key]: value }));
     };
 
@@ -468,10 +490,14 @@ function Settings() {
         try {
             const payload = {
                 fullname: account.fullname,
-                email: account.email
+                email: account.email,
+                theme: account.theme
             };
 
             await request.put(`/api/users/${currentUser.id}`, payload);
+            try {
+                localStorage.setItem('taskflow_theme', account.theme);
+            } catch (e) {}
 
             // Update current user state for NavBar immediately
             setCurrentUser(prev => ({
@@ -479,6 +505,7 @@ function Settings() {
                 fullname: account.fullname
             }));
 
+            invalidateCurrentUser();
             showToast('Saved successfully!', 'success');
         } catch (err) {
             console.error(`Failed to update account info (/api/users/${currentUser.id}):`, err);
@@ -502,6 +529,7 @@ function Settings() {
             };
 
             await request.put(`/api/users/${currentUser.id}`, payload);
+            invalidateCurrentUser();
             showToast('Saved successfully!', 'success');
         } catch (err) {
             console.error(`Failed to update profile info (/api/users/${currentUser.id}):`, err);
@@ -573,7 +601,7 @@ function Settings() {
     };
 
     return (
-        <div className={`settings-page-wrapper ${account.theme === 'dark' ? 'dark-mode' : ''}`}>
+        <div className={`settings-page-wrapper ${account.theme === 'dark' ? 'dark-mode' : ''} ${themeTransitionEnabled ? 'theme-transition' : ''} ${isInitialLoad ? 'no-theme-transition' : ''}`}>
             {/* Top Navigation Bar Component */}
             <div id="navbar-root">
                 <NavBar
@@ -581,6 +609,8 @@ function Settings() {
                     fullName={currentUser.fullname}
                     userName={currentUser.username}
                     userImg={currentUser.image}
+                    theme={account.theme}
+                    themeTransition={themeTransitionEnabled}
                 />
             </div>
 

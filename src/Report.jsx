@@ -5,20 +5,15 @@ import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
 import { getUserAvatarUrl } from './utils';
+import { useTheme } from './useTheme';
+import useCurrentUser from './useCurrentUser';
 
 function Report() {
+    const { isDark } = useTheme();
     const [searchParams] = useSearchParams();
     const location = useLocation();
     const navigate = useNavigate();
-
-    // Logged-in user state for NavBar
-    const [loggedInUser, setLoggedInUser] = useState({
-        id: "?",
-        username: "?",
-        fullname: "?",
-        image: "/ProfilePic/0.jpg",
-        role: ""
-    });
+    const { currentUser: loggedInUser } = useCurrentUser();
 
     // Report Form state
     const navState = location.state || {};
@@ -35,30 +30,6 @@ function Report() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [toast, setToast] = useState(null);
-
-    // Fetch logged-in user from /api/auth/me
-    const fetchLoggedInUser = useCallback(async () => {
-        try {
-            const data = await request.get('/api/auth/me');
-            if (data) {
-                const uData = data.data || data;
-                const uname = uData.username || "?";
-                setLoggedInUser({
-                    id: String(uData.id || uData.userId || "?"),
-                    username: uname,
-                    fullname: uData.full_name || uData.fullName || uData.fullname || uData.name || uname,
-                    image: uData.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg'),
-                    role: uData.role || ''
-                });
-            }
-        } catch (err) {
-            console.error('Failed to fetch logged-in user:', err);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchLoggedInUser();
-    }, [fetchLoggedInUser]);
 
     useEffect(() => {
         const target = navState.username || searchParams.get('username') || navState.author || searchParams.get('user') || searchParams.get('target');
@@ -125,7 +96,7 @@ function Report() {
     };
 
     return (
-        <div className="report-page-wrapper">
+        <div className={`report-page-wrapper${isDark ? ' dark-mode' : ''}`}>
             <div id="navbar-root">
                 <NavBar
                     userId={loggedInUser.id}
@@ -133,6 +104,7 @@ function Report() {
                     userName={loggedInUser.username}
                     userImg={loggedInUser.image}
                     userRole={loggedInUser.role}
+                    theme={isDark ? 'dark' : 'light'}
                 />
             </div>
 

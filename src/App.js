@@ -1,26 +1,32 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { createBrowserRouter, RouterProvider, Link } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+import queryClient from './queryClient';
 import logo from './logo.svg';
 import './App.css';
 import NavBar from './NavBar';
-import Home from './Home';
-import Login from './Login';
-import Profile from './Profile';
-import Users from './Users';
-import Projects from './Projects';
-import Settings from './Settings';
-import Terms from './Terms';
-import Task from './Task';
-import SignUp from './SignUp';
-import CreateProjects from './CreateProjects';
-import CreateTasks from './CreateTasks';
-import AdminPanel from './AdminPanel';
-import Appeal from './Appeal';
-import Communication from './Communication';
-import Report from './Report';
 
-// Generic placeholder page component for pages still under construction
-function PlaceholderPage({ title, description }) {
+// Lazy-loaded route
+const Home = lazy(() => import('./Home'));
+const Login = lazy(() => import('./Login'));
+const Profile = lazy(() => import('./Profile'));
+const Users = lazy(() => import('./Users'));
+const Projects = lazy(() => import('./Projects'));
+const Settings = lazy(() => import('./Settings'));
+const Terms = lazy(() => import('./Terms'));
+const Task = lazy(() => import('./Task'));
+const SignUp = lazy(() => import('./SignUp'));
+const CreateProjects = lazy(() => import('./CreateProjects'));
+const CreateTasks = lazy(() => import('./CreateTasks'));
+const Example = lazy(() => import('./Example'));
+const AdminPanel = lazy(() => import('./AdminPanel'));
+const Appeal = lazy(() => import('./Appeal'));
+const Communication = lazy(() => import('./Communication'));
+const Report = lazy(() => import('./Report'));
+const Help = lazy(() => import('./Help'));
+
+// Generic placeholder page
+export function PlaceholderPage({ title, description }) {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f2f4f5', fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif" }}>
       <div id="navbar-root">
@@ -205,6 +211,58 @@ function MainApp() {
   );
 }
 
+// Elegant suspense loader fallback component (Dark Mode aware)
+function PageLoader() {
+  const isDark = typeof window !== 'undefined' && (
+    document.body.classList.contains('dark-mode') ||
+    localStorage.getItem('taskflow_theme') === 'dark'
+  );
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? '#1a1c1e' : '#f2f4f5',
+      color: isDark ? '#ffffff' : '#393b3d',
+      fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif"
+    }}>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '14px'
+      }}>
+        <div style={{
+          width: '38px',
+          height: '38px',
+          border: `3px solid ${isDark ? '#383c40' : '#d6d6d6'}`,
+          borderTopColor: '#00a2ff',
+          borderRadius: '50%',
+          animation: 'taskflowSpin 0.75s linear infinite'
+        }} />
+        <span style={{ color: isDark ? '#b0b3b8' : '#666666', fontSize: '14px', fontWeight: '500' }}>
+          Loading...
+        </span>
+        <style>{`
+          @keyframes taskflowSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+// Higher-order helper to wrap lazy components in Suspense
+const withSuspense = (Component) => (
+  <Suspense fallback={<PageLoader />}>
+    <Component />
+  </Suspense>
+);
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -212,71 +270,94 @@ const router = createBrowserRouter([
   },
   {
     path: "/home",
-    element: <Home />,
+    element: withSuspense(Home),
   },
   {
     path: "/login",
-    element: <Login />,
+    element: withSuspense(Login),
   },
   {
     path: "/signup",
-    element: <SignUp />,
+    element: withSuspense(SignUp),
   },
   {
     path: "/sign-up",
-    element: <SignUp />,
+    element: withSuspense(SignUp),
   },
   {
     path: "/profile",
-    element: <Profile />,
+    element: withSuspense(Profile),
   },
   {
     path: "/profile/:id",
-    element: <Profile />,
+    element: withSuspense(Profile),
   },
   {
     path: "/users",
-    element: <Users />,
+    element: withSuspense(Users),
   },
   {
     path: "/projects",
-    element: <Projects />,
+    element: withSuspense(Projects),
   },
   {
     path: "/settings",
-    element: <Settings />,
+    element: withSuspense(Settings),
   },
   {
     path: "/terms",
-    element: <Terms />,
+    element: withSuspense(Terms),
   },
   {
     path: "/tasks",
-    element: <Task />,
+    element: withSuspense(Task),
   },
   {
     path: "/create-projects",
-    element: <CreateProjects />,
+    element: withSuspense(CreateProjects),
   },
   {
     path: "/create-project",
-    element: <CreateProjects />,
+    element: withSuspense(CreateProjects),
   },
   {
     path: "/create-tasks",
-    element: <CreateTasks />,
+    element: withSuspense(CreateTasks),
   },
   {
     path: "/create-task",
-    element: <CreateTasks />,
+    element: withSuspense(CreateTasks),
+  },
+  {
+    path: "/example",
+    element: withSuspense(Example),
+  },
+  {
+    path: "/admin",
+    element: withSuspense(AdminPanel),
+  },
+  {
+    path: "/communication",
+    element: withSuspense(Communication),
   },
   {
     path: "/help",
-    element: <PlaceholderPage title="Help & Support" description="Documentation, FAQs, and support." />,
+    element: withSuspense(Help),
   },
-
+  {
+    path: "/report",
+    element: withSuspense(Report),
+  },
+  {
+    path: "/appeal",
+    element: withSuspense(Appeal),
+  },
 ]);
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  );
 }

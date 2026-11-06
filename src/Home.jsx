@@ -4,6 +4,8 @@ import './Home.css';
 import NavBar from './NavBar';
 import request from './api/Request';
 import { getProjectStatusClass, getTaskPriorityClass, getPriorityTagClass, getUserAvatarUrl } from './utils';
+import { useTheme } from './useTheme';
+import { useCurrentUser } from './useCurrentUser';
 
 // Section Reload Button Component matching the reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -94,7 +96,7 @@ function TasksSection({ tasks, error, loading, onReload }) {
                             return (
                                 <Link
                                     key={task.id}
-                                    to={`/tasks?search=${encodeURIComponent(task.title)}`}
+                                    to={task.projectId ? `/tasks?projectId=${encodeURIComponent(task.projectId)}` : '/tasks'}
                                     className={`task-home-card ${priorityClass}`}
                                 >
                                     <div>
@@ -167,13 +169,8 @@ function ProjectsSection({ projects, error, loading, onReload }) {
 
 // Main Home Component
 function Home() {
-    // Current user data
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "?",
-        image: "/ProfilePic/0.jpg"
-    });
+    const { isDark } = useTheme();
+    const { currentUser } = useCurrentUser();
 
     // Users data & error state
     const [users, setUsers] = useState([]);
@@ -189,25 +186,6 @@ function Home() {
     const [projects, setProjects] = useState([]);
     const [projectsError, setProjectsError] = useState(false);
     const [projectsLoading, setProjectsLoading] = useState(false);
-
-    // 1. Fetch current user from /api/auth/me
-    const fetchCurrentUser = useCallback(async () => {
-        try {
-            const data = await request.get('/api/auth/me');
-            if (data) {
-                const uname = data.username || "?";
-                setCurrentUser((prev) => ({
-                    ...prev,
-                    id: String(data.id || prev.id || "?"),
-                    fullname: data.full_name || data.fullName || data.fullname || data.name || prev.fullname,
-                    username: uname,
-                    image: data.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg'),
-                }));
-            }
-        } catch (err) {
-            console.error('Failed to fetch current user (/api/auth/me):', err);
-        }
-    }, []);
 
     // 2. Fetch users from /api/users
     const fetchUsers = useCallback(async () => {
@@ -262,16 +240,8 @@ function Home() {
                 'CANCELED': 3
             };
 
-            // 1. Get logged-in user ID
-            let userId = currentUser.id || "1";
-            try {
-                const authData = await request.get('/api/auth/me');
-                if (authData && authData.id) {
-                    userId = String(authData.id);
-                }
-            } catch (authErr) {
-                console.error('Failed to fetch auth me in fetchTasks:', authErr);
-            }
+            // 1. Get logged-in user ID from shared cache
+            const userId = currentUser && currentUser.id !== '?' ? currentUser.id : "1";
 
             // 2. Call GET /api/users/{ID} to get user's project IDs
             const userRes = await request.get(`/api/users/${userId}`);
@@ -300,10 +270,11 @@ function Home() {
                                 id: String(t.id || t._id || Math.random()),
                                 title: t.title || t.name || 'Task',
                                 priority: (t.priority || 'MEDIUM').toUpperCase(),
-                                assigner: t.assigner || t.assignee || t.createdBy || t.assignedTo || 'KDT',
+                                assigner: t.assigner || t.assignee || t.createdBy || t.assignedTo || 'No one',
                                 desc: t.desc || t.description || '',
                                 status: (t.status || 'TODO').toUpperCase(),
-                                dates: datesFormatted
+                                dates: datesFormatted,
+                                projectId: String(t.projectId || t.project_id || projId || '')
                             };
                         });
                     } catch (taskErr) {
@@ -356,16 +327,8 @@ function Home() {
                 'ARCHIVED': 4
             };
 
-            // 1. Get logged-in user ID
-            let userId = currentUser.id || "1";
-            try {
-                const authData = await request.get('/api/auth/me');
-                if (authData && authData.id) {
-                    userId = String(authData.id);
-                }
-            } catch (authErr) {
-                console.error('Failed to fetch auth me in fetchProjects:', authErr);
-            }
+            // 1. Get logged-in user ID from shared cache
+            const userId = currentUser && currentUser.id !== '?' ? currentUser.id : "1";
 
             // 2. Call GET /api/users/{ID} to get user's project IDs
             const userRes = await request.get(`/api/users/${userId}`);
@@ -439,17 +402,16 @@ function Home() {
     }, [currentUser.id]);
 
     useEffect(() => {
-        fetchCurrentUser();
         fetchUsers();
         fetchTasks();
         fetchProjects();
-    }, [fetchCurrentUser, fetchUsers, fetchTasks, fetchProjects]);
+    }, [fetchUsers, fetchTasks, fetchProjects]);
 
     return (
-        <div className="home-page-wrapper">
+        <div className={`home-page-wrapper${isDark ? ' dark-mode' : ''}`}>
             {/* Top Navigation Bar Component */}
             <div id="navbar-root">
-                <NavBar userId={currentUser.id} fullName={currentUser.fullname} userName={currentUser.username} userImg={currentUser.image} />
+                <NavBar userId={currentUser.id} fullName={currentUser.fullname} userName={currentUser.username} userImg={currentUser.image} theme={isDark ? 'dark' : 'light'} />
             </div>
 
             {/* Page Content Container */}

@@ -5,6 +5,7 @@ import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
 import { getUserAvatarUrl } from './utils';
+import useCurrentUser from './useCurrentUser';
 
 // Appeal Form Component
 function AppealForm({ initialUsername, onSubmit, isSubmitting, isSubmitted }) {
@@ -103,14 +104,7 @@ function AppealForm({ initialUsername, onSubmit, isSubmitting, isSubmitted }) {
 function Appeal() {
     const [searchParams] = useSearchParams();
 
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "",
-        image: "/ProfilePic/0.jpg",
-        status: "",
-        role: ""
-    });
+    const { currentUser } = useCurrentUser();
     const [authChecking, setAuthChecking] = useState(true);
     const [isBlockedUser, setIsBlockedUser] = useState(false);
     const [appealsList, setAppealsList] = useState([]);
@@ -174,29 +168,13 @@ function Appeal() {
             const appeals = await fetchAppeals();
             setAppealsList(appeals);
 
-            // 2. Fetch current user from /api/auth/me
-            const data = await request.get('/api/auth/me');
-            if (data) {
-                const uData = data.data || data;
-                const uname = uData.username || uData.userName || uData.user?.username || uData.name || uData.sub || "";
-                const fname = uData.full_name || uData.fullName || uData.fullname || uData.name || uname || "?";
-                const img = uData.image || (uname ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg');
-                const status = String(uData.status || uData.userStatus || '').toUpperCase();
-                const uId = String(uData.id || "?");
-                const uRole = uData.role || "MEMBER";
-                const blocked = status.includes('BLOCK') || status.includes('BAN') || uData.blocked === true || uData.banned === true;
-
-                setCurrentUser({
-                    id: uId,
-                    fullname: fname,
-                    username: uname,
-                    image: img,
-                    status: status,
-                    role: uRole
-                });
+            if (currentUser && currentUser.username && currentUser.username !== '?') {
+                const uname = currentUser.username;
+                const status = String(currentUser.status || '').toUpperCase();
+                const blocked = status.includes('BLOCK') || status.includes('BAN') || currentUser.blocked === true || currentUser.banned === true;
                 setIsBlockedUser(blocked);
 
-                // 3. Check if this username already exists in appeals
+                // 2. Check if this username already exists in appeals
                 const targetUname = uname || searchParams.get('username') || '';
                 if (targetUname && isUsernameAppealed(targetUname, appeals)) {
                     setAlreadyAppealed(true);
@@ -210,7 +188,7 @@ function Appeal() {
         } finally {
             setAuthChecking(false);
         }
-    }, [searchParams]);
+    }, [searchParams, currentUser]);
 
     useEffect(() => {
         initializeData();

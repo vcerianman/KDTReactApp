@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import request from './api/Request';
+import useCurrentUser from './useCurrentUser';
 import './Blockbanner.css';
 
 function Blockbanner({ userStatus }) {
@@ -10,41 +10,18 @@ function Blockbanner({ userStatus }) {
     );
     const [isSlideDown, setIsSlideDown] = useState(false);
 
-    // Synchronize if status prop is provided
+    const { currentUser } = useCurrentUser();
+
+    // Check user blocked status via cached currentUser
     useEffect(() => {
         if (userStatus !== undefined && userStatus !== null) {
             const s = String(userStatus).toUpperCase();
             setIsBlocked(s === 'BLOCKED' || s === 'BANNED');
+        } else if (currentUser && currentUser.status) {
+            const s = String(currentUser.status).toUpperCase();
+            setIsBlocked(s === 'BLOCKED' || s === 'BANNED');
         }
-    }, [userStatus]);
-
-    // Check user blocked status via GET /api/auth/me
-    useEffect(() => {
-        let isMounted = true;
-
-        const checkBlockedStatus = async () => {
-            try {
-                const data = await request.get('/api/auth/me');
-                if (isMounted && data) {
-                    const uData = data.data || data;
-                    const s = String(uData.status || '').toUpperCase();
-                    if (s === 'BLOCKED' || s === 'BANNED') {
-                        setIsBlocked(true);
-                    } else if (userStatus === undefined) {
-                        setIsBlocked(false);
-                    }
-                }
-            } catch (err) {
-                // Ignore if unauthenticated
-            }
-        };
-
-        checkBlockedStatus();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [userStatus]);
+    }, [userStatus, currentUser]);
 
     // Trigger slide-down animation once page is loaded and user is confirmed blocked
     useEffect(() => {

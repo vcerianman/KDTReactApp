@@ -1,16 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './Notification.css';
 
-/**
- * Universal Dropdown Notification / Alert Banner Component
- * 
- * Props:
- * - toast: { message: string, type?: 'success' | 'error' | 'warning' | 'info' } | null
- * - message: string (if not using toast object)
- * - type: 'success' | 'error' | 'warning' | 'info' (default: 'success')
- * - onClose: () => void
- * - duration: number (auto-dismiss duration in ms, 0 to disable, default: 4000)
- */
 function Notification({ toast, message, type = 'success', onClose, duration = 4000 }) {
     const alertMessage = toast?.message || (typeof toast === 'string' ? toast : message);
     const alertType = toast?.type || type || 'success';
@@ -47,21 +37,6 @@ function Notification({ toast, message, type = 'success', onClose, duration = 40
     );
 }
 
-/**
- * Custom hook for managing notifications across any JSX component.
- * 
- * Example usage:
- * const { toast, showToast, hideToast, NotificationBanner } = useNotification();
- * ...
- * showToast('Project saved successfully!', 'success');
- * ...
- * return (
- *   <div>
- *     <NotificationBanner />
- *     ...
- *   </div>
- * );
- */
 export function useNotification(defaultDuration = 4000) {
     const [toast, setToast] = useState(null);
 

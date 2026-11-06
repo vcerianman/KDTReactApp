@@ -983,44 +983,12 @@
             // Global Projects State
             const [projects, setProjects] = useState([
                 {
-                    id: "123",
-                    title: "Project A",
-                    owner: "Khanig",
-                    desc: "Description here...",
-                    status: "ON_HOLD",
-                    dates: "10/08/2026 - 22/05/2029"
-                },
-                {
-                    id: "124",
-                    title: "Project B",
-                    owner: "KDT",
-                    desc: "Great Description here...",
-                    status: "ARCHIVED",
-                    dates: "15/09/2026 - 10/12/2028"
-                },
-                {
-                    id: "125",
-                    title: "Project C",
-                    owner: "NgoDo",
-                    desc: "Taskflow Core Frontend Redesign",
-                    status: "ACTIVE",
-                    dates: "01/01/2026 - 30/11/2027"
-                },
-                {
-                    id: "126",
-                    title: "Project D",
-                    owner: "Khanig",
-                    desc: "Database Migration & Backend Optimization",
-                    status: "PLANNING",
-                    dates: "14/03/2026 - 18/08/2028"
-                },
-                {
-                    id: "127",
-                    title: "Project E",
-                    owner: "KDT",
-                    desc: "User Authentication & Security Module",
-                    status: "COMPLETED",
-                    dates: "05/05/2025 - 01/06/2026"
+                    id: "0",
+                    title: "No Project",
+                    owner: "No one",
+                    desc: "No description",
+                    status: "No",
+                    dates: "No date"
                 }
             ]);
 
@@ -1130,14 +1098,14 @@
                             {activeTab === 'users' && (
                                 <div className="placeholder-tab-content">
                                     <h3>Edit Users Administration</h3>
-                                    <p>Manage global user roles, permissions, and account statuses.</p>
+                                    <p>Manage user roles, permissions, and account statuses.</p>
                                 </div>
                             )}
 
                             {activeTab === 'reports' && (
                                 <div className="placeholder-tab-content">
                                     <h3 style={{ color: '#d93025' }}>User Reports Administration</h3>
-                                    <p>View and manage submitted user reports and moderation requests.</p>
+                                    <p>View user reports and moderation.</p>
                                 </div>
                             )}
                         </div>

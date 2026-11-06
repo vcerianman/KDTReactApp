@@ -1,10 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+    useQuery,
+    useQueryClient
+} from '@tanstack/react-query';
 import './Communication.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
 import { getUserAvatarUrl, getProjectStatusClass } from './utils';
+import useCurrentUser from './useCurrentUser';
 
 // Reload button
 function ReloadButton({ onReload, isLoading, title = "Reload" }) {
@@ -470,10 +475,17 @@ function EditReplyModal({ isOpen, onClose, onSave, postId, reply, isSubmitting }
     );
 }
 
-// Modal for Creating a New Post
+// Modal for Creating a New Discussion Post
 function CreatePostModal({ isOpen, onClose, onSubmit, projectTitle, isSubmitting }) {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            setTitle('');
+            setContent('');
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -481,8 +493,6 @@ function CreatePostModal({ isOpen, onClose, onSubmit, projectTitle, isSubmitting
         e.preventDefault();
         if (!title.trim() || !content.trim()) return;
         onSubmit(title.trim(), content.trim());
-        setTitle('');
-        setContent('');
     };
 
     return (
@@ -492,8 +502,10 @@ function CreatePostModal({ isOpen, onClose, onSubmit, projectTitle, isSubmitting
                     <h3 className="communication-modal-title">Create New Post</h3>
                     <button type="button" className="communication-modal-close" onClick={onClose}>&times;</button>
                 </div>
+                <div className="communication-modal-subtitle">
+                    Posting to: <strong>{projectTitle}</strong>
+                </div>
                 <form onSubmit={handleSubmit}>
-                    <p className="communication-modal-subtitle">Posting in: <strong>{projectTitle}</strong></p>
                     <div className="form-group">
                         <label className="form-label">Post Title *</label>
                         <input
@@ -746,319 +758,81 @@ function PostCard({
     );
 }
 
-function Communication() {
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "?",
-        image: "/ProfilePic/0.jpg",
-        role: "",
-        status: ""
+function CommunicationContent() {
+    const client = useQueryClient();
+    const navigate = useNavigate();
+    const { currentUser } = useCurrentUser();
+
+    // Fetch all users to dynamically map usernames/fullnames -> user IDs
+    const { data: allUsers = [] } = useQuery({
+        queryKey: ['commAllUsers'],
+        queryFn: async () => {
+            try {
+                const allUsersRes = await request.get('/api/users');
+                return Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes?.data && Array.isArray(allUsersRes.data) ? allUsersRes.data : []);
+            } catch (uErr) {
+                return [];
+            }
+        },
+        staleTime: 1000 * 60 * 5
     });
 
-    // Global users map (username/fullname -> user ID) to ensure accurate profile navigation
-    const [usersMap, setUsersMap] = useState({
-        'kdt': '1',
-        'vcerianman': '2',
-        'ngolodo': '3',
-        'ngo lo do': '3',
-        'khanig': '4',
-        'khang nig': '4',
-        'admin': '1'
-    });
-    const usersMapRef = React.useRef(usersMap);
+    const usersMap = useMemo(() => {
+        const map = {
+            'kdt': '1',
+            'vcerianman': '2',
+            'ngolodo': '3',
+            'ngo lo do': '3',
+            'khanig': '4',
+            'khang nig': '4',
+            'admin': '1'
+        };
+        allUsers.forEach(u => {
+            const rawId = u.id ?? u.ID ?? u.Id ?? u._id ?? u.userId ?? u.UserId ?? u.user_id;
+            const uid = rawId !== undefined && rawId !== null ? String(rawId).trim() : '';
+            const uname = u.username || u.userName || u.Username || '';
+            const fname = u.fullname || u.full_name || u.fullName || u.name || uname || 'User';
+            const profile = { id: uid, username: uname, fullname: fname };
+
+            if (uid && uid !== '' && uid !== 'undefined' && uid !== 'null') {
+                map[uid] = profile;
+                const unames = [u.username, u.userName, u.Username, u.handle, u.author];
+                unames.forEach(un => {
+                    if (un && typeof un === 'string') {
+                        map[un.toLowerCase().trim()] = profile;
+                    }
+                });
+                const fnames = [u.fullname, u.full_name, u.fullName, u.name, u.Name];
+                fnames.forEach(fn => {
+                    if (fn && typeof fn === 'string') {
+                        map[fn.toLowerCase().trim()] = profile;
+                    }
+                });
+            }
+        });
+        return map;
+    }, [allUsers]);
+
+    const usersMapRef = useRef(usersMap);
     usersMapRef.current = usersMap;
 
-    const [projects, setProjects] = useState([]);
-    const [loadingProjects, setLoadingProjects] = useState(true);
-    const [projectsError, setProjectsError] = useState(false);
     // Default activeProjectId to 'global'
     const [activeProjectId, setActiveProjectId] = useState('global');
 
-    // Active project detailed data (from API GET /api/projects/{ID} and /api/users?projectId={ID})
-    const [activeProjectDetails, setActiveProjectDetails] = useState(null);
-
-    // Posts dictionary keyed by project id (including 'global')
-    const [postsByProject, setPostsByProject] = useState({});
-    const postsByProjectRef = React.useRef(postsByProject);
-    postsByProjectRef.current = postsByProject;
-
-    const [loadingPosts, setLoadingPosts] = useState(false);
-    const [postsError, setPostsError] = useState(false);
-    const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
-    const [submittingPost, setSubmittingPost] = useState(false);
-    const [toast, setToast] = useState(null);
-
-    // Project Users Modal state
-    const [projectUsersModal, setProjectUsersModal] = useState({
-        isOpen: false,
-        title: 'Project Users',
-        users: []
-    });
-
-    const showToast = (message, type = 'success') => {
-        setToast({ message, type });
-    };
-
-    // Helper to format backend post/reply item with author profile link ID
-    const formatPostItem = useCallback((item) => {
-        const uName = item.author || item.username || item.authorName || item.user?.username || item.user?.fullname || item.createdBy || 'User';
-        const handle = item.username || item.authorHandle || item.author || item.user?.username || 'User';
-        const rawAuthorId = item.userId ?? item.user_id ?? item.authorId ?? item.author_id ?? item.UserId ?? item.AuthorId ?? item.user?.id ?? item.user?._id;
-        const authorId = resolveAuthorUserId(rawAuthorId, handle, uName, usersMapRef.current);
-
-        return {
-            id: item.id || item._id,
-            authorId: authorId,
-            author: item.user?.fullname || item.fullname || uName,
-            authorHandle: handle,
-            avatar: item.avatar || item.user?.image || getUserAvatarUrl(handle),
-            title: item.title || item.Title || '',
-            content: item.description || item.Description || item.content || item.desc || '',
-            timestamp: formatTimestamp(item.createdAt || item.created_at || item.timestamp),
-            replies: []
-        };
-    }, []);
-
-    // Fetch details & users for active project (API calls matching AdminPanel.jsx)
-    const fetchActiveProjectDetails = useCallback(async (projId, initialProj) => {
-        if (!projId || projId === 'global') {
-            setActiveProjectDetails({
-                id: null,
-                isGlobal: true,
-                title: 'Global Discussion',
-                desc: 'For all users',
-                status: 'ACTIVE',
-                owner: 'All Users',
-                users: [
-                    { id: '1', fullname: 'All Users', username: 'everyone', image: '/ProfilePic/0.jpg' }
-                ]
-            });
-            return;
-        }
-
-        try {
-            let pData = initialProj;
-            // 1. Fetch project details from GET /api/projects/{ID}
-            try {
-                const res = await request.get(`/api/projects/${projId}`);
-                const fullP = res?.data || res;
-                if (fullP && (fullP.id || fullP.title || fullP.name)) {
-                    pData = {
-                        ...pData,
-                        ...fullP,
-                        id: String(fullP.id || projId),
-                        title: fullP.title || fullP.name || pData?.title || `Project ${projId}`,
-                        desc: fullP.description || fullP.desc || pData?.desc || '',
-                        status: (fullP.status || pData?.status || 'ACTIVE').toUpperCase(),
-                        owner: fullP.owner || fullP.createdBy || fullP.ownerName || pData?.owner || 'KDT'
-                    };
-                }
-            } catch (err) {
-                console.error(`Failed to fetch project details (/api/projects/${projId}):`, err);
-            }
-
-            // 2. Fetch project users from GET /api/users?projectId={ID} (matching AdminPanel & Task.jsx)
-            let pUsers = [];
-            try {
-                const pUsersRes = await request.get(`/api/users?projectId=${projId}`);
-                const uList = Array.isArray(pUsersRes) ? pUsersRes : (pUsersRes && Array.isArray(pUsersRes.data) ? pUsersRes.data : []);
-                if (uList && uList.length > 0) {
-                    pUsers = uList.map(u => ({
-                        id: String(u.id || u._id || ''),
-                        fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
-                        username: u.username || '',
-                        image: u.image || getUserAvatarUrl(u.username)
-                    }));
-                }
-            } catch (uErr) {
-                console.error(`Failed to fetch project users (/api/users?projectId=${projId}):`, uErr);
-            }
-
-            // Fallback users if empty
-            if (pUsers.length === 0 && Array.isArray(pData?.users) && pData.users.length > 0) {
-                pUsers = pData.users.map(u => (typeof u === 'object' ? u : {
-                    id: String(u),
-                    fullname: String(u),
-                    username: String(u),
-                    image: getUserAvatarUrl(String(u))
-                }));
-            } else if (pUsers.length === 0 && pData?.owner) {
-                pUsers = [{
-                    id: '1',
-                    fullname: pData.owner,
-                    username: pData.owner,
-                    image: getUserAvatarUrl(pData.owner)
-                }];
-            } else if (pUsers.length === 0) {
-                pUsers = [
-                    { id: '1', fullname: 'vcerianman', username: 'vcerianman', image: '/ProfilePic/0.jpg' },
-                    { id: '2', fullname: 'Ngo Lo Do', username: 'NgoLoDo', image: '/ProfilePic/0.jpg' },
-                    { id: '3', fullname: 'KDT', username: 'KDT', image: '/ProfilePic/KDT.jpg' },
-                    { id: '4', fullname: 'Khang nig', username: 'khanig', image: '/ProfilePic/khanig.jpg' }
-                ];
-            }
-
-            setActiveProjectDetails({
-                id: String(projId),
-                isGlobal: false,
-                title: pData?.title || `Project ${projId}`,
-                desc: pData?.desc || pData?.description || 'Project collaboration and team discussions',
-                status: (pData?.status || 'ACTIVE').toUpperCase(),
-                owner: pData?.owner || 'KDT',
-                users: pUsers
-            });
-        } catch (err) {
-            console.error('Error fetching project banner details:', err);
-        }
-    }, []);
-
-    // Fetch posts & replies for active project (supports silent background polling)
-    const fetchPostsForProject = useCallback(async (projId, isSilent = false) => {
-        if (!projId) return;
-        const isGlobal = projId === 'global';
-
-        if (!isSilent) {
-            setLoadingPosts(true);
-            setPostsError(false);
-        }
-        try {
-            let data = null;
-            if (isGlobal) {
-                // Fetch global posts (where project_id is null or global posts)
-                try {
-                    data = await request.get('/api/posts?projectId=null');
-                } catch (err1) {
-                    try {
-                        data = await request.get('/api/posts');
-                    } catch (err2) {
-                        try {
-                            data = await request.get('/api/post');
-                        } catch (err3) {
-                            throw err3;
-                        }
-                    }
-                }
-            } else {
-                // Fetch project-specific posts
-                try {
-                    data = await request.get(`/api/posts?projectId=${encodeURIComponent(projId)}`);
-                } catch (err1) {
-                    try {
-                        data = await request.get(`/api/post?projectId=${encodeURIComponent(projId)}`);
-                    } catch (err2) {
-                        try {
-                            data = await request.get(`/api/posts?project_id=${encodeURIComponent(projId)}`);
-                        } catch (err3) {
-                            try {
-                                data = await request.get('/api/posts');
-                            } catch (err4) {
-                                throw err4;
-                            }
-                        }
-                    }
-                }
-            }
-
-            const rawList = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : (data?.posts || null));
-
-            if (rawList && rawList.length > 0) {
-                // Filter by project ID or global (null)
-                const projectItems = rawList.filter(item => {
-                    const pId = item.project_id ?? item.projectId ?? item.project ?? null;
-                    if (isGlobal) {
-                        return pId === null || pId === undefined || pId === 'null' || pId === '' || pId === 0;
-                    }
-                    return String(pId) === String(projId);
-                });
-
-                // Separate top-level posts and replies
-                const topLevelPosts = [];
-                const repliesByParent = {};
-
-                projectItems.forEach(item => {
-                    const isReply = item.reply !== null && item.reply !== undefined && item.reply !== 0 && item.reply !== '';
-                    if (isReply) {
-                        const parentId = String(item.reply);
-                        if (!repliesByParent[parentId]) {
-                            repliesByParent[parentId] = [];
-                        }
-                        repliesByParent[parentId].push(formatPostItem(item));
-                    } else {
-                        topLevelPosts.push(formatPostItem(item));
-                    }
-                });
-
-                // If items already had nested replies attached
-                const combinedPosts = topLevelPosts.map(post => {
-                    const nestedReplies = Array.isArray(post.replies) && post.replies.length > 0 ? post.replies : [];
-                    const flatReplies = repliesByParent[String(post.id)] || [];
-                    const allReplies = [...nestedReplies, ...flatReplies];
-                    const uniqueReplies = Array.from(new Map(allReplies.map(r => [r.id, r])).values());
-                    return {
-                        ...post,
-                        replies: uniqueReplies
-                    };
-                });
-
-                setPostsByProject(prev => ({
-                    ...prev,
-                    [String(projId)]: combinedPosts
-                }));
-                setPostsError(false);
-            } else {
-                // Explicitly record empty array when 0 posts exist for this project
-                setPostsByProject(prev => ({
-                    ...prev,
-                    [String(projId)]: prev[String(projId)] && isSilent ? prev[String(projId)] : []
-                }));
-                setPostsError(false);
-            }
-        } catch (err) {
-            if (!isSilent) {
-                console.error(`Failed to fetch posts for ${projId}:`, err);
-                setPostsError(true);
-            }
-        } finally {
-            if (!isSilent) {
-                setLoadingPosts(false);
-            }
-        }
-    }, [formatPostItem]);
-
-    // Fetch user & their involved projects list
-    const fetchData = useCallback(async () => {
-        setLoadingProjects(true);
-        setProjectsError(false);
-        try {
-            let userId = "?";
-            let uname = "?";
-            let fname = "?";
-            let img = "/ProfilePic/0.jpg";
-            let role = "";
-            let authProjects = [];
-
-            try {
-                const authData = await request.get('/api/auth/me');
-                if (authData) {
-                    const uData = authData.data || authData;
-                    userId = String(uData.id || uData.userId || uData._id || '?');
-                    uname = uData.username || uData.userName || '?';
-                    fname = uData.fullname || uData.full_name || uData.fullName || uData.name || uname;
-                    img = uData.image || uData.avatar || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg');
-                    role = uData.role || '';
-                    if (Array.isArray(uData.projects)) {
-                        authProjects = uData.projects;
-                    }
-                    const userStatus = uData.status || '';
-                    setCurrentUser({ id: userId, fullname: fname, username: uname, image: img, role, status: userStatus });
-                }
-            } catch (authErr) {
-                console.error('Failed to fetch /api/auth/me in Communication:', authErr);
-            }
-
+    // Fetch involved projects
+    const {
+        data: projects = [],
+        isLoading: loadingProjects,
+        isError: projectsError,
+        refetch: refetchProjects
+    } = useQuery({
+        queryKey: ['commUserProjects', currentUser.id, currentUser.username],
+        queryFn: async () => {
             let userProjectIds = [];
-            // Fetch user profile from /api/users/{userId} to get their involved projects
+            const userId = currentUser.id;
+            const uname = currentUser.username;
+            const authProjects = currentUser.projects || [];
+
             if (userId && userId !== '?') {
                 try {
                     const userRes = await request.get(`/api/users/${userId}`);
@@ -1075,47 +849,9 @@ function Communication() {
                 userProjectIds = authProjects.map(p => String(typeof p === 'object' && p !== null ? (p.id || p.projectId) : p));
             }
 
-            // Fetch global users list to build accurate username/fullname -> user ID map
-            try {
-                const allUsersRes = await request.get('/api/users');
-                const uList = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes?.data && Array.isArray(allUsersRes.data) ? allUsersRes.data : []);
-                if (uList && uList.length > 0) {
-                    setUsersMap(prev => {
-                        const nextMap = { ...prev };
-                        uList.forEach(u => {
-                            const rawId = u.id ?? u.ID ?? u.Id ?? u._id ?? u.userId ?? u.UserId ?? u.user_id;
-                            const uid = rawId !== undefined && rawId !== null ? String(rawId).trim() : '';
-                            const uname = u.username || u.userName || u.Username || '';
-                            const fname = u.fullname || u.full_name || u.fullName || u.name || uname || 'User';
-                            const profile = { id: uid, username: uname, fullname: fname };
-
-                            if (uid && uid !== '' && uid !== 'undefined' && uid !== 'null') {
-                                nextMap[uid] = profile;
-                                const unames = [u.username, u.userName, u.Username, u.handle, u.author];
-                                unames.forEach(un => {
-                                    if (un && typeof un === 'string') {
-                                        nextMap[un.toLowerCase().trim()] = profile;
-                                    }
-                                });
-                                const fnames = [u.fullname, u.full_name, u.fullName, u.name, u.Name];
-                                fnames.forEach(fn => {
-                                    if (fn && typeof fn === 'string') {
-                                        nextMap[fn.toLowerCase().trim()] = profile;
-                                    }
-                                });
-                            }
-                        });
-                        return nextMap;
-                    });
-                }
-            } catch (uErr) {
-                // ignore
-            }
-
             let involvedProjects = [];
             let hadFetchError = false;
 
-            // 1. Fetch global projects and filter by user involvement
             try {
                 const projData = await request.get('/api/projects');
                 const pList = Array.isArray(projData) ? projData : (projData?.data && Array.isArray(projData.data) ? projData.data : null);
@@ -1144,7 +880,6 @@ function Communication() {
                 hadFetchError = true;
             }
 
-            // 2. If user has assigned project IDs but /api/projects didn't yield them, fetch by ID
             if (involvedProjects.length === 0 && userProjectIds.length > 0) {
                 const projectPromises = userProjectIds.map(async (projId) => {
                     try {
@@ -1177,48 +912,230 @@ function Communication() {
             }
 
             if (involvedProjects.length === 0 && hadFetchError) {
-                setProjectsError(true);
+                throw new Error('Failed to fetch projects');
             }
 
-            setProjects(involvedProjects);
-        } catch (err) {
-            console.error('Failed to initialize Communication:', err);
-            setProjectsError(true);
-        } finally {
-            setLoadingProjects(false);
+            return involvedProjects;
         }
+    });
+
+    // Helper to format backend post/reply item with author profile link ID
+    const formatPostItem = useCallback((item) => {
+        const uName = item.author || item.username || item.authorName || item.user?.username || item.user?.fullname || item.createdBy || 'User';
+        const handle = item.username || item.authorHandle || item.author || item.user?.username || 'User';
+        const rawAuthorId = item.userId ?? item.user_id ?? item.authorId ?? item.author_id ?? item.UserId ?? item.AuthorId ?? item.user?.id ?? item.user?._id;
+        const authorId = resolveAuthorUserId(rawAuthorId, handle, uName, usersMapRef.current);
+
+        return {
+            id: item.id || item._id,
+            authorId: authorId,
+            author: item.user?.fullname || item.fullname || uName,
+            authorHandle: handle,
+            avatar: item.avatar || item.user?.image || getUserAvatarUrl(handle),
+            title: item.title || item.Title || '',
+            content: item.description || item.Description || item.content || item.desc || '',
+            timestamp: formatTimestamp(item.createdAt || item.created_at || item.timestamp),
+            replies: []
+        };
     }, []);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    // Fetch active project detailed data
+    const { data: activeProjectDetails } = useQuery({
+        queryKey: ['commActiveProjectDetails', activeProjectId],
+        queryFn: async () => {
+            if (!activeProjectId || activeProjectId === 'global') {
+                return {
+                    id: null,
+                    isGlobal: true,
+                    title: 'Global Discussion',
+                    desc: 'For all users',
+                    status: 'ACTIVE',
+                    owner: 'All Users',
+                    users: [
+                        { id: '1', fullname: 'All Users', username: 'everyone', image: '/ProfilePic/0.jpg' }
+                    ]
+                };
+            }
 
-    // When activeProjectId changes, fetch full project details & posts seamlessly
-    useEffect(() => {
-        if (!activeProjectId) return;
+            const initialProj = projects.find(p => String(p.id) === String(activeProjectId));
+            let pData = initialProj;
+            try {
+                const res = await request.get(`/api/projects/${activeProjectId}`);
+                const fullP = res?.data || res;
+                if (fullP && (fullP.id || fullP.title || fullP.name)) {
+                    pData = {
+                        ...pData,
+                        ...fullP,
+                        id: String(fullP.id || activeProjectId),
+                        title: fullP.title || fullP.name || pData?.title || `Project ${activeProjectId}`,
+                        desc: fullP.description || fullP.desc || pData?.desc || '',
+                        status: (fullP.status || pData?.status || 'ACTIVE').toUpperCase(),
+                        owner: fullP.owner || fullP.createdBy || fullP.ownerName || pData?.owner || 'KDT'
+                    };
+                }
+            } catch (err) {
+                console.error(`Failed to fetch project details (/api/projects/${activeProjectId}):`, err);
+            }
 
-        if (activeProjectId === 'global') {
-            fetchActiveProjectDetails('global', null);
-        } else {
-            const currentProj = projects.find(p => String(p.id) === String(activeProjectId));
-            fetchActiveProjectDetails(activeProjectId, currentProj);
-        }
+            let pUsers = [];
+            try {
+                const pUsersRes = await request.get(`/api/users?projectId=${activeProjectId}`);
+                const uList = Array.isArray(pUsersRes) ? pUsersRes : (pUsersRes && Array.isArray(pUsersRes.data) ? pUsersRes.data : []);
+                if (uList && uList.length > 0) {
+                    pUsers = uList.map(u => ({
+                        id: String(u.id || u._id || ''),
+                        fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
+                        username: u.username || '',
+                        image: u.image || getUserAvatarUrl(u.username)
+                    }));
+                }
+            } catch (uErr) {
+                console.error(`Failed to fetch project users (/api/users?projectId=${activeProjectId}):`, uErr);
+            }
 
-        // Check if posts are already in memory for instant seamless switch
-        const isCached = postsByProjectRef.current[String(activeProjectId)] !== undefined;
-        fetchPostsForProject(activeProjectId, isCached);
-    }, [activeProjectId, projects, fetchActiveProjectDetails, fetchPostsForProject]);
+            if (pUsers.length === 0 && Array.isArray(pData?.users) && pData.users.length > 0) {
+                pUsers = pData.users.map(u => (typeof u === 'object' ? u : {
+                    id: String(u),
+                    fullname: String(u),
+                    username: String(u),
+                    image: getUserAvatarUrl(String(u))
+                }));
+            } else if (pUsers.length === 0 && pData?.owner) {
+                pUsers = [{
+                    id: '1',
+                    fullname: pData.owner,
+                    username: pData.owner,
+                    image: getUserAvatarUrl(pData.owner)
+                }];
+            } else if (pUsers.length === 0) {
+                pUsers = [
+                    { id: '1', fullname: 'vcerianman', username: 'vcerianman', image: '/ProfilePic/0.jpg' },
+                    { id: '2', fullname: 'Ngo Lo Do', username: 'NgoLoDo', image: '/ProfilePic/0.jpg' },
+                    { id: '3', fullname: 'KDT', username: 'KDT', image: '/ProfilePic/KDT.jpg' },
+                    { id: '4', fullname: 'Khang nig', username: 'khanig', image: '/ProfilePic/khanig.jpg' }
+                ];
+            }
 
-    // Poll discussion posts & replies every 5 seconds for the active project / global
-    useEffect(() => {
-        if (!activeProjectId) return;
+            return {
+                id: String(activeProjectId),
+                isGlobal: false,
+                title: pData?.title || `Project ${activeProjectId}`,
+                desc: pData?.desc || pData?.description || 'Project collaboration and team discussions',
+                status: (pData?.status || 'ACTIVE').toUpperCase(),
+                owner: pData?.owner || 'KDT',
+                users: pUsers
+            };
+        },
+        enabled: Boolean(activeProjectId)
+    });
 
-        const intervalId = setInterval(() => {
-            fetchPostsForProject(activeProjectId, true);
-        }, 5000);
+    // Fetch posts & replies for active project
+    const {
+        data: currentPosts,
+        isLoading: loadingPosts,
+        isError: postsError,
+        refetch: refetchPosts
+    } = useQuery({
+        queryKey: ['commPosts', activeProjectId],
+        queryFn: async () => {
+            if (!activeProjectId) return [];
+            const isGlobal = activeProjectId === 'global';
 
-        return () => clearInterval(intervalId);
-    }, [activeProjectId, fetchPostsForProject]);
+            let data = null;
+            if (isGlobal) {
+                try {
+                    data = await request.get('/api/posts?projectId=null');
+                } catch (err1) {
+                    try {
+                        data = await request.get('/api/posts');
+                    } catch (err2) {
+                        try {
+                            data = await request.get('/api/post');
+                        } catch (err3) {
+                            throw err3;
+                        }
+                    }
+                }
+            } else {
+                try {
+                    data = await request.get(`/api/posts?projectId=${encodeURIComponent(activeProjectId)}`);
+                } catch (err1) {
+                    try {
+                        data = await request.get(`/api/post?projectId=${encodeURIComponent(activeProjectId)}`);
+                    } catch (err2) {
+                        try {
+                            data = await request.get(`/api/posts?project_id=${encodeURIComponent(activeProjectId)}`);
+                        } catch (err3) {
+                            try {
+                                data = await request.get('/api/posts');
+                            } catch (err4) {
+                                throw err4;
+                            }
+                        }
+                    }
+                }
+            }
+
+            const rawList = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : (data?.posts || null));
+
+            if (!rawList || rawList.length === 0) {
+                return [];
+            }
+
+            const projectItems = rawList.filter(item => {
+                const pId = item.project_id ?? item.projectId ?? item.project ?? null;
+                if (isGlobal) {
+                    return pId === null || pId === undefined || pId === 'null' || pId === '' || pId === 0;
+                }
+                return String(pId) === String(activeProjectId);
+            });
+
+            const topLevelPosts = [];
+            const repliesByParent = {};
+
+            projectItems.forEach(item => {
+                const isReply = item.reply !== null && item.reply !== undefined && item.reply !== 0 && item.reply !== '';
+                if (isReply) {
+                    const parentId = String(item.reply);
+                    if (!repliesByParent[parentId]) {
+                        repliesByParent[parentId] = [];
+                    }
+                    repliesByParent[parentId].push(formatPostItem(item));
+                } else {
+                    topLevelPosts.push(formatPostItem(item));
+                }
+            });
+
+            const combinedPosts = topLevelPosts.map(post => {
+                const nestedReplies = Array.isArray(post.replies) && post.replies.length > 0 ? post.replies : [];
+                const flatReplies = repliesByParent[String(post.id)] || [];
+                const allReplies = [...nestedReplies, ...flatReplies];
+                const uniqueReplies = Array.from(new Map(allReplies.map(r => [r.id, r])).values());
+                return {
+                    ...post,
+                    replies: uniqueReplies
+                };
+            });
+
+            return combinedPosts;
+        },
+        enabled: Boolean(activeProjectId)
+    });
+
+    const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+    const [submittingPost, setSubmittingPost] = useState(false);
+    const [toast, setToast] = useState(null);
+
+    // Project Users Modal state
+    const [projectUsersModal, setProjectUsersModal] = useState({
+        isOpen: false,
+        title: 'Project Users',
+        users: []
+    });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+    };
 
     const handleSelectProject = (projId) => {
         if (String(projId) === String(activeProjectId)) return;
@@ -1236,10 +1153,9 @@ function Communication() {
         users: [{ id: '1', fullname: 'All Users', username: 'everyone', image: '/ProfilePic/0.jpg' }]
     } : (projects.find(p => String(p.id) === String(activeProjectId)) || projects[0]));
 
-    const currentPosts = activeProjectId !== null && activeProjectId !== undefined ? postsByProject[String(activeProjectId)] : undefined;
     const showLoading = loadingPosts && currentPosts === undefined;
 
-    // Add New Post Handler (POST /api/post or /api/posts with reply: null, project_id: null if global)
+    // Add New Post Handler
     const handleCreatePost = async (title, content) => {
         if (!activeProjectId) return;
 
@@ -1294,10 +1210,9 @@ function Communication() {
                 replies: []
             };
 
-            setPostsByProject(prev => ({
-                ...prev,
-                [String(activeProjectId)]: [newPost, ...(prev[String(activeProjectId)] || [])]
-            }));
+            // Update TanStack query cache optimistically and invalidate
+            client.setQueryData(['commPosts', activeProjectId], (old = []) => [newPost, ...old]);
+            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
 
             showToast('Post created successfully.', 'success');
             setIsCreatePostOpen(false);
@@ -1314,7 +1229,7 @@ function Communication() {
         }
     };
 
-    // Add Reply Handler (POST /api/post or /api/posts with reply: <postId>, project_id: null if global)
+    // Add Reply Handler
     const handleAddReply = async (postId, replyContent) => {
         if (!activeProjectId) return;
 
@@ -1366,9 +1281,8 @@ function Communication() {
                 timestamp: 'Just now'
             };
 
-            setPostsByProject(prev => ({
-                ...prev,
-                [String(activeProjectId)]: (prev[String(activeProjectId)] || []).map(p => {
+            client.setQueryData(['commPosts', activeProjectId], (old = []) =>
+                old.map(p => {
                     if (p.id === postId) {
                         return {
                             ...p,
@@ -1377,7 +1291,8 @@ function Communication() {
                     }
                     return p;
                 })
-            }));
+            );
+            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
 
             showToast('Reply sent.', 'success');
         } catch (err) {
@@ -1390,8 +1305,6 @@ function Communication() {
             showToast(errMessage, 'error');
         }
     };
-
-    const navigate = useNavigate();
 
     // Message Info Modal state
     const [infoModal, setInfoModal] = useState({
@@ -1448,15 +1361,15 @@ function Communication() {
                 console.warn('Backend edit post notification:', err);
             }
 
-            setPostsByProject(prev => ({
-                ...prev,
-                [String(activeProjectId)]: (prev[String(activeProjectId)] || []).map(p => {
+            client.setQueryData(['commPosts', activeProjectId], (old = []) =>
+                old.map(p => {
                     if (p.id === postId) {
                         return { ...p, title: newTitle, content: newContent };
                     }
                     return p;
                 })
-            }));
+            );
+            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
 
             setEditPostModal({ isOpen: false, post: null });
             showToast('Post updated successfully.', 'success');
@@ -1479,9 +1392,8 @@ function Communication() {
                 console.warn('Backend edit reply notification:', err);
             }
 
-            setPostsByProject(prev => ({
-                ...prev,
-                [String(activeProjectId)]: (prev[String(activeProjectId)] || []).map(p => {
+            client.setQueryData(['commPosts', activeProjectId], (old = []) =>
+                old.map(p => {
                     if (p.id === postId) {
                         return {
                             ...p,
@@ -1495,7 +1407,8 @@ function Communication() {
                     }
                     return p;
                 })
-            }));
+            );
+            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
 
             setEditReplyModal({ isOpen: false, postId: null, reply: null });
             showToast('Reply updated successfully.', 'success');
@@ -1572,7 +1485,7 @@ function Communication() {
                             <div className="communication-sidebar-section-title">Projects</div>
                             {projectsError ? (
                                 <div className="communication-reload-center-box">
-                                    <ReloadButton onReload={fetchData} isLoading={loadingProjects} title="Reload projects" />
+                                    <ReloadButton onReload={() => refetchProjects()} isLoading={loadingProjects} title="Reload projects" />
                                 </div>
                             ) : loadingProjects && projects.length === 0 ? (
                                 <div className="communication-sidebar-loading">Loading projects...</div>
@@ -1613,7 +1526,7 @@ function Communication() {
 
                     {/* Right Content Area */}
                     <div className="communication-content-area">
-                        {/* Top Project Banner Card (with Live API Data & Dynamic Status Border) */}
+                        {/* Top Project Banner Card */}
                         {activeProject && (
                             <div className={`communication-project-banner ${isGlobalChat ? 'status-active global-banner' : getProjectStatusClass(activeProject.status)}`}>
                                 {/* Left Side: Title & Description */}
@@ -1689,7 +1602,7 @@ function Communication() {
                             {postsError ? (
                                 <div className="communication-reload-center-box">
                                     <ReloadButton
-                                        onReload={() => fetchPostsForProject(activeProjectId, false)}
+                                        onReload={() => refetchPosts()}
                                         isLoading={loadingPosts}
                                         title="Reload posts"
                                     />
@@ -1783,6 +1696,10 @@ function Communication() {
             />
         </div>
     );
+}
+
+function Communication() {
+    return <CommunicationContent />;
 }
 
 export default Communication;

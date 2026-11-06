@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import {
+    useQuery,
+    useMutation,
+    useQueryClient
+} from '@tanstack/react-query';
 import './Profile.css';
 import NavBar from './NavBar';
 import request from './api/Request';
 import { getProjectStatusClass, getUserAvatarUrl } from './utils';
+import { useTheme } from './useTheme';
+import { useCurrentUser } from './useCurrentUser';
 
-// Section Reload Button Component matching the reload icon design
+// Section Reload Button Component
 function ReloadButton({ onReload, isLoading }) {
     return (
         <button
@@ -32,10 +39,17 @@ function ReloadButton({ onReload, isLoading }) {
     );
 }
 
-// Profile Header (Avatar, Names, Role, Actions, Options)
-function ProfileHeader({ profile, onOpenStats }) {
+// Profile Header (Avatar, Names, Role, Actions, Reputation Votes)
+function ProfileHeader({ profile, onOpenStats, targetUserId, loggedInUserId }) {
+    const client = useQueryClient();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
+
+    const [localVoteState, setLocalVoteState] = useState({
+        upvotes: 0,
+        downvotes: 0,
+        myVote: null
+    });
 
     useEffect(() => {
         const handleOutsideClick = (e) => {
@@ -51,9 +65,107 @@ function ProfileHeader({ profile, onOpenStats }) {
 
     const avatarSrc = profile.image || getUserAvatarUrl(profile.username_viewing);
 
+    // ── GET /api/users/{targetUserId}/reputation ─────────────────────────────
+    const { data: repData } = useQuery({
+        queryKey: ['profileReputation', targetUserId],
+        queryFn: async () => {
+            const res = await request.get(`/api/users/${targetUserId}/reputation`);
+            const d = res?.data || res;
+            return {
+                upvotes: Number(d?.upvotes ?? d?.likes ?? d?.up ?? 0),
+                downvotes: Number(d?.downvotes ?? d?.dislikes ?? d?.down ?? 0),
+                myVote: d?.myVote ?? d?.my_vote ?? d?.vote_type ?? null
+            };
+        },
+        enabled: Boolean(targetUserId),
+        staleTime: 1000 * 30
+    });
+
+    useEffect(() => {
+        if (repData) {
+            setLocalVoteState({
+                upvotes: repData.upvotes,
+                downvotes: repData.downvotes,
+                myVote: repData.myVote
+            });
+        }
+    }, [repData]);
+
+    const upvotes = localVoteState.upvotes;
+    const downvotes = localVoteState.downvotes;
+    const userVote = localVoteState.myVote === 1 ? 'up' : localVoteState.myVote === -1 ? 'down' : null;
+
+    const total = upvotes + downvotes;
+    const upPct = total > 0 ? (upvotes / total) * 100 : 50;
+    const downPct = total > 0 ? (downvotes / total) * 100 : 50;
+
+    const applyVoteLocally = (newVoteType) => {
+        setLocalVoteState((prev) => {
+            let u = prev.upvotes;
+            let d = prev.downvotes;
+            const currentVote = prev.myVote;
+
+            if (currentVote === 1) u = Math.max(0, u - 1);
+            if (currentVote === -1) d = Math.max(0, d - 1);
+
+            if (newVoteType === 1) u += 1;
+            if (newVoteType === -1) d += 1;
+
+            return {
+                upvotes: u,
+                downvotes: d,
+                myVote: newVoteType
+            };
+        });
+    };
+
+    // ── POST /api/users/{targetUserId}/vote ──────────────────────────────────
+    const voteMutation = useMutation({
+        mutationFn: (voteType) =>
+            request.post(`/api/users/${targetUserId}/vote`, { voteType: Number(voteType) }),
+        onSettled: () => client.invalidateQueries({ queryKey: ['profileReputation', targetUserId] })
+    });
+
+    // ── DELETE /api/users/{targetUserId}/vote ────────────────────────────────
+    const unvoteMutation = useMutation({
+        mutationFn: () => request.delete(`/api/users/${targetUserId}/vote`),
+        onSettled: () => client.invalidateQueries({ queryKey: ['profileReputation', targetUserId] })
+    });
+
+    const isBusy = voteMutation.isPending || unvoteMutation.isPending;
+    const isSelf = loggedInUserId && targetUserId && String(loggedInUserId) === String(targetUserId);
+
+    const handleUpvote = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isBusy || isSelf) return;
+
+        if (userVote === 'up') {
+            applyVoteLocally(null);
+            unvoteMutation.mutate();
+        } else {
+            applyVoteLocally(1);
+            voteMutation.mutate(1);
+        }
+    };
+
+    const handleDownvote = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isBusy || isSelf) return;
+
+        if (userVote === 'down') {
+            applyVoteLocally(null);
+            unvoteMutation.mutate();
+        } else {
+            applyVoteLocally(-1);
+            voteMutation.mutate(-1);
+        }
+    };
+
     return (
         <div className="profile-header-card">
-            {/* Three dots options menu */}
+            {/* Options menu */}
             <div className="options-menu" ref={menuRef}>
                 <button
                     className="dots-btn"
@@ -62,7 +174,7 @@ function ProfileHeader({ profile, onOpenStats }) {
                     aria-label="Options"
                     onClick={(e) => {
                         e.stopPropagation();
-                        setIsMenuOpen(prev => !prev);
+                        setIsMenuOpen((prev) => !prev);
                     }}
                 >
                     <span className="dot-square"></span>
@@ -117,16 +229,50 @@ function ProfileHeader({ profile, onOpenStats }) {
 
                 <div className="profile-bottom-row">
                     <div className="user-status">{profile.status}</div>
-                    <div className="header-buttons">
-                        <a href="CreateProject.html" className="btn-action">Create Project</a>
-                        <a href="CreateTasks.html" className="btn-action">Assign Task</a>
+
+                    {/* Upvote / Downvote reputation section */}
+                    <div className="vote-section">
+                        {/* Hide only the voting buttons on self profile */}
+                        {!isSelf && (
+                            <div className="vote-buttons">
+                                <button
+                                    type="button"
+                                    className={`vote-btn vote-btn-up ${userVote === 'up' ? 'active' : ''}`}
+                                    onClick={handleUpvote}
+                                    title="Upvote"
+                                    aria-label="Upvote"
+                                    disabled={isBusy}
+                                >
+                                    &#9650;
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`vote-btn vote-btn-down ${userVote === 'down' ? 'active' : ''}`}
+                                    onClick={handleDownvote}
+                                    title="Downvote"
+                                    aria-label="Downvote"
+                                    disabled={isBusy}
+                                >
+                                    &#9660;
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Always visible: reputation bar & counts */}
+                        <div className="vote-bar-row">
+                            <span className="vote-count vote-count-up">+{upvotes}</span>
+                            <div className="vote-bar" title={`${upvotes} upvotes / ${downvotes} downvotes`}>
+                                <div className="vote-bar-up" style={{ width: `${upPct}%` }} />
+                                <div className="vote-bar-down" style={{ width: `${downPct}%` }} />
+                            </div>
+                            <span className="vote-count vote-count-down">-{downvotes}</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     );
 }
-
 // Tab Navigation Bar
 function ProfileTabs({ activeTab, onSelectTab }) {
     return (
@@ -151,7 +297,7 @@ function ProfileTabs({ activeTab, onSelectTab }) {
     );
 }
 
-// About Tab (Strengths, Contacts, Video)
+// About Tab
 function AboutTab({ profile }) {
     const strengths = profile.about?.strengths || [];
     const email = profile.contacts?.email || '';
@@ -159,7 +305,6 @@ function AboutTab({ profile }) {
 
     return (
         <div id="profileTabAbout" className="profile-tab-panel">
-            {/* Card 1: Main Strengths */}
             <div className="content-card">
                 <h2 className="card-header">About me:</h2>
                 {strengths.length > 0 ? (
@@ -173,7 +318,6 @@ function AboutTab({ profile }) {
                 )}
             </div>
 
-            {/* Card 2: Contact Info */}
             <div className="content-card">
                 <div className="contact-header-row">
                     <h2 className="card-header" style={{ marginBottom: 0 }}>Contact Info:</h2>
@@ -182,7 +326,6 @@ function AboutTab({ profile }) {
                 <p className="contact-text">Email: {email || 'Not specified'}</p>
             </div>
 
-            {/* Card 3: Video about me */}
             {videoUrl && (
                 <div className="content-card">
                     <h2 className="card-header">Video about me:</h2>
@@ -222,7 +365,7 @@ function ProjectCard({ project }) {
 function ProjectsTab({ projects }) {
     const [searchQuery, setSearchQuery] = useState('');
 
-    const filteredProjects = (projects || []).filter(project => {
+    const filteredProjects = (projects || []).filter((project) => {
         const query = searchQuery.toLowerCase().trim();
         if (!query) return true;
         const fullText = `${project.title} ${project.id} ${project.desc} ${project.status} ${project.dates}`.toLowerCase();
@@ -232,7 +375,6 @@ function ProjectsTab({ projects }) {
     return (
         <div id="profileTabProjects" className="profile-tab-panel">
             <div className="profile-projects-card">
-                {/* Projects Header Row */}
                 <div className="profile-projects-header">
                     <h2 className="card-header" style={{ marginBottom: 0 }}>Projects</h2>
                     <div className="search-container profile-projects-search">
@@ -250,10 +392,9 @@ function ProjectsTab({ projects }) {
                     </div>
                 </div>
 
-                {/* Scrollable Inner Wrapper */}
                 <div className="profile-projects-scroll-wrapper">
                     {filteredProjects.length > 0 ? (
-                        filteredProjects.map(project => (
+                        filteredProjects.map((project) => (
                             <ProjectCard key={project.id} project={project} />
                         ))
                     ) : (
@@ -318,47 +459,19 @@ function StatsModal({ isOpen, onClose, stats }) {
 
 // Main Profile Component
 function Profile() {
-    // Read route param /profile/:id
+    const { isDark } = useTheme();
     const { id } = useParams();
     const viewingId = id || "1";
 
-    // 1. Logged in user: username, fullname, ID
-    const [loggedInUser, setLoggedInUser] = useState({
-        ID: "?",
-        username: "?",
-        fullname: "?",
-        image: "/ProfilePic/0.jpg"
-    });
-
-    // 2. Current user viewing data & status
+    const { currentUser: loggedInUser } = useCurrentUser();
     const [userViewing, setUserViewing] = useState(null);
     const [userNotFound, setUserNotFound] = useState(false);
     const [loadError, setLoadError] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    // UI state
     const [activeTab, setActiveTab] = useState('about');
     const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
 
-    // Fetch logged-in user from /api/auth/me
-    const fetchLoggedInUser = useCallback(async () => {
-        try {
-            const data = await request.get('/api/auth/me');
-            if (data) {
-                const uname = data.username || "?";
-                setLoggedInUser({
-                    ID: String(data.id || "?"),
-                    username: uname,
-                    fullname: data.full_name || data.fullName || data.fullname || data.name || uname,
-                    image: data.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg'),
-                });
-            }
-        } catch (err) {
-            console.error('Failed to fetch logged-in user (/api/auth/me):', err);
-        }
-    }, []);
-
-    // Fetch viewing user data from /api/users/{ID}
     const fetchUserViewing = useCallback(async () => {
         setLoading(true);
         setUserNotFound(false);
@@ -367,21 +480,17 @@ function Profile() {
             const res = await request.get(`/api/users/${viewingId}`);
             const data = res?.data || res;
 
-            // Check if response contains valid user data
             if (data && (data.id || data.username || data.email)) {
                 const uname = data.username || `user_${viewingId}`;
                 const fname = data.full_name || data.fullName || data.fullname || data.name || uname;
 
-                // Parse about strengths
                 const strengthsList = Array.isArray(data.about)
                     ? data.about
                     : (data.about?.strengths || (data.about ? [data.about] : []));
 
-                // Parse and fetch projects by ID using GET /api/projects/{ID}
                 let projectsList = [];
                 if (Array.isArray(data.projects) && data.projects.length > 0) {
                     const projectPromises = data.projects.map(async (item) => {
-                        // If it's already an object with full details
                         if (typeof item === 'object' && item !== null && item.title) {
                             return item;
                         }
@@ -408,7 +517,7 @@ function Profile() {
                                 };
                             }
                         } catch (projErr) {
-                            console.error(`Failed to fetch project details for ID ${projId} (/api/projects/${projId}):`, projErr);
+                            console.error(`Failed to fetch project details for ID ${projId}:`, projErr);
                             return {
                                 id: String(projId),
                                 title: typeof item === 'string' ? item : `Project ${projId}`,
@@ -456,54 +565,7 @@ function Profile() {
                 setUserNotFound(true);
             }
         } catch (err) {
-            console.error(`User ID ${viewingId} failed to load (/api/users/${viewingId}):`, err);
-
-            // Try fallback: lookup in /api/users by username or id
-            try {
-                const allUsersRes = await request.get('/api/users');
-                const uList = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes?.data && Array.isArray(allUsersRes.data) ? allUsersRes.data : []);
-                const matchedUser = uList.find(u => {
-                    const uid = String(u.id ?? u.ID ?? u.Id ?? u._id ?? '');
-                    const uname = String(u.username ?? u.userName ?? '').toLowerCase();
-                    const target = String(viewingId).toLowerCase().trim();
-                    return uid === target || uname === target;
-                });
-
-                if (matchedUser) {
-                    const uname = matchedUser.username || matchedUser.userName || `user_${viewingId}`;
-                    const fname = matchedUser.full_name || matchedUser.fullName || matchedUser.fullname || matchedUser.name || uname;
-                    const strengthsList = Array.isArray(matchedUser.about)
-                        ? matchedUser.about
-                        : (matchedUser.about?.strengths || (matchedUser.about ? [matchedUser.about] : []));
-
-                    setUserViewing({
-                        id: String(matchedUser.id ?? matchedUser.ID ?? matchedUser.Id ?? matchedUser._id ?? viewingId),
-                        username: uname,
-                        fullname: fname,
-                        role: matchedUser.role || matchedUser.userRole || 'MEMBER',
-                        image: matchedUser.image || matchedUser.avatar || (uname ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg'),
-                        about: {
-                            strengths: strengthsList.length > 0 ? strengthsList : ['Collaboration', 'Communication', 'Execution'],
-                            skills: Array.isArray(matchedUser.skills) ? matchedUser.skills : ['Team Management', 'React', 'Problem Solving']
-                        },
-                        contacts: {
-                            email: matchedUser.email || `${uname.toLowerCase()}@example.com`
-                        },
-                        stats: {
-                            dateJoined: '01/01/2026',
-                            accountStatus: matchedUser.status || 'ACTIVE',
-                            accountRole: matchedUser.role || 'MEMBER'
-                        },
-                        projects: []
-                    });
-                    setUserNotFound(false);
-                    setLoadError(false);
-                    return;
-                }
-            } catch (fallbackErr) {
-                // ignore
-            }
-
+            console.error(`User ID ${viewingId} failed to load:`, err);
             const status = err?.response?.status;
             setUserViewing(null);
             if (status === 404) {
@@ -519,49 +581,45 @@ function Profile() {
     }, [viewingId]);
 
     useEffect(() => {
-        fetchLoggedInUser();
         fetchUserViewing();
-    }, [fetchLoggedInUser, fetchUserViewing]);
+    }, [fetchUserViewing]);
 
     return (
-        <div className="profile-page-wrapper">
-            {/* Top Navigation Bar with Logged In User Info */}
+        <div className={`profile-page-wrapper${isDark ? ' dark-mode' : ''}`}>
             <div id="navbar-root">
-                <NavBar userId={loggedInUser.ID} fullName={loggedInUser.fullname} userName={loggedInUser.username} userImg={loggedInUser.image} />
+                <NavBar
+                    userId={loggedInUser.id || loggedInUser.ID}
+                    fullName={loggedInUser.fullname}
+                    userName={loggedInUser.username}
+                    userImg={loggedInUser.image}
+                    theme={isDark ? 'dark' : 'light'}
+                />
             </div>
 
-            {/* Loading state */}
             {loading ? (
-                <div className="page-container user-not-found-container">
-                    {/* Placeholder while loading */}
-                </div>
+                <div className="page-container user-not-found-container" />
             ) : loadError ? (
-                /* Failed to load -> Reload Button in middle of screen */
                 <div className="page-container user-not-found-container">
                     <ReloadButton onReload={fetchUserViewing} isLoading={loading} />
                 </div>
             ) : userNotFound || !userViewing ? (
-                /* User Not Found state */
                 <div className="page-container user-not-found-container">
                     <h2 className="user-not-found-text">This user doesn't exist</h2>
                 </div>
             ) : (
-                /* Profile Content with Viewing User Info */
                 <>
                     <div className="page-container">
                         <ProfileHeader
                             profile={userViewing}
                             onOpenStats={() => setIsStatsModalOpen(true)}
+                            targetUserId={userViewing.ID}
+                            loggedInUserId={loggedInUser.id || loggedInUser.ID}
                         />
-                        <ProfileTabs
-                            activeTab={activeTab}
-                            onSelectTab={setActiveTab}
-                        />
+                        <ProfileTabs activeTab={activeTab} onSelectTab={setActiveTab} />
                         {activeTab === 'about' && <AboutTab profile={userViewing} />}
                         {activeTab === 'projects' && <ProjectsTab projects={userViewing.projects} />}
                     </div>
 
-                    {/* Statistics Modal */}
                     <StatsModal
                         isOpen={isStatsModalOpen}
                         onClose={() => setIsStatsModalOpen(false)}

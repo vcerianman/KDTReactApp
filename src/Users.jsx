@@ -4,6 +4,8 @@ import './Users.css';
 import NavBar from './NavBar';
 import request from './api/Request';
 import { getUserAvatarUrl } from './utils';
+import { useTheme } from './useTheme';
+import useCurrentUser from './useCurrentUser';
 
 // Section Reload Button Component matching the reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -70,10 +72,27 @@ function UsersHeader({ searchQuery, onSearchChange, category, onCategoryChange }
     );
 }
 
-// Single User Card Component
+// Single User Card Component with Inline-Styled Reputation Bar
 function UserCard({ user }) {
     const avatarSrc = user.image || getUserAvatarUrl(user.username);
     const isBlocked = String(user.status || '').toUpperCase() === 'BLOCKED';
+
+    const upvotes = user.upvotes ?? 0;
+    const downvotes = user.downvotes ?? 0;
+    const total = upvotes + downvotes;
+
+    // Default to 50% if no votes have been cast
+    const upPct = total > 0 ? (upvotes / total) * 100 : 50;
+    const downPct = total > 0 ? (downvotes / total) * 100 : 50;
+    const displayPct = Math.round(upPct);
+
+    // Dynamic badge & bar color thresholding
+    let pctColor = '#ef4444'; // Red (0% - 40%)
+    if (upPct >= 70) {
+        pctColor = '#22c55e'; // Green (70% - 100%)
+    } else if (upPct >= 41) {
+        pctColor = '#eab308'; // Yellow (41% - 69%)
+    }
 
     return (
         <div className={`user-card ${isBlocked ? 'user-card-blocked' : ''}`}>
@@ -96,6 +115,67 @@ function UserCard({ user }) {
                 <div className="user-status-role">
                     <span className="user-role">{user.role}</span> - <span className="user-status">{user.status}</span>
                 </div>
+
+                {/* Visible Standalone Reputation Bar */}
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginTop: '10px',
+                        width: '100%'
+                    }}
+                >
+                    <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 'bold' }}>
+                        +{upvotes}
+                    </span>
+
+                    {/* Progress Bar Track */}
+                    <div
+                        style={{
+                            flex: 1,
+                            height: '8px',
+                            backgroundColor: '#334155',
+                            borderRadius: '4px',
+                            overflow: 'hidden',
+                            display: 'flex'
+                        }}
+                        title={`${upvotes} upvotes / ${downvotes} downvotes (${displayPct}%)`}
+                    >
+                        <div
+                            style={{
+                                width: `${upPct}%`,
+                                backgroundColor: '#22c55e',
+                                height: '100%',
+                                transition: 'width 0.3s ease'
+                            }}
+                        />
+                        <div
+                            style={{
+                                width: `${downPct}%`,
+                                backgroundColor: '#ef4444',
+                                height: '100%',
+                                transition: 'width 0.3s ease'
+                            }}
+                        />
+                    </div>
+
+                    <span style={{ fontSize: '12px', color: '#ef4444', fontWeight: 'bold' }}>
+                        -{downvotes}
+                    </span>
+
+                    <span
+                        style={{
+                            color: pctColor,
+                            fontWeight: 'bold',
+                            fontSize: '12px',
+                            minWidth: '36px',
+                            textAlign: 'right'
+                        }}
+                    >
+                        {displayPct}%
+                    </span>
+                </div>
             </div>
         </div>
     );
@@ -115,6 +195,7 @@ function UsersList({ users, searchQuery, category, error, loading, onReload }) {
 
     const query = (searchQuery || '').toLowerCase().trim();
 
+    // 1. Filter matching search query and category
     const filteredUsers = (users || []).filter(user => {
         if (!query) return true;
         const fullName = (user.fullname || '').toLowerCase();
@@ -127,16 +208,24 @@ function UsersList({ users, searchQuery, category, error, loading, onReload }) {
         if (category === 'activity') return status.includes(query);
         if (category === 'role') return role.includes(query);
 
-        // Default 'all'
         return fullName.includes(query) || username.includes(query) || role.includes(query) || status.includes(query);
+    });
+
+    // 2. Sort users by reputation upvote percentage descending (highest percentage top)
+    const sortedUsers = [...filteredUsers].sort((a, b) => {
+        const totalA = (a.upvotes || 0) + (a.downvotes || 0);
+        const totalB = (b.upvotes || 0) + (b.downvotes || 0);
+        const pctA = totalA > 0 ? (a.upvotes / totalA) * 100 : 50;
+        const pctB = totalB > 0 ? (b.upvotes / totalB) * 100 : 50;
+        return pctB - pctA;
     });
 
     return (
         <div className="users-outer-card">
             <div className="users-scroll-wrapper">
                 <div className="users-grid" id="usersGrid">
-                    {filteredUsers.length > 0 ? (
-                        filteredUsers.map(user => (
+                    {sortedUsers.length > 0 ? (
+                        sortedUsers.map(user => (
                             <UserCard key={user.id} user={user} />
                         ))
                     ) : (
@@ -152,57 +241,53 @@ function UsersList({ users, searchQuery, category, error, loading, onReload }) {
 
 // Main Users Page Component
 function Users() {
+    const { isDark } = useTheme();
     const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
     const [categoryFilter, setCategoryFilter] = useState('all');
 
-    // Current logged in user info
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "?",
-        image: "/ProfilePic/0.jpg"
-    });
-
-    // Users data & state
+    const { currentUser } = useCurrentUser();
     const [users, setUsers] = useState([]);
     const [usersError, setUsersError] = useState(false);
     const [usersLoading, setUsersLoading] = useState(false);
 
-    // Fetch logged in user
-    const fetchCurrentUser = useCallback(async () => {
-        try {
-            const data = await request.get('/api/auth/me');
-            if (data) {
-                const uname = data.username || "?";
-                setCurrentUser((prev) => ({
-                    ...prev,
-                    id: String(data.id || prev.id || "?"),
-                    fullname: data.full_name || data.fullName || data.fullname || data.name || prev.fullname,
-                    username: uname,
-                    image: data.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg'),
-                }));
-            }
-        } catch (err) {
-            console.error('Failed to fetch current user (/api/auth/me):', err);
-        }
-    }, []);
-
-    // Fetch users from /api/users
     const fetchUsers = useCallback(async () => {
         setUsersLoading(true);
         try {
             const data = await request.get('/api/users');
             const userList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
+
             if (userList) {
-                setUsers(userList.map(u => ({
-                    id: String(u.id || u._id || Math.random()),
-                    fullname: u.full_name || u.fullName || u.fullname || u.name || u.username || 'User',
-                    username: u.username || '',
-                    role: u.role || 'MEMBER',
-                    status: u.status || 'Active',
-                    image: u.image || getUserAvatarUrl(u.username),
-                })));
+                // Fetch reputation data in parallel for each user
+                const usersWithRep = await Promise.all(
+                    userList.map(async (u) => {
+                        const uid = String(u.id || u._id || Math.random());
+                        let upvotes = 0;
+                        let downvotes = 0;
+
+                        try {
+                            const repRes = await request.get(`/api/users/${uid}/reputation`);
+                            const rd = repRes?.data || repRes;
+                            upvotes = Number(rd?.upvotes ?? rd?.likes ?? rd?.up ?? 0);
+                            downvotes = Number(rd?.downvotes ?? rd?.dislikes ?? rd?.down ?? 0);
+                        } catch (repErr) {
+                            console.error(`Failed to fetch reputation for user ${uid}:`, repErr);
+                        }
+
+                        return {
+                            id: uid,
+                            fullname: u.full_name || u.fullName || u.fullname || u.name || u.username || 'User',
+                            username: u.username || '',
+                            role: u.role || 'MEMBER',
+                            status: u.status || 'Active',
+                            image: u.image || getUserAvatarUrl(u.username),
+                            upvotes,
+                            downvotes
+                        };
+                    })
+                );
+
+                setUsers(usersWithRep);
                 setUsersError(false);
             } else {
                 setUsers([]);
@@ -218,11 +303,9 @@ function Users() {
     }, []);
 
     useEffect(() => {
-        fetchCurrentUser();
         fetchUsers();
-    }, [fetchCurrentUser, fetchUsers]);
+    }, [fetchUsers]);
 
-    // Synchronize query parameter if changed in URL
     useEffect(() => {
         const query = searchParams.get('search');
         if (query !== null) {
@@ -231,13 +314,11 @@ function Users() {
     }, [searchParams]);
 
     return (
-        <div className="users-page-wrapper">
-            {/* Top Navigation Bar Component */}
+        <div className={`users-page-wrapper${isDark ? ' dark-mode' : ''}`}>
             <div id="navbar-root">
-                <NavBar userId={currentUser.id} fullName={currentUser.fullname} userName={currentUser.username} userImg={currentUser.image} />
+                <NavBar userId={currentUser.id} fullName={currentUser.fullname} userName={currentUser.username} userImg={currentUser.image} theme={isDark ? 'dark' : 'light'} />
             </div>
 
-            {/* Page Content Container */}
             <div className="page-container">
                 <UsersHeader
                     searchQuery={searchQuery}

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './SignUp.css';
 import Notification from './Notification';
 import request from './api/Request';
 
-function SignUp() {
+// Custom Hook to manage Sign-Up logic & state
+function useSignUpForm() {
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
@@ -20,18 +21,22 @@ function SignUp() {
     const [errorMessage, setErrorMessage] = useState('');
     const [toast, setToast] = useState(null);
 
-    const togglePasswordVisibility = () => {
+    const togglePasswordVisibility = useCallback(() => {
         setShowPassword((prev) => !prev);
-    };
+    }, []);
 
-    const handleChange = (e) => {
+    const handleChange = useCallback((e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         setHasError(false);
         setErrorMessage('');
-    };
+    }, []);
 
-    const handleSubmit = async (e) => {
+    const handleCloseToast = useCallback(() => {
+        setToast(null);
+    }, []);
+
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         setHasError(false);
         setErrorMessage('');
@@ -59,7 +64,7 @@ function SignUp() {
                 localStorage.setItem('token', token);
             }
 
-            // Redirect user to home logged in
+            // Redirect user to home
             navigate('/home');
         } catch (error) {
             console.error('Sign up failed:', error);
@@ -70,12 +75,40 @@ function SignUp() {
         } finally {
             setSubmitting(false);
         }
+    }, [formData, navigate]);
+
+    return {
+        formData,
+        showPassword,
+        submitting,
+        hasError,
+        errorMessage,
+        toast,
+        handleChange,
+        handleSubmit,
+        togglePasswordVisibility,
+        handleCloseToast
     };
+}
+
+function SignUp() {
+    const {
+        formData,
+        showPassword,
+        submitting,
+        hasError,
+        errorMessage,
+        toast,
+        handleChange,
+        handleSubmit,
+        togglePasswordVisibility,
+        handleCloseToast
+    } = useSignUpForm();
 
     return (
         <div className="signup-page-wrapper">
             {/* Universal Notification Toast */}
-            <Notification toast={toast} onClose={() => setToast(null)} />
+            <Notification toast={toast} onClose={handleCloseToast} />
 
             <div className="signup-card">
                 {/* Title */}
@@ -161,12 +194,12 @@ function SignUp() {
                     {/* Terms */}
                     <p className="terms-text">
                         By clicking Sign Up, you are agreeing to the
-                        <Link to="/terms" className="terms-link">Terms of Use</Link>
+                        <Link to="/terms" className="terms-link"> Terms of Use</Link>
                     </p>
 
                     <p className="login-text">
                         Already have an account? Login here:
-                        <Link to="/login" className="terms-link">Login</Link>
+                        <Link to="/login" className="terms-link"> Login</Link>
                     </p>
 
                     {/* Submit Button */}

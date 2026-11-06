@@ -85,10 +85,12 @@
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
 }
+
 /* #endregion */
 
 /* #region Search Bar Component */
@@ -137,6 +139,7 @@
     font-size: 18px;
     font-weight: 400;
 }
+
 /* #endregion */
 
 /* #region Top Header Card */
@@ -210,30 +213,110 @@
     gap: 12px;
 }
 
-.profile-page-wrapper .header-buttons {
+.profile-page-wrapper .vote-section {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
 }
 
-.profile-page-wrapper .btn-action {
-    background-color: #ffffff;
-    border: 1px solid #c0c0c0;
-    border-radius: 8px;
-    padding: 6px 18px;
-    font-size: 13px;
-    font-family: 'GothamSSm', Helvetica Neue, Calibri, sans-serif;
-    color: #555555;
+.profile-page-wrapper .vote-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.profile-page-wrapper .vote-btn {
+    background: transparent;
+    border: 1.5px solid transparent;
+    border-radius: 6px;
+    width: 36px;
+    height: 32px;
+    font-size: 16px;
     cursor: pointer;
-    transition: all 0.15s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-    text-decoration: none;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    line-height: 1;
 }
 
-.profile-page-wrapper .btn-action:hover {
-    background-color: #f8f9fa;
-    border-color: #0089d8;
-    color: #222222;
+.profile-page-wrapper .vote-btn-up {
+    color: #22a345;
+    border-color: #c8ecd5;
+}
+
+.profile-page-wrapper .vote-btn-up:hover,
+.profile-page-wrapper .vote-btn-up.active {
+    background-color: #e6f7ec;
+    border-color: #22a345;
+}
+
+.profile-page-wrapper .vote-btn-up.active {
+    background-color: #d0f0dc;
+    transform: scale(1.08);
+}
+
+.profile-page-wrapper .vote-btn-down {
+    color: #d93025;
+    border-color: #f5cece;
+}
+
+.profile-page-wrapper .vote-btn-down:hover,
+.profile-page-wrapper .vote-btn-down.active {
+    background-color: #fdecea;
+    border-color: #d93025;
+}
+
+.profile-page-wrapper .vote-btn-down.active {
+    background-color: #fbd9d7;
+    transform: scale(1.08);
+}
+
+/* Vote composition bar */
+.profile-page-wrapper .vote-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.profile-page-wrapper .vote-count {
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 28px;
+    line-height: 1;
+}
+
+.profile-page-wrapper .vote-count-up {
+    color: #22a345;
+    text-align: right;
+}
+
+.profile-page-wrapper .vote-count-down {
+    color: #d93025;
+    text-align: left;
+}
+
+.profile-page-wrapper .vote-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 2px;
+    overflow: hidden;
+    flex: 1;
+    background-color: #e8e8e8;
+    min-width: 120px;
+}
+
+.profile-page-wrapper .vote-bar-up {
+    background-color: #22a345;
+    transition: width 0.35s ease;
+    height: 100%;
+}
+
+.profile-page-wrapper .vote-bar-down {
+    background-color: #d93025;
+    transition: width 0.35s ease;
+    height: 100%;
 }
 
 /* Three Dots Menu */
@@ -312,6 +395,7 @@
     background-color: #f0f4f8;
     color: #00a2ff;
 }
+
 /* #endregion */
 
 /* #region Tab Bar */
@@ -358,6 +442,7 @@
     height: 3px;
     background-color: #00a2ff;
 }
+
 /* #endregion */
 
 /* #region Content Cards Container */
@@ -433,6 +518,7 @@
     height: auto;
     border: 1px solid #e3e5e6;
 }
+
 /* #endregion */
 
 /* #region Profile Projects Tab Card Panel */
@@ -556,6 +642,7 @@
 .profile-page-wrapper .profile-projects-scroll-wrapper::-webkit-scrollbar-thumb:hover {
     background: #888888;
 }
+
 /* #endregion */
 
 /* #region Statistics Modal */
@@ -597,6 +684,7 @@
         transform: scale(0.95);
         opacity: 0;
     }
+
     to {
         transform: scale(1);
         opacity: 1;
@@ -659,4 +747,254 @@
 .profile-page-wrapper .stats-item:first-child {
     padding-top: 4px;
 }
+
 /* #endregion */
+
+/* #region Dark Mode Theme Overrides */
+.profile-page-wrapper.dark-mode {
+    background-color: #1a1c1e;
+    color: #e1e3e6;
+}
+
+.profile-page-wrapper.dark-mode .fullname,
+.profile-page-wrapper.dark-mode .card-header,
+.profile-page-wrapper.dark-mode .user-status,
+.profile-page-wrapper.dark-mode .stats-modal-title,
+.profile-page-wrapper.dark-mode .user-not-found-text {
+    color: #ffffff;
+}
+
+.profile-page-wrapper.dark-mode .username {
+    color: #b0b3b8;
+}
+
+.profile-page-wrapper.dark-mode .user-role {
+    color: #d0d2d6;
+}
+
+.profile-page-wrapper.dark-mode .contact-text,
+.profile-page-wrapper.dark-mode .strengths-list li {
+    color: #e1e3e6;
+}
+
+/* Dark Mode Cards and Panels */
+.profile-page-wrapper.dark-mode .profile-header-card,
+.profile-page-wrapper.dark-mode .content-card,
+.profile-page-wrapper.dark-mode .profile-projects-card {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+}
+
+.profile-page-wrapper.dark-mode .avatar-box {
+    background-color: #1e2023;
+    border: 1px solid #383c40;
+}
+
+/* Dark Mode Tab Bar */
+.profile-page-wrapper.dark-mode .tab-bar {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+}
+
+.profile-page-wrapper.dark-mode .tab-item {
+    color: #b0b3b8;
+}
+
+.profile-page-wrapper.dark-mode .tab-item:hover,
+.profile-page-wrapper.dark-mode .tab-item.active {
+    color: #ffffff;
+}
+
+/* Dark Mode Three Dots Options Menu & Dropdown */
+.profile-page-wrapper.dark-mode .dots-btn:hover {
+    background-color: #2c3034;
+}
+
+.profile-page-wrapper.dark-mode .dot-square {
+    background-color: #ffffff;
+}
+
+.profile-page-wrapper.dark-mode .options-dropdown-menu {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.profile-page-wrapper.dark-mode .options-menu-item {
+    color: #e1e3e6;
+    border-bottom: 1px solid #383c40;
+}
+
+.profile-page-wrapper.dark-mode .options-menu-item:hover {
+    background-color: #2c3034;
+    color: #00a2ff;
+}
+
+/* Dark Mode Vote Section */
+.profile-page-wrapper.dark-mode .vote-bar {
+    background-color: #383c40;
+}
+
+.profile-page-wrapper.dark-mode .vote-btn-up {
+    color: #22a345;
+    border-color: rgba(34, 163, 69, 0.35);
+}
+
+.profile-page-wrapper.dark-mode .vote-btn-up:hover,
+.profile-page-wrapper.dark-mode .vote-btn-up.active {
+    background-color: rgba(34, 163, 69, 0.2);
+    border-color: #22a345;
+}
+
+.profile-page-wrapper.dark-mode .vote-btn-up.active {
+    background-color: rgba(34, 163, 69, 0.3);
+}
+
+.profile-page-wrapper.dark-mode .vote-btn-down {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.profile-page-wrapper.dark-mode .vote-btn-down:hover,
+.profile-page-wrapper.dark-mode .vote-btn-down.active {
+    background-color: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+}
+
+.profile-page-wrapper.dark-mode .vote-btn-down.active {
+    background-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Dark Mode Projects Tab Items */
+.profile-page-wrapper.dark-mode .profile-projects-card .project-card {
+    background-color: #2c3034;
+}
+
+.profile-page-wrapper.dark-mode .profile-projects-card .project-title {
+    color: #ffffff;
+}
+
+.profile-page-wrapper.dark-mode .profile-projects-card .project-id {
+    color: #888888;
+}
+
+.profile-page-wrapper.dark-mode .profile-projects-card .project-desc {
+    color: #b0b3b8;
+}
+
+.profile-page-wrapper.dark-mode .profile-projects-card .status-text {
+    color: #ffffff;
+}
+
+.profile-page-wrapper.dark-mode .profile-projects-card .project-dates {
+    color: #888888;
+}
+
+/* Dark Mode Search Input */
+.profile-page-wrapper.dark-mode .top-search-input {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.profile-page-wrapper.dark-mode .top-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.25);
+}
+
+.profile-page-wrapper.dark-mode .top-search-input::placeholder {
+    color: #888888;
+}
+
+.profile-page-wrapper.dark-mode .search-icon {
+    fill: #888888;
+}
+
+.profile-page-wrapper.dark-mode .search-container:focus-within .search-icon {
+    fill: #00a2ff;
+}
+
+/* Dark Mode Scrollbar */
+.profile-page-wrapper.dark-mode .profile-projects-scroll-wrapper::-webkit-scrollbar-track {
+    background: #1e2023;
+}
+
+.profile-page-wrapper.dark-mode .profile-projects-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #44494f;
+}
+
+.profile-page-wrapper.dark-mode .profile-projects-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #5c626a;
+}
+
+/* Dark Mode Statistics Modal */
+.profile-page-wrapper.dark-mode .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.65);
+}
+
+.profile-page-wrapper.dark-mode .stats-modal-card {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.profile-page-wrapper.dark-mode .stats-modal-header {
+    border-bottom: 1px solid #383c40;
+}
+
+.profile-page-wrapper.dark-mode .stats-modal-title {
+    color: #ffffff;
+}
+
+.profile-page-wrapper.dark-mode .stats-modal-close {
+    color: #b0b3b8;
+}
+
+.profile-page-wrapper.dark-mode .stats-modal-close:hover {
+    color: #ffffff;
+}
+
+.profile-page-wrapper.dark-mode .stats-item {
+    color: #e1e3e6;
+    border-bottom: 1px solid #383c40;
+}
+
+/* Dark Mode Reload Button */
+.profile-page-wrapper.dark-mode .section-reload-btn {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+}
+
+.profile-page-wrapper.dark-mode .section-reload-btn svg {
+    stroke: #b0b3b8;
+}
+
+.profile-page-wrapper.dark-mode .section-reload-btn:hover {
+    background-color: #383c40;
+    border-color: #60646c;
+}
+
+.profile-page-wrapper.dark-mode video {
+    border-color: #383c40;
+}
+
+/* Disable all transitions during page load */
+.profile-page-wrapper.no-theme-transition,
+.profile-page-wrapper.no-theme-transition * {
+    transition: none !important;
+}
+
+/* Only transition colors when user explicitly changes theme */
+.profile-page-wrapper.theme-transition {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.profile-page-wrapper.theme-transition .profile-header-card,
+.profile-page-wrapper.theme-transition .content-card,
+.profile-page-wrapper.theme-transition .profile-projects-card,
+.profile-page-wrapper.theme-transition .tab-bar,
+.profile-page-wrapper.theme-transition .top-search-input,
+.profile-page-wrapper.theme-transition .section-reload-btn {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+/* #endregion */

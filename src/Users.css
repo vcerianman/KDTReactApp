@@ -338,3 +338,155 @@
     }
 }
 /* #endregion */
+
+/* #region Dark Mode Theme Overrides */
+.users-page-wrapper.dark-mode {
+    background-color: #1a1c1e;
+    color: #e1e3e6;
+}
+
+.users-page-wrapper.dark-mode .page-title,
+.users-page-wrapper.dark-mode .user-fullname-link {
+    color: #ffffff;
+}
+
+.users-page-wrapper.dark-mode .user-fullname-link:hover {
+    color: #00a2ff;
+}
+
+.users-page-wrapper.dark-mode .users-outer-card {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+}
+
+.users-page-wrapper.dark-mode .user-card {
+    background-color: #2c3034;
+    border-color: #383c40;
+    color: #e1e3e6;
+}
+
+.users-page-wrapper.dark-mode .user-card:hover {
+    border-color: #4a4f54;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.users-page-wrapper.dark-mode .user-handle {
+    color: #b0b3b8;
+}
+
+.users-page-wrapper.dark-mode .user-status-role {
+    color: #d0d2d6;
+}
+
+.users-page-wrapper.dark-mode .user-avatar-box {
+    border-color: #383c40;
+    background-color: #24272a;
+}
+
+/* Dark Mode Inputs and Selects */
+.users-page-wrapper.dark-mode .top-search-input,
+.users-page-wrapper.dark-mode .search-category-select {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.users-page-wrapper.dark-mode .top-search-input:focus,
+.users-page-wrapper.dark-mode .search-category-select:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.25);
+}
+
+.users-page-wrapper.dark-mode .top-search-input::placeholder {
+    color: #888888;
+}
+
+.users-page-wrapper.dark-mode .search-category-select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b0b3b8'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+}
+
+.users-page-wrapper.dark-mode .search-icon {
+    fill: #888888;
+}
+
+.users-page-wrapper.dark-mode .search-container:focus-within .search-icon {
+    fill: #00a2ff;
+}
+
+/* Dark Mode Blocked User Card */
+.users-page-wrapper.dark-mode .user-card.user-card-blocked {
+    background-color: #222528;
+    border: 1px solid #2f3337;
+    color: #6c727a;
+}
+
+.users-page-wrapper.dark-mode .user-card.user-card-blocked:hover {
+    border-color: #3f4449;
+}
+
+.users-page-wrapper.dark-mode .user-card.user-card-blocked .user-fullname-link {
+    color: #6c727a;
+}
+
+.users-page-wrapper.dark-mode .user-card.user-card-blocked .user-fullname-link:hover {
+    color: #828992;
+}
+
+.users-page-wrapper.dark-mode .user-card.user-card-blocked .user-handle,
+.users-page-wrapper.dark-mode .user-card.user-card-blocked .user-status-role {
+    color: #5c6168;
+}
+
+.users-page-wrapper.dark-mode .user-card.user-card-blocked .user-avatar-box {
+    border-color: #2f3337;
+    background-color: #1f2225;
+}
+
+/* Dark Mode Custom Scrollbar */
+.users-page-wrapper.dark-mode .users-scroll-wrapper::-webkit-scrollbar-track {
+    background: #1e2023;
+}
+
+.users-page-wrapper.dark-mode .users-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #44494f;
+}
+
+.users-page-wrapper.dark-mode .users-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #5c626a;
+}
+
+/* Dark Mode Reload Button */
+.users-page-wrapper.dark-mode .section-reload-btn {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+}
+
+.users-page-wrapper.dark-mode .section-reload-btn svg {
+    stroke: #b0b3b8;
+}
+
+.users-page-wrapper.dark-mode .section-reload-btn:hover {
+    background-color: #383c40;
+    border-color: #60646c;
+}
+
+/* Disable all transitions during page load */
+.users-page-wrapper.no-theme-transition,
+.users-page-wrapper.no-theme-transition * {
+    transition: none !important;
+}
+
+/* Only transition colors when user explicitly changes theme */
+.users-page-wrapper.theme-transition {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.users-page-wrapper.theme-transition .users-outer-card,
+.users-page-wrapper.theme-transition .user-card,
+.users-page-wrapper.theme-transition .top-search-input,
+.users-page-wrapper.theme-transition .search-category-select,
+.users-page-wrapper.theme-transition .section-reload-btn {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+/* #endregion */
+

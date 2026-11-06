@@ -1,5 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import {
+    useQuery,
+    useMutation,
+    useQueryClient
+} from '@tanstack/react-query';
 import './Task.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
@@ -8,8 +13,11 @@ import {
     getTaskPriorityClass,
     getPriorityTagClass,
     getProjectStatusClass,
-    getUserAvatarUrl
+    getUserAvatarUrl,
+    formatTaskDueDate
 } from './utils';
+import { useTheme } from './useTheme';
+import useCurrentUser from './useCurrentUser';
 
 // Section Reload Button Component matching the reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -74,13 +82,17 @@ function TasksHeader({ searchQuery, onSearchChange }) {
 }
 
 // Single Task Card Component
-function TaskCard({ task, onTaskAction }) {
+function TaskCard({ task, onTaskAction, onTaskClick }) {
     const priorityClass = getTaskPriorityClass(task.priority);
     const tagClass = getPriorityTagClass(task.priority);
     const taskDescription = task.desc || task.description || '';
 
     return (
-        <div className={`task-card ${priorityClass}`} data-task-id={task.id}>
+        <div
+            className={`task-card ${priorityClass}`}
+            data-task-id={task.id}
+            onClick={() => onTaskClick && onTaskClick(task)}
+        >
             <div className="task-main-content">
                 <div className="task-title-row">
                     <span className="task-title">{task.title}</span>
@@ -102,7 +114,10 @@ function TaskCard({ task, onTaskAction }) {
                 className="btn-task-action"
                 title="Proceed / View Task"
                 aria-label="Proceed / View Task"
-                onClick={() => onTaskAction(task)}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onTaskAction(task);
+                }}
             >
                 <svg viewBox="0 0 24 24" width="20" height="20">
                     <path d="M8 5v14l11-7z" />
@@ -113,7 +128,7 @@ function TaskCard({ task, onTaskAction }) {
 }
 
 // Single Status Column Component with Vertical Scroll
-function StatusColumnCard({ columnKey, title, borderClass, tasks, onTaskAction }) {
+function StatusColumnCard({ columnKey, title, borderClass, tasks, onTaskAction, onTaskClick }) {
     return (
         <div className={`status-column-card ${borderClass}`}>
             <div className="column-header">
@@ -125,7 +140,12 @@ function StatusColumnCard({ columnKey, title, borderClass, tasks, onTaskAction }
             <div className="column-tasks-scroll">
                 {tasks.length > 0 ? (
                     tasks.map(task => (
-                        <TaskCard key={task.id} task={task} onTaskAction={onTaskAction} />
+                        <TaskCard
+                            key={task.id}
+                            task={task}
+                            onTaskAction={onTaskAction}
+                            onTaskClick={onTaskClick}
+                        />
                     ))
                 ) : (
                     <div className="column-empty-state">
@@ -138,7 +158,7 @@ function StatusColumnCard({ columnKey, title, borderClass, tasks, onTaskAction }
 }
 
 // 4 Columns Kanban Board with Bottom Horizontal Scrollbar
-function KanbanBoard({ currentProject, searchQuery, onTaskAction }) {
+function KanbanBoard({ currentProject, searchQuery, onTaskAction, onTaskClick }) {
     const query = searchQuery.toLowerCase().trim();
 
     // Filter tasks by live search query
@@ -206,6 +226,7 @@ function KanbanBoard({ currentProject, searchQuery, onTaskAction }) {
                             borderClass={col.borderClass}
                             tasks={colTasks}
                             onTaskAction={onTaskAction}
+                            onTaskClick={onTaskClick}
                         />
                     );
                 })}
@@ -307,6 +328,72 @@ function CurrentProjectSection({ currentProject, onPrevProject, onNextProject, o
                         <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
                     </svg>
                 </button>
+            </div>
+        </div>
+    );
+}
+
+// Task Detail Prompt Modal Component (matching reference image)
+function TaskDetailModal({ task, onClose }) {
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onClose]);
+
+    if (!task) return null;
+
+    const tagClass = getPriorityTagClass(task.priority);
+    const assignedUser = task.assignedTo || task.assignee || task.assigner || 'Unassigned';
+    const dueDateDisplay = formatTaskDueDate(task.dueDate || task.dates);
+    const description = task.desc || task.description || 'Task Description...';
+
+    return (
+        <div
+            className="members-modal-overlay task-modal-overlay"
+            id="taskModalOverlay"
+            onClick={(e) => {
+                if (e.target.id === 'taskModalOverlay') {
+                    onClose();
+                }
+            }}
+        >
+            <div className="members-modal-card task-detail-modal-card">
+                <div className="task-modal-header">
+                    <div className="task-modal-title-group">
+                        <h2 className="task-modal-title">{task.title || 'Task Name'}</h2>
+                        <span className={`task-priority-tag ${tagClass}`}>{task.priority || 'MEDIUM'}</span>
+                        <span className="task-assigner-pill">{task.assigner || 'KDT'}</span>
+                    </div>
+                    <button
+                        type="button"
+                        className="task-modal-close-btn"
+                        aria-label="Close"
+                        onClick={onClose}
+                    >
+                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+
+                <hr className="task-modal-divider" />
+
+                <div className="task-modal-body">
+                    <p className="task-modal-desc">{description}</p>
+                </div>
+
+                <div className="task-modal-footer">
+                    <span className="task-modal-assigned">Assigned to: {assignedUser}</span>
+                    <span className="task-modal-due">Due: {dueDateDisplay}</span>
+                </div>
             </div>
         </div>
     );
@@ -503,20 +590,155 @@ function NewTaskFooter({ onOpenMembers, currentProjectId }) {
     );
 }
 
-// Main Task / Kanban Page Component
-function Task() {
-    const [searchParams] = useSearchParams();
+// Data fetch function for TanStack Query
+async function fetchTasksPageData(currentUser) {
+    const userId = currentUser?.id;
+    const uname = currentUser?.username;
 
-    // Current Logged-in User
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "?",
-        image: "/ProfilePic/0.jpg"
+    if (!userId || userId === "?") {
+        return {
+            currentUser: currentUser || { id: "?", fullname: "?", username: "?", image: "/ProfilePic/0.jpg" },
+            projects: []
+        };
+    }
+
+    // 2. Fetch user's project IDs via GET /api/users/{ID}
+    const userRes = await request.get(`/api/users/${userId}`);
+    const userData = userRes?.data || userRes;
+    let projectIds = userData && Array.isArray(userData.projects) ? [...userData.projects] : [];
+
+    // Include target projectId if specified in query params so it can be viewed directly
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetProjectId = urlParams.get('projectId') || urlParams.get('project');
+    if (targetProjectId) {
+        const hasProject = projectIds.some(item => {
+            const pId = typeof item === 'object' && item !== null ? (item.id || item.projectId) : item;
+            return String(pId).toLowerCase() === targetProjectId.toLowerCase();
+        });
+        if (!hasProject) {
+            projectIds.push(targetProjectId);
+        }
+    }
+
+    if (projectIds.length === 0) {
+        return { currentUser, projects: [] };
+    }
+
+    // 3. For each project ID, fetch project info & tasks in parallel
+    const projectPromises = projectIds.map(async (item) => {
+        const projId = typeof item === 'object' && item !== null ? (item.id || item.projectId) : item;
+        if (!projId) return null;
+
+        try {
+            // Fetch project metadata
+            let projData = null;
+            try {
+                const projRes = await request.get(`/api/projects/${projId}`);
+                projData = projRes?.data || projRes;
+            } catch (pErr) {
+                console.error(`Failed to fetch project info for ${projId}:`, pErr);
+            }
+
+            // Fetch project tasks via GET /api/projects/{projId}/tasks
+            let taskList = [];
+            try {
+                const taskRes = await request.get(`/api/projects/${projId}/tasks`);
+                taskList = Array.isArray(taskRes) ? taskRes : (taskRes && Array.isArray(taskRes.data) ? taskRes.data : []);
+            } catch (tErr) {
+                console.error(`Failed to fetch tasks for project ${projId}:`, tErr);
+            }
+
+            const formattedTasks = taskList.map(t => {
+                const datesFormatted = t.dates || (t.start_date && t.end_date
+                    ? `${t.start_date} - ${t.end_date}`
+                    : (t.startDate && t.endDate
+                        ? `${t.startDate} - ${t.endDate}`
+                        : (t.dates || '')));
+
+                const rawDue = t.dueDate || t.due_date || t.deadline || t.endDate || t.end_date || '';
+
+                return {
+                    id: String(t.id || t._id || Math.random()),
+                    title: t.title || t.name || 'Task',
+                    priority: (t.priority || 'MEDIUM').toUpperCase(),
+                    assigner: t.assigner || t.assignee || t.createdBy || t.assignedTo || uname || 'KDT',
+                    desc: t.desc || t.description || '',
+                    status: (t.status || 'TODO').toUpperCase(),
+                    dates: datesFormatted,
+                    assignedTo: t.assignedTo || t.assignee || t.assigner || uname || 'Unassigned',
+                    dueDate: rawDue || datesFormatted || '',
+                    raw: t
+                };
+            });
+
+            const pDatesFormatted = projData?.dates || (projData?.start_date && projData?.end_date
+                ? `${projData.start_date} - ${projData.end_date}`
+                : (projData?.startDate && projData?.endDate
+                    ? `${projData.startDate} - ${projData.endDate}`
+                    : ''));
+
+            // Fetch users involved in this project via GET /api/users?projectId={ID}
+            let pUsers = [];
+            try {
+                const pUsersRes = await request.get(`/api/users?projectId=${projId}`);
+                const uList = Array.isArray(pUsersRes) ? pUsersRes : (pUsersRes && Array.isArray(pUsersRes.data) ? pUsersRes.data : []);
+                if (uList && uList.length > 0) {
+                    pUsers = uList.map(u => ({
+                        id: String(u.id || u._id || Math.random()),
+                        fullname: u.full_name || u.fullName || u.fullname || u.name || u.username || 'User',
+                        username: u.username || '',
+                        image: u.image || getUserAvatarUrl(u.username)
+                    }));
+                }
+            } catch (uErr) {
+                console.error(`Failed to fetch project users for project ${projId} (/api/users?projectId=${projId}):`, uErr);
+            }
+
+            // If empty or error
+            if (pUsers.length === 0) {
+                if (projData?.users && Array.isArray(projData.users) && projData.users.length > 0) {
+                    pUsers = projData.users;
+                } else {
+                    pUsers = [
+                        { id: '0', fullname: 'No one', username: 'No one', image: '/ProfilePic/0.jpg' }
+                    ];
+                }
+            }
+
+            return {
+                id: String(projData?.id || projId),
+                title: projData?.title || projData?.name || `Project ${projId}`,
+                desc: projData?.description || projData?.desc || '',
+                status: (projData?.status || 'ACTIVE').toUpperCase(),
+                dates: pDatesFormatted,
+                owner: projData?.owner || projData?.createdBy || 'KDT',
+                users: pUsers,
+                tasks: formattedTasks
+            };
+        } catch (err) {
+            console.error(`Failed to process project ${projId}:`, err);
+            return null;
+        }
     });
+
+    const loadedProjects = (await Promise.all(projectPromises)).filter(Boolean);
+    return { currentUser, projects: loadedProjects };
+}
+
+// Inner Task Content with TanStack Query
+function TaskContent() {
+    const { isDark } = useTheme();
+    const { currentUser } = useCurrentUser();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const client = useQueryClient();
+
+    const taskQueryKey = useMemo(() => ['taskPageData', currentUser.id], [currentUser.id]);
 
     // Notification Toast State
     const [toast, setToast] = useState(null);
+
+    // Selected Task State for Detail Prompt Modal
+    const [selectedTask, setSelectedTask] = useState(null);
 
     // Modal State for Global or Project users prompt
     const [modalConfig, setModalConfig] = useState({
@@ -527,193 +749,125 @@ function Task() {
         isEditMode: false
     });
     const [actionLoadingId, setActionLoadingId] = useState(null);
-
     const [globalUsers, setGlobalUsers] = useState([]);
 
-    // Projects with tasks data
-    const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState(false);
-
-    // Active Project Index
+    // Active Project Index & ID tracking
     const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
+    const [selectedProjectId, setSelectedProjectId] = useState(null);
+    const initialSyncDoneRef = useRef(false);
 
     // Live Search Query State
     const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
 
-    // Fetch user project IDs via GET /api/users/{ID} and then tasks via GET /api/projects/{ID}/tasks
-    const fetchUserAndTasks = useCallback(async () => {
-        setLoading(true);
-        setLoadError(false);
-        try {
-            // 1. Get logged-in user from /api/auth/me
-            let userId = "?";
-            let uname = "?";
-            let fname = "?";
-            let img = "/ProfilePic/0.jpg";
+    // TanStack Query for User and Tasks
+    const {
+        data,
+        isPending: loading,
+        isError: loadError,
+        refetch: fetchUserAndTasks
+    } = useQuery({
+        queryKey: taskQueryKey,
+        queryFn: () => fetchTasksPageData(currentUser),
+        enabled: Boolean(currentUser && currentUser.id !== '?'),
+    });
 
-            try {
-                const authData = await request.get('/api/auth/me');
-                if (authData) {
-                    userId = String(authData.id || "?");
-                    uname = authData.username || "?";
-                    fname = authData.full_name || authData.fullName || authData.fullname || authData.name || uname;
-                    img = authData.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg');
+    const projects = useMemo(() => data?.projects || [], [data?.projects]);
 
-                    setCurrentUser({
-                        id: userId,
-                        fullname: fname,
-                        username: uname,
-                        image: img
-                    });
-                }
-            } catch (authErr) {
-                console.error('Failed to fetch auth me in Task.jsx:', authErr);
-            }
-
-            if (!userId || userId === "?") {
-                setProjects([]);
-                setLoadError(true);
-                return;
-            }
-
-            // 2. Fetch user's project IDs via GET /api/users/{ID}
-            const userRes = await request.get(`/api/users/${userId}`);
-            const userData = userRes?.data || userRes;
-            const projectIds = userData && Array.isArray(userData.projects) ? userData.projects : [];
-
-            if (projectIds.length === 0) {
-                setProjects([]);
-                setLoadError(false);
-                return;
-            }
-
-            // 3. For each project ID, fetch project info & tasks in parallel
-            const projectPromises = projectIds.map(async (item) => {
-                const projId = typeof item === 'object' && item !== null ? (item.id || item.projectId) : item;
-                if (!projId) return null;
-
-                try {
-                    // Fetch project metadata
-                    let projData = null;
-                    try {
-                        const projRes = await request.get(`/api/projects/${projId}`);
-                        projData = projRes?.data || projRes;
-                    } catch (pErr) {
-                        console.error(`Failed to fetch project info for ${projId}:`, pErr);
-                    }
-
-                    // Fetch project tasks via GET /api/projects/{projId}/tasks
-                    let taskList = [];
-                    try {
-                        const taskRes = await request.get(`/api/projects/${projId}/tasks`);
-                        taskList = Array.isArray(taskRes) ? taskRes : (taskRes && Array.isArray(taskRes.data) ? taskRes.data : []);
-                    } catch (tErr) {
-                        console.error(`Failed to fetch tasks for project ${projId}:`, tErr);
-                    }
-
-                    const formattedTasks = taskList.map(t => {
-                        const datesFormatted = t.dates || (t.start_date && t.end_date
-                            ? `${t.start_date} - ${t.end_date}`
-                            : (t.startDate && t.endDate
-                                ? `${t.startDate} - ${t.endDate}`
-                                : (t.dates || '')));
-
-                        return {
-                            id: String(t.id || t._id || Math.random()),
-                            title: t.title || t.name || 'Task',
-                            priority: (t.priority || 'MEDIUM').toUpperCase(),
-                            assigner: t.assigner || t.assignee || t.createdBy || t.assignedTo || uname || 'KDT',
-                            desc: t.desc || t.description || '',
-                            status: (t.status || 'TODO').toUpperCase(),
-                            dates: datesFormatted
-                        };
-                    });
-
-                    const pDatesFormatted = projData?.dates || (projData?.start_date && projData?.end_date
-                        ? `${projData.start_date} - ${projData.end_date}`
-                        : (projData?.startDate && projData?.endDate
-                            ? `${projData.startDate} - ${projData.endDate}`
-                            : ''));
-
-                    // Fetch users involved in this project via GET /api/users?projectId={ID}
-                    let pUsers = [];
-                    try {
-                        const pUsersRes = await request.get(`/api/users?projectId=${projId}`);
-                        const uList = Array.isArray(pUsersRes) ? pUsersRes : (pUsersRes && Array.isArray(pUsersRes.data) ? pUsersRes.data : []);
-                        if (uList && uList.length > 0) {
-                            pUsers = uList.map(u => ({
-                                id: String(u.id || u._id || Math.random()),
-                                fullname: u.full_name || u.fullName || u.fullname || u.name || u.username || 'User',
-                                username: u.username || '',
-                                image: u.image || getUserAvatarUrl(u.username)
-                            }));
-                        }
-                    } catch (uErr) {
-                        console.error(`Failed to fetch project users for project ${projId} (/api/users?projectId=${projId}):`, uErr);
-                    }
-
-                    // If empty or error, fallback to project data users or sample list
-                    if (pUsers.length === 0) {
-                        if (projData?.users && Array.isArray(projData.users) && projData.users.length > 0) {
-                            pUsers = projData.users;
-                        } else {
-                            pUsers = [
-                                { id: '1', fullname: 'KDT', username: 'KDT', image: '/ProfilePic/KDT.jpg' },
-                                { id: '2', fullname: 'Khang nig', username: 'Turtlely', image: '/ProfilePic/Turtlely.jpg' },
-                                { id: '3', fullname: 'Ngo Do', username: 'NgoDo', image: '/ProfilePic/NgoDo.jpg' },
-                                { id: '4', fullname: 'Eternal DESTROYER', username: 'CodeMaster', image: '/ProfilePic/0.jpg' },
-                                { id: '5', fullname: 'USER', username: 'user', image: '/ProfilePic/0.jpg' },
-                                { id: '6', fullname: 'dds', username: 'dds', image: '/ProfilePic/dds.jpg' }
-                            ];
-                        }
-                    }
-
-                    return {
-                        id: String(projData?.id || projId),
-                        title: projData?.title || projData?.name || `Project ${projId}`,
-                        desc: projData?.description || projData?.desc || '',
-                        status: (projData?.status || 'ACTIVE').toUpperCase(),
-                        dates: pDatesFormatted,
-                        owner: projData?.owner || projData?.createdBy || 'KDT',
-                        users: pUsers,
-                        tasks: formattedTasks
-                    };
-                } catch (err) {
-                    console.error(`Failed to process project ${projId}:`, err);
-                    return null;
-                }
-            });
-
-            const loadedProjects = (await Promise.all(projectPromises)).filter(Boolean);
-            setProjects(loadedProjects);
-            setLoadError(false);
-        } catch (err) {
-            console.error('Failed to fetch user and tasks:', err);
-            setProjects([]);
-            setLoadError(true);
-        } finally {
-            setLoading(false);
+    // Active project determined safely by selectedProjectId or fallback index
+    const currentProject = useMemo(() => {
+        if (!projects || projects.length === 0) return null;
+        if (selectedProjectId) {
+            const found = projects.find(p => String(p.id) === String(selectedProjectId));
+            if (found) return found;
         }
-    }, []);
-
-    useEffect(() => {
-        fetchUserAndTasks();
-    }, [fetchUserAndTasks]);
+        return projects[currentProjectIndex] || projects[0];
+    }, [projects, selectedProjectId, currentProjectIndex]);
 
     // Switch to Previous Project
     const handlePrevProject = () => {
-        setCurrentProjectIndex(prev => (prev > 0 ? prev - 1 : projects.length - 1));
+        if (!projects || projects.length === 0) return;
+        const currentIdx = projects.findIndex(p => String(p.id) === String(currentProject?.id));
+        const prevIdx = currentIdx > 0 ? currentIdx - 1 : projects.length - 1;
+        const targetProj = projects[prevIdx];
+        if (targetProj) {
+            setSelectedProjectId(targetProj.id);
+            setCurrentProjectIndex(prevIdx);
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.set('projectId', String(targetProj.id));
+                return next;
+            }, { replace: true });
+        }
     };
 
     // Switch to Next Project
     const handleNextProject = () => {
-        setCurrentProjectIndex(prev => (prev < projects.length - 1 ? prev + 1 : 0));
+        if (!projects || projects.length === 0) return;
+        const currentIdx = projects.findIndex(p => String(p.id) === String(currentProject?.id));
+        const nextIdx = currentIdx < projects.length - 1 ? currentIdx + 1 : 0;
+        const targetProj = projects[nextIdx];
+        if (targetProj) {
+            setSelectedProjectId(targetProj.id);
+            setCurrentProjectIndex(nextIdx);
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.set('projectId', String(targetProj.id));
+                return next;
+            }, { replace: true });
+        }
     };
 
-    // Interactive Task Action Button: cycle status forward (TODO -> IN_PROGRESS -> DONE)
-    // and send PUT /api/tasks/{ID} request with "status": ...
-    const handleTaskAction = async (taskToMove) => {
+    // Mutation for updating task status with TanStack Query
+    const updateTaskStatusMutation = useMutation({
+        mutationFn: async ({ taskId, nextStatus }) => {
+            return request.put(`/api/tasks/${taskId}`, {
+                status: nextStatus
+            });
+        },
+        onMutate: async ({ taskId, nextStatus }) => {
+            // Optimistic update
+            await client.cancelQueries({ queryKey: taskQueryKey });
+            const previousData = client.getQueryData(taskQueryKey);
+
+            client.setQueryData(taskQueryKey, (old) => {
+                if (!old || !old.projects) return old;
+                const updatedProjects = old.projects.map((proj, pIdx) => {
+                    if (pIdx !== currentProjectIndex) return proj;
+                    const updatedTasks = proj.tasks.map(t => {
+                        if (String(t.id) !== String(taskId)) return t;
+                        return { ...t, status: nextStatus };
+                    });
+                    return { ...proj, tasks: updatedTasks };
+                });
+                return { ...old, projects: updatedProjects };
+            });
+
+            return { previousData };
+        },
+        onError: (err, variables, context) => {
+            if (context?.previousData) {
+                client.setQueryData(taskQueryKey, context.previousData);
+            }
+            console.error(`Failed to update status for task ${variables.taskId}:`, err);
+            const errMsg = err?.response?.data?.message || err?.message || 'Failed to update task status!';
+            setToast({
+                message: errMsg,
+                type: 'error'
+            });
+        },
+        onSuccess: (res, variables) => {
+            setToast({
+                message: `Task moved to ${variables.nextStatus}!`,
+                type: 'success'
+            });
+        },
+        onSettled: () => {
+            client.invalidateQueries({ queryKey: taskQueryKey });
+        }
+    });
+
+    // Interactive Task Action Button
+    const handleTaskAction = (taskToMove) => {
         let currentStatus = (taskToMove.status || '').toUpperCase();
         let nextStatus = 'IN_PROGRESS';
 
@@ -721,7 +875,7 @@ function Task() {
             nextStatus = 'IN_PROGRESS';
         } else if (currentStatus === 'IN_PROGRESS' || currentStatus === 'DOING' || currentStatus === 'IN_REVIEW' || currentStatus === 'ON_HOLD') {
             nextStatus = 'DONE';
-        } else if (currentStatus === 'DONE' || currentStatus === 'DONE' || currentStatus === 'FINISHED') {
+        } else if (currentStatus === 'DONE' || currentStatus === 'FINISHED') {
             nextStatus = 'CANCELLED';
         } else if (currentStatus === 'CANCELLED' || currentStatus === 'CANCELED' || currentStatus === 'ARCHIVED') {
             nextStatus = 'TODO';
@@ -729,62 +883,47 @@ function Task() {
             nextStatus = 'IN_PROGRESS';
         }
 
-        // 1. Update status immediately in local state
-        setProjects(prevProjects => {
-            return prevProjects.map((proj, pIdx) => {
-                if (pIdx !== currentProjectIndex) return proj;
-                const updatedTasks = proj.tasks.map(t => {
-                    if (String(t.id) !== String(taskToMove.id)) return t;
-                    return { ...t, status: nextStatus };
-                });
-                return { ...proj, tasks: updatedTasks };
-            });
-        });
-
-        // 2. Send PUT /api/tasks/{ID} request
-        try {
-            await request.put(`/api/tasks/${taskToMove.id}`, {
-                status: nextStatus
-            });
-            setToast({
-                message: `Task "${taskToMove.title}" moved to ${nextStatus}!`,
-                type: 'success'
-            });
-        } catch (err) {
-            console.error(`Failed to update status for task ${taskToMove.id} via PUT /api/tasks/${taskToMove.id}:`, err);
-            const errMsg = err?.response?.data?.message || err?.message || 'Failed to update task status!';
-            setToast({
-                message: errMsg,
-                type: 'error'
-            });
-        }
+        updateTaskStatusMutation.mutate({ taskId: taskToMove.id, nextStatus });
     };
 
-    // Handle search and projectId query parameters
+    // Handle initial search and projectId query parameters without resetting on data mutations
     useEffect(() => {
-        const projectIdParam = searchParams.get('projectId') || searchParams.get('project');
-        if (projectIdParam && projects.length > 0) {
-            const matchedIdx = projects.findIndex(p =>
-                p.id.toLowerCase() === projectIdParam.toLowerCase() ||
-                p.title.toLowerCase() === projectIdParam.toLowerCase()
-            );
-            if (matchedIdx !== -1) {
-                setCurrentProjectIndex(matchedIdx);
-            }
-        }
+        if (!projects || projects.length === 0) return;
 
-        const searchParam = searchParams.get('search');
-        if (searchParam) {
-            setSearchQuery(searchParam);
-            if (!projectIdParam && projects.length > 0) {
+        const projectIdParam = searchParams.get('projectId') || searchParams.get('project');
+
+        if (!initialSyncDoneRef.current) {
+            initialSyncDoneRef.current = true;
+            if (projectIdParam) {
+                const target = String(projectIdParam).toLowerCase().trim();
                 const matchedIdx = projects.findIndex(p =>
-                    p.title.toLowerCase().includes(searchParam.toLowerCase()) ||
-                    p.id.toLowerCase() === searchParam.toLowerCase()
+                    String(p.id).toLowerCase().trim() === target ||
+                    String(p.title).toLowerCase().trim() === target
                 );
                 if (matchedIdx !== -1) {
                     setCurrentProjectIndex(matchedIdx);
+                    setSelectedProjectId(projects[matchedIdx].id);
+                    return;
                 }
             }
+
+            const searchParam = searchParams.get('search');
+            if (searchParam) {
+                setSearchQuery(searchParam);
+                const searchTarget = String(searchParam).toLowerCase().trim();
+                const matchedIdx = projects.findIndex(p =>
+                    String(p.title).toLowerCase().includes(searchTarget) ||
+                    String(p.id).toLowerCase().trim() === searchTarget
+                );
+                if (matchedIdx !== -1) {
+                    setCurrentProjectIndex(matchedIdx);
+                    setSelectedProjectId(projects[matchedIdx].id);
+                    return;
+                }
+            }
+
+            setSelectedProjectId(projects[0].id);
+            setCurrentProjectIndex(0);
         }
     }, [searchParams, projects]);
 
@@ -855,8 +994,6 @@ function Task() {
         });
     };
 
-    const currentProject = projects[currentProjectIndex] || projects[0];
-
     // Add or remove user from the current project via PUT /api/users/{ID}
     const handleToggleMember = async (user, isCurrentlyInProject) => {
         if (!currentProject || !currentProject.id) return;
@@ -904,9 +1041,10 @@ function Task() {
                 projects: updatedProjects
             });
 
-            // 3. Update current project's users in local state
-            setProjects(prevProjects => {
-                return prevProjects.map(proj => {
+            // 3. Update current project's users in query cache
+            client.setQueryData(taskQueryKey, (old) => {
+                if (!old || !old.projects) return old;
+                const updatedProjectsList = old.projects.map(proj => {
                     if (String(proj.id) !== String(currentProject.id)) return proj;
                     let currentUsers = proj.users || [];
                     let newUsers;
@@ -921,6 +1059,7 @@ function Task() {
                     }
                     return { ...proj, users: newUsers };
                 });
+                return { ...old, projects: updatedProjectsList };
             });
         } catch (err) {
             console.error(`Failed to update project membership for user ${user.id}:`, err);
@@ -932,7 +1071,7 @@ function Task() {
     const currentProjectUserIds = (currentProject?.users || []).map(u => String(u.id));
 
     return (
-        <div className="tasks-page-wrapper">
+        <div className={`tasks-page-wrapper${isDark ? ' dark-mode' : ''}`}>
             {/* Top Navigation Bar Component */}
             <div id="navbar-root">
                 <NavBar
@@ -940,6 +1079,7 @@ function Task() {
                     fullName={currentUser.fullname}
                     userName={currentUser.username}
                     userImg={currentUser.image}
+                    theme={isDark ? 'dark' : 'light'}
                 />
             </div>
 
@@ -969,6 +1109,7 @@ function Task() {
                             currentProject={currentProject}
                             searchQuery={searchQuery}
                             onTaskAction={handleTaskAction}
+                            onTaskClick={setSelectedTask}
                         />
 
                         {/* Current Project Card & Switch Buttons */}
@@ -983,6 +1124,12 @@ function Task() {
                         <NewTaskFooter
                             onOpenMembers={handleOpenGlobalMembers}
                             currentProjectId={currentProject?.id}
+                        />
+
+                        {/* Task Detail Prompt Modal (Reference Image) */}
+                        <TaskDetailModal
+                            task={selectedTask}
+                            onClose={() => setSelectedTask(null)}
                         />
 
                         {/* Users Prompt Modal (Global Edit Mode or Project Involved Users View) */}
@@ -1003,6 +1150,11 @@ function Task() {
             </div>
         </div>
     );
+}
+
+// Main Task / Kanban Page Component
+function Task() {
+    return <TaskContent />;
 }
 
 export default Task;

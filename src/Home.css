@@ -136,6 +136,7 @@
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
@@ -204,9 +205,8 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    height: 155px;
-    min-height: 155px;
-    max-height: 155px;
+    height: auto;
+    min-height: 140px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.15s ease, transform 0.15s ease;
     text-decoration: none;
@@ -288,12 +288,8 @@
     font-size: 13px;
     color: #666666;
     margin-top: 6px;
-    line-height: 1.3;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    line-height: 1.4;
+    word-break: break-word;
 }
 
 .task-home-footer {
@@ -427,6 +423,127 @@
 
 .project-home-card.status-completed {
     border: 2px solid #48c774;
+}
+
+/* #endregion */
+
+/* #region Dark Mode Theme Overrides */
+.home-page-wrapper.dark-mode {
+    background-color: #1a1c1e;
+    color: #e1e3e6;
+}
+
+.home-page-wrapper.dark-mode .page-title,
+.home-page-wrapper.dark-mode .username-text,
+.home-page-wrapper.dark-mode .section-title-link,
+.home-page-wrapper.dark-mode .see-all-link,
+.home-page-wrapper.dark-mode .task-home-title,
+.home-page-wrapper.dark-mode .task-assigner,
+.home-page-wrapper.dark-mode .task-assigner-name,
+.home-page-wrapper.dark-mode .task-priority-tag,
+.home-page-wrapper.dark-mode .task-home-desc,
+.home-page-wrapper.dark-mode .task-home-footer,
+.home-page-wrapper.dark-mode .task-dates,
+.home-page-wrapper.dark-mode .project-home-title,
+.home-page-wrapper.dark-mode .project-home-id,
+.home-page-wrapper.dark-mode .project-home-desc,
+.home-page-wrapper.dark-mode .project-home-footer,
+.home-page-wrapper.dark-mode .project-dates,
+.home-page-wrapper.dark-mode .status-text,
+.home-page-wrapper.dark-mode .task-priority-tag,
+.home-page-wrapper.dark-mode .task-assigner-name,
+.home-page-wrapper.dark-mode .user-display-name {
+    color: #ffffff;
+}
+
+.home-page-wrapper.dark-mode .sidebar-card,
+.home-page-wrapper.dark-mode .home-main-card {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+}
+
+.home-page-wrapper.dark-mode .sidebar-tab-item {
+    color: #b0b3b8;
+}
+
+.home-page-wrapper.dark-mode .sidebar-tab-item:hover {
+    background-color: #2c3034;
+    color: #00a2ff;
+}
+
+.home-page-wrapper.dark-mode .task-home-card,
+.home-page-wrapper.dark-mode .project-home-card {
+    background-color: #2c3034
+}
+
+.home-page-wrapper.dark-mode .sidebar-tab-item.active {
+    background-color: #24272a;
+    color: #ffffff;
+}
+
+.home-page-wrapper.dark-mode .setting-input-box,
+.home-page-wrapper.dark-mode .setting-select-box {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.home-page-wrapper.dark-mode .btn-upload,
+.home-page-wrapper.dark-mode .btn-save-setting {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.home-page-wrapper.dark-mode .btn-upload:hover,
+.home-page-wrapper.dark-mode .btn-save-setting:hover {
+    background-color: #383c40;
+    color: #ffffff;
+}
+
+.home-page-wrapper.dark-mode .priority-tag-urgent {
+    background-color: rgba(224, 36, 36, 0.2);
+    color: #ff8a8a;
+    border: 1px solid rgba(224, 36, 36, 0.4);
+}
+
+.home-page-wrapper.dark-mode .priority-tag-high {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: #ffcb6b;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.home-page-wrapper.dark-mode .priority-tag-medium {
+    background-color: rgba(56, 182, 255, 0.2);
+    color: #80d4ff;
+    border: 1px solid rgba(56, 182, 255, 0.4);
+}
+
+.home-page-wrapper.dark-mode .priority-tag-low {
+    background-color: rgba(176, 179, 184, 0.2);
+    color: #d0d2d6;
+    border: 1px solid rgba(176, 179, 184, 0.4);
+}
+
+
+/* Disable all transitions during page load */
+.home-page-wrapper.no-theme-transition,
+.home-page-wrapper.no-theme-transition * {
+    transition: none !important;
+}
+
+/* Only transition colors when user explicitly changes theme */
+.home-page-wrapper.theme-transition {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.home-page-wrapper.theme-transition .sidebar-card,
+.home-page-wrapper.theme-transition .sidebar-tab-item,
+.home-page-wrapper.theme-transition .setting-input-box,
+.home-page-wrapper.theme-transition .setting-select-box,
+.home-page-wrapper.theme-transition .btn-upload,
+.home-page-wrapper.theme-transition .btn-save-setting {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 /* #endregion */

@@ -5,6 +5,7 @@ import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
 import { getUserAvatarUrl } from './utils';
+import useCurrentUser from './useCurrentUser';
 
 // User Selection Modal Component (like Edit Members in tasks.jsx)
 function UserSelectModal({
@@ -282,12 +283,7 @@ function CreateTasks() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
 
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "?",
-        image: "/ProfilePic/0.jpg"
-    });
+    const { currentUser } = useCurrentUser();
 
     const [projects, setProjects] = useState([]);
     const [loadingProjects, setLoadingProjects] = useState(true);
@@ -314,29 +310,8 @@ function CreateTasks() {
     const fetchData = useCallback(async () => {
         setLoadingProjects(true);
         try {
-            let userId = "?";
-            let uname = "?";
-            let fname = "?";
-            let img = "/ProfilePic/0.jpg";
-
-            try {
-                const authData = await request.get('/api/auth/me');
-                if (authData) {
-                    userId = String(authData.id || "?");
-                    uname = authData.username || "?";
-                    fname = authData.full_name || authData.fullName || authData.fullname || authData.name || uname;
-                    img = authData.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg');
-
-                    setCurrentUser({
-                        id: userId,
-                        fullname: fname,
-                        username: uname,
-                        image: img
-                    });
-                }
-            } catch (authErr) {
-                console.error('Failed to fetch auth me in CreateTasks:', authErr);
-            }
+            const userId = currentUser?.id;
+            const uname = currentUser?.username;
 
             // Fetch user projects via GET /api/users/{ID}
             let loadedProjects = [];
@@ -371,31 +346,6 @@ function CreateTasks() {
                 }
             }
 
-            // Fallback projects if none found
-            if (loadedProjects.length === 0) {
-                try {
-                    const allProjRes = await request.get('/api/projects');
-                    const allList = Array.isArray(allProjRes) ? allProjRes : (allProjRes && Array.isArray(allProjRes.data) ? allProjRes.data : []);
-                    if (allList.length > 0) {
-                        loadedProjects = allList.map(p => ({
-                            id: String(p.id || p._id),
-                            title: p.title || p.name || `Project ${p.id}`
-                        }));
-                    }
-                } catch (allErr) {
-                    console.error('Failed to fetch all projects in CreateTasks:', allErr);
-                }
-            }
-
-            if (loadedProjects.length === 0) {
-                loadedProjects = [
-                    { id: '123', title: 'Project A' },
-                    { id: '124', title: 'Project B' },
-                    { id: '125', title: 'Project C' },
-                    { id: '126', title: 'Project D' },
-                    { id: '127', title: 'Project E' }
-                ];
-            }
 
             setProjects(loadedProjects);
 
@@ -442,24 +392,14 @@ function CreateTasks() {
                 setUsersList(formatted);
             } else {
                 const defaultList = [
-                    { id: '1', fullname: 'KDT', username: 'KDT', image: '/ProfilePic/KDT.jpg' },
-                    { id: '2', fullname: 'Khang nig', username: 'Turtlely', image: '/ProfilePic/Turtlely.jpg' },
-                    { id: '3', fullname: 'Ngo Do', username: 'NgoDo', image: '/ProfilePic/NgoDo.jpg' },
-                    { id: '4', fullname: 'Eternal DESTROYER', username: 'CodeMaster', image: '/ProfilePic/0.jpg' },
-                    { id: '5', fullname: 'USER', username: 'user', image: '/ProfilePic/0.jpg' },
-                    { id: '6', fullname: 'dds', username: 'dds', image: '/ProfilePic/dds.jpg' }
+                    { id: '1', fullname: 'No one', username: 'No one', image: '/ProfilePic/0.jpg' }
                 ];
                 setUsersList(defaultList);
             }
         } catch (err) {
             console.error('Failed to fetch users for modal in CreateTasks:', err);
             const defaultList = [
-                { id: '1', fullname: 'KDT', username: 'KDT', image: '/ProfilePic/KDT.jpg' },
-                { id: '2', fullname: 'Khang nig', username: 'Turtlely', image: '/ProfilePic/Turtlely.jpg' },
-                { id: '3', fullname: 'Ngo Do', username: 'NgoDo', image: '/ProfilePic/NgoDo.jpg' },
-                { id: '4', fullname: 'Eternal DESTROYER', username: 'CodeMaster', image: '/ProfilePic/0.jpg' },
-                { id: '5', fullname: 'USER', username: 'user', image: '/ProfilePic/0.jpg' },
-                { id: '6', fullname: 'dds', username: 'dds', image: '/ProfilePic/dds.jpg' }
+                { id: '1', fullname: 'No one', username: 'No one', image: '/ProfilePic/0.jpg' }
             ];
             setUsersList(defaultList);
         } finally {

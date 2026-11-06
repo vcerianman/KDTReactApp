@@ -1,10 +1,16 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import {
+    useQuery,
+    useQueryClient
+} from '@tanstack/react-query';
 import './AdminPanel.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
 import { getUserAvatarUrl, getProjectStatusClass, getPriorityTagClass } from './utils';
+import { useTheme } from './useTheme';
+import { useCurrentUser } from './useCurrentUser';
 
 // Section Reload Button Component matching the universal reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -1183,7 +1189,7 @@ function CreateUserModal({ onSave, onCancel, isSubmitting }) {
                             className="form-input"
                             value={formData.username}
                             onChange={(e) => handleChange('username', e.target.value)}
-                            placeholder="e.g. jdoe"
+                            placeholder="username"
                             required
                         />
                     </div>
@@ -1196,7 +1202,7 @@ function CreateUserModal({ onSave, onCancel, isSubmitting }) {
                             className="form-input"
                             value={formData.fullname}
                             onChange={(e) => handleChange('fullname', e.target.value)}
-                            placeholder="e.g. John Doe"
+                            placeholder="fullname"
                             required
                         />
                     </div>
@@ -1222,7 +1228,7 @@ function CreateUserModal({ onSave, onCancel, isSubmitting }) {
                             className="form-input"
                             value={formData.email}
                             onChange={(e) => handleChange('email', e.target.value)}
-                            placeholder="e.g. john@example.com"
+                            placeholder="username@fullname.com"
                         />
                     </div>
 
@@ -2637,17 +2643,10 @@ const initialAdminUsers = [
     }
 ];
 
-// Main Admin Panel Component
-function AdminPanel() {
-    const [currentUser, setCurrentUser] = useState({
-        id: "?",
-        fullname: "?",
-        username: "?",
-        image: "/ProfilePic/0.jpg",
-        role: ""
-    });
-    const [authChecking, setAuthChecking] = useState(true);
-    const [authChecked, setAuthChecked] = useState(false);
+// Inner Admin Panel Content with TanStack Query
+function AdminPanelContent() {
+    const { isDark } = useTheme();
+    const client = useQueryClient();
 
     // Active Tab State ('projects', 'tasks', 'users', 'reports')
     const [activeTab, setActiveTab] = useState('projects');
@@ -2657,35 +2656,7 @@ function AdminPanel() {
     const [userSearch, setUserSearch] = useState('');
     const [appealSearch, setAppealSearch] = useState('');
     const [reportSearch, setReportSearch] = useState('');
-
-    // Global Projects State
-    const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [projectsError, setProjectsError] = useState(false);
-
-    // Global Tasks State
-    const [adminTasks, setAdminTasks] = useState([]);
-    const [tasksLoading, setTasksLoading] = useState(false);
-    const [tasksError, setTasksError] = useState(false);
     const [taskSearch, setTaskSearch] = useState('');
-    const [editingTask, setEditingTask] = useState(null);
-    const [deletingTask, setDeletingTask] = useState(null);
-
-    // Admin Users State
-    const [adminUsers, setAdminUsers] = useState(initialAdminUsers);
-    const [usersError, setUsersError] = useState(false);
-
-    // Appeals State
-    const [appealsList, setAppealsList] = useState([]);
-    const [appealsLoading, setAppealsLoading] = useState(false);
-    const [appealsError, setAppealsError] = useState(false);
-    const [viewingAppeal, setViewingAppeal] = useState(null);
-
-    // User Reports State
-    const [reportsList, setReportsList] = useState([]);
-    const [reportsLoading, setReportsLoading] = useState(false);
-    const [reportsError, setReportsError] = useState(false);
-    const [viewingReport, setViewingReport] = useState(null);
 
     // Modal & Universal Toast States
     const [editingProject, setEditingProject] = useState(null);
@@ -2695,6 +2666,10 @@ function AdminPanel() {
     const [creatingUser, setCreatingUser] = useState(false);
     const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
     const [creatingTask, setCreatingTask] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
+    const [deletingTask, setDeletingTask] = useState(null);
+    const [viewingAppeal, setViewingAppeal] = useState(null);
+    const [viewingReport, setViewingReport] = useState(null);
     const [actionLoadingId, setActionLoadingId] = useState(null);
     const [membersModalConfig, setMembersModalConfig] = useState({
         isOpen: false,
@@ -2711,30 +2686,31 @@ function AdminPanel() {
         setToast({ message, type });
     };
 
-    // Global users for owner selection prompt & manage members
-    const [usersList, setUsersList] = useState([]);
-    const [loadingUsers, setLoadingUsers] = useState(false);
-    const usersListRef = useRef(usersList);
+    // 1. Shared Cached Current Authenticated User
+    const {
+        currentUser,
+        isAuthorizedAdmin,
+        isLoading: authChecking
+    } = useCurrentUser();
 
-    useEffect(() => {
-        usersListRef.current = usersList;
-    }, [usersList]);
-
-    // Fetch global users from GET /api/admin/users
-    const fetchUsers = useCallback(async () => {
-        setLoadingUsers(true);
-        setUsersError(false);
-        try {
+    // 2. TanStack Query: Global Users List
+    const {
+        data: usersList = [],
+        isLoading: loadingUsers,
+        isError: usersError,
+        refetch: fetchUsers
+    } = useQuery({
+        queryKey: ['adminUsers'],
+        queryFn: async () => {
             let data;
             try {
                 data = await request.get('/api/admin/users');
             } catch (adminErr) {
-                // Fallback to /api/users if /api/admin/users is not available
                 data = await request.get('/api/users');
             }
             const userList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
             if (userList && userList.length > 0) {
-                const formatted = userList.map(u => ({
+                return userList.map(u => ({
                     id: String(u.id || u._id || ''),
                     fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
                     username: u.username || '',
@@ -2746,36 +2722,164 @@ function AdminPanel() {
                     joinDate: u.joinDate || u.createdAt || u.created_at || '(date here)',
                     deleted: !!u.deleted
                 })).sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-
-                setUsersList(formatted);
-                setAdminUsers(formatted);
-                return formatted;
-            } else {
-                setUsersList([]);
-                setAdminUsers([]);
-                return [];
             }
-        } catch (err) {
-            console.error('Failed to fetch users from /api/admin/users:', err);
-            setUsersList([]);
-            setAdminUsers([]);
-            setUsersError(true);
-            return [];
-        } finally {
-            setLoadingUsers(false);
-        }
-    }, []);
+            return initialAdminUsers;
+        },
+        enabled: isAuthorizedAdmin
+    });
 
-    // Fetch all appeals from GET /api/appeals
-    const fetchAppeals = useCallback(async () => {
-        setAppealsLoading(true);
-        setAppealsError(false);
-        try {
+    const adminUsers = usersList;
+
+    // 3. TanStack Query: Global Projects List
+    const {
+        data: projects = [],
+        isLoading: loading,
+        isError: projectsError,
+        refetch: fetchAllProjects
+    } = useQuery({
+        queryKey: ['adminProjects'],
+        queryFn: async () => {
+            const pData = await request.get('/api/projects');
+            const pList = Array.isArray(pData) ? pData : (pData && Array.isArray(pData.data) ? pData.data : []);
+            if (pList && pList.length > 0) {
+                const projectPromises = pList.map(async (p) => {
+                    const parsed = parseStartAndDueDate(p);
+                    const datesFormatted = p.dates || (parsed.startDate && parsed.dueDate
+                        ? `${parsed.startDate} - ${parsed.dueDate}`
+                        : (parsed.startDate || parsed.dueDate || ''));
+
+                    let pUsers = [];
+                    if (p.users && Array.isArray(p.users) && p.users.length > 0) {
+                        pUsers = p.users.map(u => ({
+                            id: String(u.id || u._id || ''),
+                            fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
+                            username: u.username || '',
+                            image: u.image || getUserAvatarUrl(u.username)
+                        }));
+                    } else {
+                        try {
+                            const pUsersRes = await request.get(`/api/users?projectId=${p.id}`);
+                            const uList = Array.isArray(pUsersRes) ? pUsersRes : (pUsersRes && Array.isArray(pUsersRes.data) ? pUsersRes.data : []);
+                            if (uList && uList.length > 0) {
+                                pUsers = uList.map(u => ({
+                                    id: String(u.id || u._id || ''),
+                                    fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
+                                    username: u.username || '',
+                                    image: u.image || getUserAvatarUrl(u.username)
+                                }));
+                            }
+                        } catch (dErr) {
+                            // ignore error
+                        }
+                    }
+
+                    if (pUsers.length === 0 && (p.owner || p.createdBy || p.ownerName)) {
+                        const oName = p.owner || p.createdBy || p.ownerName;
+                        pUsers = [{
+                            id: 'owner-1',
+                            fullname: oName,
+                            username: oName,
+                            image: getUserAvatarUrl(oName)
+                        }];
+                    }
+
+                    return {
+                        id: String(p.id || p._id || ''),
+                        title: p.title || p.name || `Project ${p.id}`,
+                        name: p.name || p.title || `Project ${p.id}`,
+                        owner: p.owner || p.createdBy || p.ownerName || 'KDT',
+                        desc: p.description || p.desc || '',
+                        description: p.description || p.desc || '',
+                        status: (p.status || 'ACTIVE').toUpperCase(),
+                        startDate: parsed.startDate,
+                        dueDate: parsed.dueDate,
+                        dates: datesFormatted,
+                        users: pUsers
+                    };
+                });
+
+                const formatted = (await Promise.all(projectPromises)).sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+                return formatted;
+            }
+            return [];
+        },
+        enabled: isAuthorizedAdmin
+    });
+
+    // 4. TanStack Query: Global Tasks List
+    const {
+        data: adminTasks = [],
+        isLoading: tasksLoading,
+        isError: tasksError,
+        refetch: fetchAllTasks
+    } = useQuery({
+        queryKey: ['adminTasks'],
+        queryFn: async () => {
+            let projs = [];
+            try {
+                const pData = await request.get('/api/projects');
+                projs = Array.isArray(pData) ? pData : (pData && Array.isArray(pData.data) ? pData.data : []);
+            } catch (pErr) {
+                console.error('Failed to get projects for task fetching:', pErr);
+            }
+
+            let allTasks = [];
+            if (projs && projs.length > 0) {
+                const taskPromises = projs.map(async (p) => {
+                    const projId = p.id;
+                    const projTitle = p.title || p.name || `Project ${projId}`;
+                    try {
+                        const taskRes = await request.get(`/api/projects/${projId}/tasks`);
+                        const tList = Array.isArray(taskRes) ? taskRes : (taskRes && Array.isArray(taskRes.data) ? taskRes.data : []);
+                        return tList.map(t => {
+                            const parsed = parseStartAndDueDate(t);
+                            const datesFormatted = t.dates || (parsed.startDate && parsed.dueDate
+                                ? `${parsed.startDate} - ${parsed.dueDate}`
+                                : (parsed.startDate || parsed.dueDate || ''));
+
+                            return {
+                                id: String(t.id || t._id || ''),
+                                title: t.title || t.name || 'Task',
+                                priority: (t.priority || 'MEDIUM').toUpperCase(),
+                                status: (t.status || 'TODO').toUpperCase(),
+                                projectId: String(projId),
+                                projectTitle: projTitle,
+                                description: t.description || t.desc || '',
+                                assignee: t.assignee || t.assignedTo || t.userName || t.username || 'Unassigned',
+                                assigner: t.assigner || t.createdBy || t.owner || 'Admin',
+                                startDate: parsed.startDate,
+                                dueDate: parsed.dueDate,
+                                dates: datesFormatted
+                            };
+                        });
+                    } catch (tErr) {
+                        console.error(`Failed to fetch tasks for project ${projId}:`, tErr);
+                        return [];
+                    }
+                });
+
+                const results = await Promise.all(taskPromises);
+                allTasks = results.flat().sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+            }
+            return allTasks;
+        },
+        enabled: isAuthorizedAdmin
+    });
+
+    // 5. TanStack Query: Appeals List
+    const {
+        data: appealsList = [],
+        isLoading: appealsLoading,
+        isError: appealsError,
+        refetch: fetchAppeals
+    } = useQuery({
+        queryKey: ['adminAppeals'],
+        queryFn: async () => {
             const data = await request.get('/api/appeals');
             const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
             if (list && list.length > 0) {
-                const knownUsers = usersListRef.current || [];
-                const formatted = list.map((a, idx) => {
+                const knownUsers = usersList || [];
+                return list.map((a, idx) => {
                     const appealId = String(a.id || a._id || idx + 1);
                     const uname = a.username || a.userName || a.user?.username || '';
                     const uMatch = knownUsers.find(u =>
@@ -2793,25 +2897,21 @@ function AdminPanel() {
                         createdAt: a.createdAt || a.created_at || a.date || ''
                     };
                 }).sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-
-                setAppealsList(formatted);
-            } else {
-                setAppealsList([]);
             }
-        } catch (err) {
-            console.error('Failed to fetch appeals (/api/appeals):', err);
-            setAppealsList([]);
-            setAppealsError(true);
-        } finally {
-            setAppealsLoading(false);
-        }
-    }, []);
+            return [];
+        },
+        enabled: isAuthorizedAdmin
+    });
 
-    // Fetch all user reports from GET /api/reports (with fallback to /api/report)
-    const fetchReports = useCallback(async () => {
-        setReportsLoading(true);
-        setReportsError(false);
-        try {
+    // 6. TanStack Query: User Reports List
+    const {
+        data: reportsList = [],
+        isLoading: reportsLoading,
+        isError: reportsError,
+        refetch: fetchReports
+    } = useQuery({
+        queryKey: ['adminReports'],
+        queryFn: async () => {
             let data;
             try {
                 data = await request.get('/api/reports');
@@ -2820,8 +2920,8 @@ function AdminPanel() {
             }
             const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
             if (list && list.length > 0) {
-                const knownUsers = usersListRef.current || [];
-                const formatted = list.map((r, idx) => {
+                const knownUsers = usersList || [];
+                return list.map((r, idx) => {
                     const reportId = String(r.id || r._id || idx + 1);
                     const authorName = r.author || r.authorUsername || r.userName || '';
                     const targetName = r.targetUsername || r.target_username || r.target || '';
@@ -2851,19 +2951,11 @@ function AdminPanel() {
                         createdAt: r.createdAt || r.created_at || r.date || ''
                     };
                 }).sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-
-                setReportsList(formatted);
-            } else {
-                setReportsList([]);
             }
-        } catch (err) {
-            console.error('Failed to fetch reports (/api/reports):', err);
-            setReportsList([]);
-            setReportsError(true);
-        } finally {
-            setReportsLoading(false);
-        }
-    }, []);
+            return [];
+        },
+        enabled: isAuthorizedAdmin
+    });
 
     const handleOpenProjectUsers = (users, projectTitle) => {
         setMembersModalConfig({
@@ -2898,7 +2990,8 @@ function AdminPanel() {
         const pUserIds = pUsers.map(u => String(u.id));
         let listToUse = usersList;
         if (listToUse.length === 0) {
-            listToUse = await fetchUsers();
+            const fetched = await fetchUsers();
+            listToUse = fetched.data || [];
         }
         setMembersModalConfig({
             isOpen: true,
@@ -2957,24 +3050,8 @@ function AdminPanel() {
                 projects: updatedProjects
             });
 
-            // 3. Update project's users in local state
-            setProjects(prevProjects => {
-                return prevProjects.map(proj => {
-                    if (String(proj.id) !== String(project.id)) return proj;
-                    let currentUsers = proj.users || [];
-                    let newUsers;
-                    if (isCurrentlyInProject) {
-                        newUsers = currentUsers.filter(u => String(u.id) !== String(user.id));
-                    } else {
-                        if (!currentUsers.some(u => String(u.id) === String(user.id))) {
-                            newUsers = [...currentUsers, user];
-                        } else {
-                            newUsers = currentUsers;
-                        }
-                    }
-                    return { ...proj, users: newUsers };
-                });
-            });
+            // 3. Invalidate TanStack query cache for projects
+            client.invalidateQueries({ queryKey: ['adminProjects'] });
 
             // Update modal state
             setMembersModalConfig(prev => {
@@ -3049,304 +3126,94 @@ function AdminPanel() {
         const newRole = (formData.role || 'MEMBER').toUpperCase();
         const newAboutList = compileAboutToList(formData.about);
 
-        const isAboutUnchanged = origAboutList.length === newAboutList.length &&
-            origAboutList.every((val, idx) => val === newAboutList[idx]);
-
         const payload = {
             fullname: newFullname !== origFullname ? newFullname : null,
             username: newUsername !== origUsername ? newUsername : null,
-            role: newRole !== origRole ? newRole : null,
-            status: newStatus !== origStatus ? newStatus : null,
-            about: isAboutUnchanged ? null : newAboutList,
             email: newEmail !== origEmail ? newEmail : null,
-            deleted: null
+            status: newStatus !== origStatus ? newStatus : null,
+            role: newRole !== origRole ? newRole : null,
+            about: JSON.stringify(newAboutList) !== JSON.stringify(origAboutList) ? newAboutList : null
         };
 
         try {
             await request.put(`/api/admin/users/${originalUser.id}`, payload);
-            showToast(`User "${newFullname || newUsername}" updated successfully.`, 'success');
+            client.invalidateQueries({ queryKey: ['adminUsers'] });
+            showToast(`User "${newUsername || newFullname}" updated successfully.`, 'success');
         } catch (err) {
             console.error(`Failed to update user ${originalUser.id}:`, err);
-            showToast(`Failed to update user "${newFullname || newUsername}".`, 'error');
+            showToast(`Failed to update user "${newUsername || newFullname}".`, 'error');
         }
-
-        const updatedUser = {
-            ...originalUser,
-            fullname: newFullname,
-            username: newUsername,
-            email: newEmail,
-            about: newAboutList,
-            status: newStatus,
-            role: newRole
-        };
-
-        setAdminUsers(prev => prev.map(u => u.id === originalUser.id ? updatedUser : u));
-        setUsersList(prev => prev.map(u => u.id === originalUser.id ? {
-            ...u,
-            fullname: newFullname,
-            username: newUsername,
-            email: newEmail,
-            about: newAboutList,
-            role: newRole,
-            status: newStatus
-        } : u));
         setEditingUser(null);
     };
 
-    const handleTempBan = async (user) => {
-        const isBanned = user.status === 'BLOCKED';
-        const newStatus = isBanned ? 'ACTIVE' : 'BLOCKED';
+    const handleTempBanUser = async (user) => {
+        const isBanned = (user.status || '').toUpperCase() === 'BLOCKED' || (user.status || '').toUpperCase() === 'BANNED';
+        const nextStatus = isBanned ? 'ACTIVE' : 'BLOCKED';
 
         try {
-            await request.put(`/api/admin/users/${user.id}`, {
-                fullname: null,
-                username: null,
-                role: null,
-                status: newStatus,
-                about: null,
-                email: null,
-                deleted: null
-            });
+            await request.put(`/api/admin/users/${user.id}`, { status: nextStatus });
+            client.invalidateQueries({ queryKey: ['adminUsers'] });
             showToast(
                 isBanned
-                    ? `Removed temporary ban for ${user.fullname}.`
-                    : `Temporarily banned user ${user.fullname}.`,
-                isBanned ? 'success' : 'error'
+                    ? `User "${user.username || user.fullname}" has been unblocked.`
+                    : `User "${user.username || user.fullname}" has been temporarily banned/blocked.`,
+                'success'
             );
         } catch (err) {
-            console.error(`Failed to toggle ban for user ${user.id}:`, err);
-            showToast(`Failed to update status for ${user.fullname}.`, 'error');
+            console.error(`Failed to update status for user ${user.id}:`, err);
+            showToast(`Failed to update status for "${user.username || user.fullname}".`, 'error');
         }
-
-        setAdminUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
     };
 
-    const handleDeactivate = async (user) => {
-        const isDeactivated = user.status === 'INACTIVE' || user.status === 'DEACTIVATED' || user.deleted === true;
-        const newStatus = isDeactivated ? 'ACTIVE' : 'INACTIVE';
-        const newDeleted = !isDeactivated;
+    const handleDeactivateUser = async (user) => {
+        const nextDeleted = !user.deleted;
+        const nextStatus = nextDeleted ? 'INACTIVE' : 'ACTIVE';
 
         try {
             await request.put(`/api/admin/users/${user.id}`, {
-                fullname: null,
-                username: null,
-                role: null,
-                status: newStatus,
-                about: null,
-                email: null,
-                deleted: newDeleted
+                status: nextStatus,
+                deleted: nextDeleted
             });
+            client.invalidateQueries({ queryKey: ['adminUsers'] });
             showToast(
-                isDeactivated
-                    ? `Reactivated user account for ${user.fullname}.`
-                    : `Deactivated user account for ${user.fullname}.`,
-                isDeactivated ? 'success' : 'error'
+                nextDeleted
+                    ? `User "${user.username || user.fullname}" has been deactivated.`
+                    : `User "${user.username || user.fullname}" has been reactivated.`,
+                'success'
             );
         } catch (err) {
-            console.error(`Failed to toggle deactivation for user ${user.id}:`, err);
-            showToast(`Failed to update account status for ${user.fullname}.`, 'error');
+            console.error(`Failed to deactivate user ${user.id}:`, err);
+            showToast(`Failed to update account status for "${user.username || user.fullname}".`, 'error');
         }
-
-        setAdminUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: newStatus, deleted: newDeleted } : u));
     };
 
-    // Fetch all global projects from GET /api/projects sorted by ID
-    const fetchAllProjects = useCallback(async () => {
-        setLoading(true);
-        setProjectsError(false);
+    const handleCreateUser = async (newUserForm) => {
+        setCreatingUser(true);
         try {
-            const data = await request.get('/api/projects');
-            const projList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
-            if (projList && projList.length > 0) {
-                const projectPromises = projList.map(async (p) => {
-                    const parsed = parseStartAndDueDate(p);
-                    const datesFormatted = p.dates || (parsed.startDate && parsed.dueDate
-                        ? `${parsed.startDate} - ${parsed.dueDate}`
-                        : '');
+            const payload = {
+                fullname: (newUserForm.fullname || '').trim(),
+                username: (newUserForm.username || '').trim(),
+                email: (newUserForm.email || '').trim(),
+                password: (newUserForm.password || '').trim(),
+                role: (newUserForm.role || 'MEMBER').toUpperCase(),
+                status: (newUserForm.status || 'ACTIVE').toUpperCase(),
+                about: compileAboutToList(newUserForm.about)
+            };
 
-                    let pUsers = [];
-                    if (Array.isArray(p.users) && p.users.length > 0) {
-                        pUsers = p.users.map(u => ({
-                            id: String(u.id || u._id || ''),
-                            fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
-                            username: u.username || '',
-                            image: u.image || getUserAvatarUrl(u.username)
-                        }));
-                    } else if (p.id) {
-                        // Fetch users involved in this project via GET /api/users?projectId={ID} (matching Task.jsx)
-                        try {
-                            const pUsersRes = await request.get(`/api/users?projectId=${p.id}`);
-                            const uList = Array.isArray(pUsersRes) ? pUsersRes : (pUsersRes && Array.isArray(pUsersRes.data) ? pUsersRes.data : []);
-                            if (uList && uList.length > 0) {
-                                pUsers = uList.map(u => ({
-                                    id: String(u.id || u._id || ''),
-                                    fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
-                                    username: u.username || '',
-                                    image: u.image || getUserAvatarUrl(u.username)
-                                }));
-                            }
-                        } catch (uErr) {
-                            console.error(`Failed to fetch project users for project ${p.id} (/api/users?projectId=${p.id}):`, uErr);
-                        }
-
-                        // If still empty, attempt to check project details
-                        if (pUsers.length === 0) {
-                            try {
-                                const detail = await request.get(`/api/projects/${p.id}`);
-                                const detailData = detail?.data || detail;
-                                if (detailData && Array.isArray(detailData.users) && detailData.users.length > 0) {
-                                    pUsers = detailData.users.map(u => ({
-                                        id: String(u.id || u._id || ''),
-                                        fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
-                                        username: u.username || '',
-                                        image: u.image || getUserAvatarUrl(u.username)
-                                    }));
-                                }
-                            } catch (dErr) {
-                                // ignore error
-                            }
-                        }
-                    }
-
-                    if (pUsers.length === 0 && (p.owner || p.createdBy || p.ownerName)) {
-                        const oName = p.owner || p.createdBy || p.ownerName;
-                        pUsers = [{
-                            id: 'owner-1',
-                            fullname: oName,
-                            username: oName,
-                            image: getUserAvatarUrl(oName)
-                        }];
-                    }
-
-                    return {
-                        id: String(p.id || p._id || ''),
-                        title: p.title || p.name || `Project ${p.id}`,
-                        name: p.name || p.title || `Project ${p.id}`,
-                        owner: p.owner || p.createdBy || p.ownerName || 'KDT',
-                        desc: p.description || p.desc || '',
-                        description: p.description || p.desc || '',
-                        status: (p.status || 'ACTIVE').toUpperCase(),
-                        startDate: parsed.startDate,
-                        dueDate: parsed.dueDate,
-                        dates: datesFormatted,
-                        users: pUsers
-                    };
-                });
-
-                const formatted = (await Promise.all(projectPromises)).sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-                setProjects(formatted);
-            } else {
-                setProjects([]);
-            }
+            await request.post('/api/admin/users', payload);
+            client.invalidateQueries({ queryKey: ['adminUsers'] });
+            showToast(`User "${payload.username}" created successfully.`, 'success');
+            setIsCreateUserOpen(false);
         } catch (err) {
-            console.error('Failed to fetch projects (/api/projects):', err);
-            setProjects([]);
-            setProjectsError(true);
+            console.error('Failed to create user:', err);
+            const errMsg = err?.response?.data?.message || err?.message || 'Failed to create user.';
+            showToast(errMsg, 'error');
         } finally {
-            setLoading(false);
+            setCreatingUser(false);
         }
-    }, []);
+    };
 
-    // Fetch all global tasks across projects
-    const fetchAllTasks = useCallback(async () => {
-        setTasksLoading(true);
-        setTasksError(false);
-        try {
-            let projs = [];
-            try {
-                const pData = await request.get('/api/projects');
-                projs = Array.isArray(pData) ? pData : (pData && Array.isArray(pData.data) ? pData.data : []);
-            } catch (pErr) {
-                console.error('Failed to get projects for task fetching:', pErr);
-            }
-
-            let allTasks = [];
-            if (projs && projs.length > 0) {
-                const taskPromises = projs.map(async (p) => {
-                    const projId = p.id;
-                    const projTitle = p.title || p.name || `Project ${projId}`;
-                    try {
-                        const taskRes = await request.get(`/api/projects/${projId}/tasks`);
-                        const tList = Array.isArray(taskRes) ? taskRes : (taskRes && Array.isArray(taskRes.data) ? taskRes.data : []);
-                        return tList.map(t => {
-                            const parsed = parseStartAndDueDate(t);
-                            const datesFormatted = t.dates || (parsed.startDate && parsed.dueDate
-                                ? `${parsed.startDate} - ${parsed.dueDate}`
-                                : (parsed.startDate || parsed.dueDate || ''));
-
-                            return {
-                                id: String(t.id || t._id || ''),
-                                title: t.title || t.name || 'Task',
-                                priority: (t.priority || 'MEDIUM').toUpperCase(),
-                                status: (t.status || 'TODO').toUpperCase(),
-                                projectId: String(projId),
-                                projectTitle: projTitle,
-                                description: t.description || t.desc || '',
-                                assignee: t.assignee || t.assignedTo || t.userName || t.username || 'Unassigned',
-                                assigner: t.assigner || t.createdBy || t.owner || 'Admin',
-                                startDate: parsed.startDate,
-                                dueDate: parsed.dueDate,
-                                dates: datesFormatted
-                            };
-                        });
-                    } catch (tErr) {
-                        console.error(`Failed to fetch tasks for project ${projId}:`, tErr);
-                        return [];
-                    }
-                });
-
-                const results = await Promise.all(taskPromises);
-                allTasks = results.flat().sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-            }
-
-            setAdminTasks(allTasks);
-        } catch (err) {
-            console.error('Failed to fetch global tasks:', err);
-            setAdminTasks([]);
-            setTasksError(true);
-        } finally {
-            setTasksLoading(false);
-        }
-    }, []);
-
-    // Fetch current user from /api/auth/me
-    const fetchCurrentUser = useCallback(async () => {
-        setAuthChecking(true);
-        try {
-            const data = await request.get('/api/auth/me');
-            if (data) {
-                const uname = data.username || "?";
-                const uRole = data.role || 'MEMBER';
-                setCurrentUser({
-                    id: String(data.id || "?"),
-                    fullname: data.full_name || data.fullName || data.fullname || data.name || uname,
-                    username: uname,
-                    image: data.image || (uname !== '?' ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg'),
-                    role: uRole
-                });
-
-                const normRole = String(uRole).toUpperCase();
-                if (normRole.includes('ADMIN') || normRole.includes('GOD')) {
-                    fetchAllProjects();
-                    fetchAllTasks();
-                    fetchUsers();
-                    fetchAppeals();
-                    fetchReports();
-                }
-            }
-        } catch (err) {
-            console.error('Failed to fetch auth user in AdminPanel:', err);
-        } finally {
-            setAuthChecking(false);
-            setAuthChecked(true);
-        }
-    }, [fetchAllProjects, fetchAllTasks, fetchUsers, fetchAppeals, fetchReports]);
-
-    useEffect(() => {
-        fetchCurrentUser();
-    }, [fetchCurrentUser]);
-
-    // Handlers
+    // Project Tab action handlers
     const handleEditProject = (project) => {
         setEditingProject(project);
     };
@@ -3378,56 +3245,32 @@ function AdminPanel() {
 
         try {
             await request.put(`/api/projects/${originalProject.id}`, payload);
+            client.invalidateQueries({ queryKey: ['adminProjects'] });
             showToast(`Project "${newName}" updated successfully.`, 'success');
         } catch (err) {
             console.error(`Failed to update project ${originalProject.id}:`, err);
             showToast(`Failed to update project "${newName}".`, 'error');
         }
-
-        const datesDisplay = newStartDate && newDueDate
-            ? `${newStartDate} - ${newDueDate}`
-            : (newStartDate || newDueDate || originalProject.dates || '');
-
-        const updatedProject = {
-            ...originalProject,
-            title: newName,
-            name: newName,
-            desc: newDescription,
-            description: newDescription,
-            status: newStatus,
-            owner: newOwner,
-            startDate: newStartDate,
-            dueDate: newDueDate,
-            dates: datesDisplay
-        };
-
-        setProjects(prev => prev.map(p => p.id === originalProject.id ? updatedProject : p));
         setEditingProject(null);
     };
 
     const handleArchiveProject = async (project) => {
-        const newStatus = project.status === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED';
-        try {
-            await request.put(`/api/projects/${project.id}`, {
-                name: null,
-                description: null,
-                status: newStatus,
-                owner: null,
-                startDate: null,
-                dueDate: null
-            });
-            showToast(`Project "${project.title || project.name}" ${newStatus === 'ARCHIVED' ? 'archived' : 'unarchived'}.`, 'success');
-        } catch (err) {
-            console.error(`Failed to update project status ${project.id}:`, err);
-            showToast(`Failed to update status for "${project.title || project.name}".`, 'error');
-        }
+        const isArchived = (project.status || '').toUpperCase() === 'ARCHIVED';
+        const nextStatus = isArchived ? 'ACTIVE' : 'ARCHIVED';
 
-        setProjects(prev => prev.map(p => {
-            if (p.id === project.id) {
-                return { ...p, status: newStatus };
-            }
-            return p;
-        }));
+        try {
+            await request.put(`/api/projects/${project.id}`, { status: nextStatus });
+            client.invalidateQueries({ queryKey: ['adminProjects'] });
+            showToast(
+                isArchived
+                    ? `Project "${project.title || project.name}" unarchived successfully.`
+                    : `Project "${project.title || project.name}" archived successfully.`,
+                'success'
+            );
+        } catch (err) {
+            console.error(`Failed to toggle archive on project ${project.id}:`, err);
+            showToast(`Failed to archive project "${project.title || project.name}".`, 'error');
+        }
     };
 
     const handleDeleteProject = (project) => {
@@ -3435,15 +3278,18 @@ function AdminPanel() {
     };
 
     const handleConfirmDelete = async (project) => {
-        try {
-            await request.delete(`/api/projects/${project.id}`);
-            showToast(`Project "${project.title}" deleted.`, 'success');
-        } catch (err) {
-            console.error(`Failed to delete project ${project.id}:`, err);
-            showToast(`Failed to delete project "${project.title}".`, 'error');
-        }
+        const targetProj = project || deletingProject;
+        if (!targetProj) return;
 
-        setProjects(prev => prev.filter(p => p.id !== project.id));
+        try {
+            await request.delete(`/api/projects/${targetProj.id}`);
+            client.invalidateQueries({ queryKey: ['adminProjects'] });
+            client.invalidateQueries({ queryKey: ['adminTasks'] });
+            showToast(`Project "${targetProj.title || targetProj.name}" deleted successfully.`, 'success');
+        } catch (err) {
+            console.error(`Failed to delete project ${targetProj.id}:`, err);
+            showToast(`Failed to delete project "${targetProj.title || targetProj.name}".`, 'error');
+        }
         setDeletingProject(null);
     };
 
@@ -3453,27 +3299,19 @@ function AdminPanel() {
     };
 
     const handleSaveTask = async (formData, originalTask) => {
-        const origStartDate = originalTask.startDate || '';
-        const origDueDate = originalTask.dueDate || '';
-        const newStartDate = formData.startDate || '';
-        const newDueDate = formData.dueDate || '';
-        const isDatesUnchanged = origStartDate === newStartDate && origDueDate === newDueDate;
-
         const targetProjId = formData.projectId || originalTask.projectId;
+        const newStartDate = toIsoDateString(formData.startDate);
+        const newDueDate = toIsoDateString(formData.dueDate);
 
         const payload = {
             title: (formData.title || '').trim() || null,
             description: (formData.description || '').trim() || null,
-            desc: (formData.description || '').trim() || null,
             priority: (formData.priority || 'MEDIUM').toUpperCase(),
             status: (formData.status || 'TODO').toUpperCase(),
             assignee: (formData.assignee || '').trim() || null,
             assigner: (formData.assigner || '').trim() || null,
-            start_date: isDatesUnchanged ? null : (newStartDate || null),
-            end_date: isDatesUnchanged ? null : (newDueDate || null),
-            startDate: isDatesUnchanged ? null : (newStartDate || null),
-            dueDate: isDatesUnchanged ? null : (newDueDate || null),
-            dates: isDatesUnchanged ? null : (newStartDate && newDueDate ? `${newStartDate} - ${newDueDate}` : null),
+            startDate: newStartDate || null,
+            dueDate: newDueDate || null,
             projectId: String(targetProjId)
         };
 
@@ -3483,54 +3321,26 @@ function AdminPanel() {
             } catch (putErr1) {
                 await request.put(`/api/tasks/${originalTask.id}`, payload);
             }
-
-            const datesFormatted = (formData.startDate && formData.dueDate)
-                ? `${formData.startDate} - ${formData.dueDate}`
-                : (formData.startDate || formData.dueDate || originalTask.dates || '');
-
-            const selectedProj = (projects || []).find(p => String(p.id) === String(targetProjId));
-            const newProjectTitle = selectedProj ? (selectedProj.title || selectedProj.name) : originalTask.projectTitle;
-
-            const updatedTaskObj = {
-                ...originalTask,
-                projectId: String(targetProjId),
-                projectTitle: newProjectTitle,
-                title: formData.title || originalTask.title,
-                description: formData.description !== undefined ? formData.description : originalTask.description,
-                priority: formData.priority || originalTask.priority,
-                status: formData.status || originalTask.status,
-                assignee: formData.assignee !== undefined ? formData.assignee : originalTask.assignee,
-                assigner: formData.assigner !== undefined ? formData.assigner : originalTask.assigner,
-                startDate: formData.startDate,
-                dueDate: formData.dueDate,
-                dates: datesFormatted
-            };
-
-            setAdminTasks(prev => prev.map(t => t.id === originalTask.id ? updatedTaskObj : t));
+            client.invalidateQueries({ queryKey: ['adminTasks'] });
             showToast(`Task "${formData.title}" updated successfully.`, 'success');
-            setEditingTask(null);
         } catch (err) {
             console.error(`Failed to update task ${originalTask.id}:`, err);
             showToast(`Failed to update task "${formData.title}".`, 'error');
         }
+        setEditingTask(null);
     };
 
     const handleToggleCancelTask = async (task) => {
-        const isCancelled = (task.status || '').toUpperCase() === 'CANCELLED';
-        const newStatus = isCancelled ? 'TODO' : 'CANCELLED';
+        const isCancelled = (task.status || '').toUpperCase() === 'CANCELLED' || (task.status || '').toUpperCase() === 'CANCELED';
+        const nextStatus = isCancelled ? 'TODO' : 'CANCELLED';
 
         try {
             try {
-                await request.put(`/api/projects/${task.projectId}/tasks/${task.id}`, {
-                    status: newStatus
-                });
+                await request.put(`/api/projects/${task.projectId}/tasks/${task.id}`, { status: nextStatus });
             } catch (putErr1) {
-                await request.put(`/api/tasks/${task.id}`, {
-                    status: newStatus
-                });
+                await request.put(`/api/tasks/${task.id}`, { status: nextStatus });
             }
-
-            setAdminTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+            client.invalidateQueries({ queryKey: ['adminTasks'] });
             showToast(
                 isCancelled
                     ? `Restored task "${task.title}".`
@@ -3548,205 +3358,39 @@ function AdminPanel() {
     };
 
     const handleConfirmDeleteTask = async (task) => {
+        const targetTask = task || deletingTask;
+        if (!targetTask) return;
+
         try {
             try {
-                await request.delete(`/api/projects/${task.projectId}/tasks/${task.id}`);
+                await request.delete(`/api/projects/${targetTask.projectId}/tasks/${targetTask.id}`);
             } catch (delErr1) {
-                await request.delete(`/api/tasks/${task.id}`);
+                await request.delete(`/api/tasks/${targetTask.id}`);
             }
-
-            setAdminTasks(prev => prev.filter(t => t.id !== task.id));
-            showToast(`Task "${task.title}" deleted.`, 'success');
+            client.invalidateQueries({ queryKey: ['adminTasks'] });
+            showToast(`Task "${targetTask.title}" deleted.`, 'success');
         } catch (err) {
-            console.error(`Failed to delete task ${task.id}:`, err);
-            showToast(`Failed to delete task "${task.title}".`, 'error');
+            console.error(`Failed to delete task ${targetTask.id}:`, err);
+            showToast(`Failed to delete task "${targetTask.title}".`, 'error');
         }
-
         setDeletingTask(null);
-    };
-
-    const handleAcceptAppeal = async (appeal) => {
-        const targetUserId = appeal.userId !== 'N/A' && appeal.userId ? appeal.userId : null;
-        const targetUsername = appeal.username;
-
-        let unbannedUserId = targetUserId;
-        if (!unbannedUserId && targetUsername) {
-            const found = (usersListRef.current || []).find(u => u.username?.toLowerCase() === targetUsername.toLowerCase());
-            if (found) unbannedUserId = found.id;
-        }
-
-        try {
-            // 1. Unban user in database (status: 'ACTIVE')
-            if (unbannedUserId) {
-                try {
-                    await request.put(`/api/admin/users/${unbannedUserId}`, {
-                        fullname: null,
-                        username: null,
-                        role: null,
-                        status: 'ACTIVE',
-                        about: null,
-                        email: null,
-                        deleted: null
-                    });
-                } catch (err1) {
-                    await request.put(`/api/users/${unbannedUserId}`, {
-                        status: 'ACTIVE'
-                    });
-                }
-
-                // Update local user state
-                setAdminUsers(prev => prev.map(u => String(u.id) === String(unbannedUserId) ? { ...u, status: 'ACTIVE' } : u));
-                setUsersList(prev => prev.map(u => String(u.id) === String(unbannedUserId) ? { ...u, status: 'ACTIVE' } : u));
-            }
-
-            // 2. Close/delete appeal via DELETE /api/appeals/{ID} (or /api/appeal/{ID})
-            try {
-                await request.delete(`/api/appeals/${appeal.id}`);
-            } catch (delErr) {
-                try {
-                    await request.delete(`/api/appeal/${appeal.id}`);
-                } catch (delErr2) {
-                    // ignore
-                }
-            }
-
-            // 3. Remove appeal from local state
-            setAppealsList(prev => prev.filter(a => String(a.id) !== String(appeal.id)));
-
-            showToast(`Accepted appeal and unbanned @${targetUsername || appeal.fullname || unbannedUserId}.`, 'success');
-        } catch (err) {
-            console.error(`Failed to accept appeal ${appeal.id}:`, err);
-            showToast(`Failed to accept appeal for @${targetUsername || appeal.fullname}.`, 'error');
-        }
-    };
-
-    const handleRejectAppeal = async (appeal) => {
-        try {
-            // Close / delete appeal via DELETE /api/appeals/{ID} (or /api/appeal/{ID})
-            try {
-                await request.delete(`/api/appeals/${appeal.id}`);
-            } catch (delErr) {
-                try {
-                    await request.delete(`/api/appeal/${appeal.id}`);
-                } catch (delErr2) {
-                    // ignore
-                }
-            }
-
-            // Remove appeal from local state
-            setAppealsList(prev => prev.filter(a => String(a.id) !== String(appeal.id)));
-
-            showToast(`Rejected appeal (id:${appeal.id}) for @${appeal.username || appeal.fullname}.`, 'error');
-        } catch (err) {
-            console.error(`Failed to reject appeal ${appeal.id}:`, err);
-            showToast(`Failed to reject appeal (id:${appeal.id}).`, 'error');
-        }
-    };
-
-    const handleBlockReportUser = async (report) => {
-        let targetId = report.targetId;
-        const targetUsername = report.targetUsername;
-
-        if (!targetId || targetId === 'N/A') {
-            const found = (usersListRef.current || []).find(u => u.username?.toLowerCase() === (targetUsername || '').toLowerCase());
-            if (found) targetId = found.id;
-        }
-
-        try {
-            if (targetId) {
-                try {
-                    await request.put(`/api/admin/users/${targetId}`, {
-                        fullname: null,
-                        username: null,
-                        role: null,
-                        status: 'BLOCKED',
-                        about: null,
-                        email: null,
-                        deleted: null
-                    });
-                } catch (err1) {
-                    await request.put(`/api/users/${targetId}`, {
-                        status: 'BLOCKED'
-                    });
-                }
-
-                // Update local users state
-                setAdminUsers(prev => prev.map(u => String(u.id) === String(targetId) ? { ...u, status: 'BLOCKED' } : u));
-                setUsersList(prev => prev.map(u => String(u.id) === String(targetId) ? { ...u, status: 'BLOCKED' } : u));
-            }
-
-            showToast(`Blocked user @${targetUsername || targetId}.`, 'error');
-            setViewingReport(null);
-        } catch (err) {
-            console.error(`Failed to block user ${targetUsername || targetId}:`, err);
-            showToast(`Failed to block user @${targetUsername || targetId}. Either he is GOD or the great server has fallen`, 'error');
-        }
-    };
-
-    const handleDismissReport = async (report) => {
-        try {
-            try {
-                await request.delete(`/api/reports/${report.id}`);
-            } catch (delErr1) {
-                try {
-                    await request.delete(`/api/report/${report.id}`);
-                } catch (delErr2) {
-                    // ignore
-                }
-            }
-
-            // Remove report from local state
-            setReportsList(prev => prev.filter(r => String(r.id) !== String(report.id)));
-            showToast(`Dismissed report (id:${report.id}).`, 'success');
-            setViewingReport(null);
-        } catch (err) {
-            console.error(`Failed to dismiss report ${report.id}:`, err);
-            showToast(`Failed to dismiss report (id:${report.id}).`, 'error');
-        }
-    };
-
-    const handleCreateUser = async (formData) => {
-        setCreatingUser(true);
-        const payload = {
-            username: (formData.username || '').trim(),
-            fullname: (formData.fullname || '').trim(),
-            full_name: (formData.fullname || '').trim(),
-            password: formData.password || '',
-            email: (formData.email || '').trim() || null,
-            role: (formData.role || 'MEMBER').toUpperCase(),
-            status: (formData.status || 'ACTIVE').toUpperCase()
-        };
-
-        try {
-            await request.post('/api/admin/users', payload);
-            showToast(`User "${payload.username}" created successfully.`, 'success');
-            setIsCreateUserOpen(false);
-            await fetchUsers();
-        } catch (err) {
-            console.error('Failed to create user (POST /api/admin/users):', err);
-            const errMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Failed to create user.';
-            showToast(errMsg, 'error');
-        } finally {
-            setCreatingUser(false);
-        }
     };
 
     const handleCreateTask = async (formData) => {
         setCreatingTask(true);
         const targetProjId = formData.projectId || (projects[0]?.id || '1');
+        const startDateIso = toIsoDateString(formData.startDate);
+        const dueDateIso = toIsoDateString(formData.dueDate);
+
         const payload = {
             title: (formData.title || '').trim(),
             description: (formData.description || '').trim(),
-            desc: (formData.description || '').trim(),
             priority: (formData.priority || 'MEDIUM').toUpperCase(),
             status: (formData.status || 'TODO').toUpperCase(),
             assignee: (formData.assignee || '').trim() || null,
             assigner: (formData.assigner || currentUser.username || 'Admin').trim() || null,
-            startDate: formData.startDate || null,
-            dueDate: formData.dueDate || null,
-            start_date: formData.startDate || null,
-            end_date: formData.dueDate || null,
-            dates: formData.startDate && formData.dueDate ? `${formData.startDate} - ${formData.dueDate}` : null,
+            startDate: startDateIso || null,
+            dueDate: dueDateIso || null,
             projectId: String(targetProjId)
         };
 
@@ -3756,26 +3400,108 @@ function AdminPanel() {
             } catch (postErr1) {
                 await request.post('/api/tasks', payload);
             }
-
+            client.invalidateQueries({ queryKey: ['adminTasks'] });
             showToast(`Task "${payload.title}" created successfully.`, 'success');
             setIsCreateTaskOpen(false);
-            await fetchAllTasks();
         } catch (err) {
             console.error('Failed to create task:', err);
-            const errMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Failed to create task.';
+            const errMsg = err?.response?.data?.message || err?.message || 'Failed to create task.';
             showToast(errMsg, 'error');
         } finally {
             setCreatingTask(false);
         }
     };
 
+    // Appeal Tab Handlers
+    const handleAcceptAppeal = async (appeal) => {
+        try {
+            await request.put(`/api/appeals/${appeal.id}`, { status: 'ACCEPTED' });
+            if (appeal.userId && appeal.userId !== 'N/A') {
+                try {
+                    await request.put(`/api/admin/users/${appeal.userId}`, { status: 'ACTIVE' });
+                    client.invalidateQueries({ queryKey: ['adminUsers'] });
+                } catch (uErr) {
+                    console.error(`Failed to unblock user ${appeal.userId}:`, uErr);
+                }
+            }
+            client.invalidateQueries({ queryKey: ['adminAppeals'] });
+            showToast(`Accepted appeal and unblocked user.`, 'success');
+        } catch (err) {
+            console.error(`Failed to accept appeal ${appeal.id}:`, err);
+            showToast(`Failed to accept appeal.`, 'error');
+        }
+    };
+
+    const handleRejectAppeal = async (appeal) => {
+        try {
+            await request.put(`/api/appeals/${appeal.id}`, { status: 'REJECTED' });
+            client.invalidateQueries({ queryKey: ['adminAppeals'] });
+            showToast(`Rejected appeal for @${appeal.username || appeal.fullname}.`, 'error');
+        } catch (err) {
+            console.error(`Failed to reject appeal ${appeal.id}:`, err);
+            showToast(`Failed to reject appeal.`, 'error');
+        }
+    };
+
+    // Report Tab Handlers
+    const handleBlockReportUser = async (report) => {
+        const targetId = report.targetId;
+        const targetName = report.targetFullname || report.targetUsername || 'user';
+
+        try {
+            if (targetId) {
+                try {
+                    await request.put(`/api/admin/users/${targetId}`, { status: 'BLOCKED' });
+                } catch (err1) {
+                    await request.put(`/api/users/${targetId}`, { status: 'BLOCKED' });
+                }
+            }
+            try {
+                await request.delete(`/api/reports/${report.id}`);
+            } catch (dErr) {
+                try {
+                    await request.delete(`/api/report/${report.id}`);
+                } catch (dErr2) {
+                    // ignore
+                }
+            }
+            client.invalidateQueries({ queryKey: ['adminUsers'] });
+            client.invalidateQueries({ queryKey: ['adminReports'] });
+            showToast(`Blocked user "${targetName}" and resolved report.`, 'error');
+            setViewingReport(null);
+        } catch (err) {
+            console.error(`Failed to block user:`, err);
+            showToast(`Failed to block user "${targetName}".`, 'error');
+        }
+    };
+
+    const handleDismissReport = async (report) => {
+        try {
+            try {
+                await request.delete(`/api/reports/${report.id}`);
+            } catch (dErr) {
+                await request.delete(`/api/report/${report.id}`);
+            }
+            client.invalidateQueries({ queryKey: ['adminReports'] });
+            showToast(`Report dismissed.`, 'success');
+            setViewingReport(null);
+        } catch (err) {
+            console.error(`Failed to dismiss report ${report.id}:`, err);
+            showToast(`Failed to dismiss report.`, 'error');
+        }
+    };
+
+    // Aliases for users tab handlers
+    const handleTempBan = handleTempBanUser;
+    const handleDeactivate = handleDeactivateUser;
+
     const normalizedRole = String(currentUser.role || '').toUpperCase();
     const isAuthorized = normalizedRole.includes('ADMIN') || normalizedRole.includes('GOD');
 
-    // 1. While auth is checking or unverified: display clean blank page with navbar, zero glimpse of admin panel
-    if (authChecking || !authChecked) {
+    // 1. While auth is checking: display clean blank page with navbar
+    if (authChecking) {
         return (
-            <div className="admin-panel-page-wrapper">
+            <div className={`admin-panel-page-wrapper${isDark ? ' dark-mode' : ''}`}>
                 <div id="navbar-root">
                     <NavBar
                         userId={currentUser.id}
@@ -3783,6 +3509,7 @@ function AdminPanel() {
                         userName={currentUser.username}
                         userImg={currentUser.image}
                         userRole={currentUser.role}
+                        theme={isDark ? 'dark' : 'light'}
                     />
                 </div>
             </div>
@@ -3792,7 +3519,7 @@ function AdminPanel() {
     // 2. If user is not admin or god: render unauthorized view with "Failed To load content" and reload button
     if (!isAuthorized) {
         return (
-            <div className="admin-panel-page-wrapper">
+            <div className={`admin-panel-page-wrapper${isDark ? ' dark-mode' : ''}`}>
                 <div id="navbar-root">
                     <NavBar
                         userId={currentUser.id}
@@ -3800,6 +3527,7 @@ function AdminPanel() {
                         userName={currentUser.username}
                         userImg={currentUser.image}
                         userRole={currentUser.role}
+                        theme={isDark ? 'dark' : 'light'}
                     />
                 </div>
 
@@ -3812,7 +3540,7 @@ function AdminPanel() {
     }
 
     return (
-        <div className="admin-panel-page-wrapper">
+        <div className={`admin-panel-page-wrapper${isDark ? ' dark-mode' : ''}`}>
             <div id="navbar-root">
                 <NavBar
                     userId={currentUser.id}
@@ -3820,6 +3548,7 @@ function AdminPanel() {
                     userName={currentUser.username}
                     userImg={currentUser.image}
                     userRole={currentUser.role}
+                    theme={isDark ? 'dark' : 'light'}
                 />
             </div>
 
@@ -4086,6 +3815,11 @@ function AdminPanel() {
             />
         </div>
     );
+}
+
+// Main Admin Panel Component (Participates in root QueryClientProvider)
+function AdminPanel() {
+    return <AdminPanelContent />;
 }
 
 export default AdminPanel;

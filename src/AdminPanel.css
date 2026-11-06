@@ -323,11 +323,13 @@
 }
 
 .admin-panel-page-wrapper .user-card-item.user-outline-inactive {
-    border: 2px solid #0d47a1; /* Dark blue outline */
+    border: 2px solid #0d47a1;
+    /* Dark blue outline */
 }
 
 .admin-panel-page-wrapper .user-card-item.user-outline-blocked {
-    border: 2px solid #8b0000; /* Dark red outline */
+    border: 2px solid #8b0000;
+    /* Dark red outline */
 }
 
 /* Deleted user card: light gray background with gray text inside */
@@ -1305,6 +1307,7 @@
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
@@ -1451,6 +1454,7 @@
     max-height: 200px;
     overflow-y: auto;
 }
+
 /* #endregion */
 
 /* #region Admin Tasks Card Item (Matching Image Mockup) */
@@ -1627,6 +1631,7 @@
     align-items: center;
     flex-shrink: 0;
 }
+
 /* #endregion */
 
 /* #region User Reports Tab & Cards */
@@ -1864,4 +1869,441 @@
 .admin-panel-page-wrapper .report-explanation-list li {
     margin-bottom: 4px;
 }
+
+/* #endregion */
+
+/* #region Dark Mode Theme Overrides */
+.admin-panel-page-wrapper.dark-mode {
+    background-color: #1a1c1e;
+    color: #e1e3e6;
+}
+
+.admin-panel-page-wrapper.dark-mode .page-title {
+    color: #ffffff;
+}
+
+/* Dark Mode Folder Tabs */
+.admin-panel-page-wrapper.dark-mode .admin-tab {
+    background-color: #24272a;
+    border-color: #383c40;
+    border-bottom-color: #383c40;
+    color: #b0b3b8;
+}
+
+.admin-panel-page-wrapper.dark-mode .admin-tab:hover:not(.active) {
+    background-color: #2c3034;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .admin-tab.active {
+    background-color: #1e3a5f;
+    border-color: #00a2ff;
+    border-bottom: 1px solid #1e3a5f;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .admin-tab.tab-reports {
+    color: #ff6b6b;
+}
+
+.admin-panel-page-wrapper.dark-mode .admin-tab.tab-reports.active {
+    background-color: #611a1a;
+    border-color: #ef4444;
+    border-bottom: 1px solid #611a1a;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .admin-tab.tab-appeals {
+    color: #ffa94d;
+}
+
+.admin-panel-page-wrapper.dark-mode .admin-tab.tab-appeals.active {
+    background-color: #5c2c10;
+    border-color: #f59e0b;
+    border-bottom: 1px solid #5c2c10;
+    color: #ffffff;
+}
+
+/* Dark Mode Main Card */
+.admin-panel-page-wrapper.dark-mode .admin-main-card {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.admin-panel-page-wrapper.dark-mode .admin-main-card::-webkit-scrollbar-track {
+    background: #1e2023;
+}
+
+.admin-panel-page-wrapper.dark-mode .admin-main-card::-webkit-scrollbar-thumb {
+    background: #44494f;
+}
+
+.admin-panel-page-wrapper.dark-mode .admin-main-card::-webkit-scrollbar-thumb:hover {
+    background: #5c626a;
+}
+
+/* Dark Mode Toolbar & Search */
+.admin-panel-page-wrapper.dark-mode .tab-search-input {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .tab-search-input:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.25);
+}
+
+.admin-panel-page-wrapper.dark-mode .tab-search-input::placeholder {
+    color: #888888;
+}
+
+.admin-panel-page-wrapper.dark-mode .tab-search-icon {
+    fill: #888888;
+}
+
+.admin-panel-page-wrapper.dark-mode .tab-search-container:focus-within .tab-search-icon {
+    fill: #00a2ff;
+}
+
+/* Dark Mode Project Cards */
+.admin-panel-page-wrapper.dark-mode .project-card-item {
+    background-color: #2c3034;
+    border-color: #383c40;
+}
+
+.admin-panel-page-wrapper.dark-mode .project-title-text,
+.admin-panel-page-wrapper.dark-mode .admin-task-title,
+.admin-panel-page-wrapper.dark-mode .admin-task-project-title {
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .project-id-text,
+.admin-panel-page-wrapper.dark-mode .project-owner-value,
+.admin-panel-page-wrapper.dark-mode .project-dates-value {
+    color: #888888;
+}
+
+.admin-panel-page-wrapper.dark-mode .project-desc-text,
+.admin-panel-page-wrapper.dark-mode .project-users-names-text {
+    color: #b0b3b8;
+}
+
+.admin-panel-page-wrapper.dark-mode .project-card-middle {
+    border-left-color: #383c40;
+}
+
+.admin-panel-page-wrapper.dark-mode .btn-project-info-circle,
+.admin-panel-page-wrapper.dark-mode .admin-task-pill-badge,
+.admin-panel-page-wrapper.dark-mode .admin-task-pill-bold {
+    background-color: #24272a;
+    color: #b0b3b8;
+}
+
+.admin-panel-page-wrapper.dark-mode .project-status-value {
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .btn-more-actions {
+    color: #b0b3b8;
+}
+
+.admin-panel-page-wrapper.dark-mode .btn-more-actions:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Dark Mode User Cards */
+.admin-panel-page-wrapper.dark-mode .user-card-item {
+    background-color: #2c3034;
+}
+
+.admin-panel-page-wrapper.dark-mode .user-fullname {
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .user-username,
+.admin-panel-page-wrapper.dark-mode .user-id-badge,
+.admin-panel-page-wrapper.dark-mode .user-joindate-label {
+    color: #888888;
+}
+
+.admin-panel-page-wrapper.dark-mode .user-role-label {
+    color: #b0b3b8;
+}
+
+.admin-panel-page-wrapper.dark-mode .user-status-label {
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .user-card-item.user-card-deleted {
+    background-color: #222528;
+    border-color: #4a4f54;
+    color: #6c727a;
+}
+
+.admin-panel-page-wrapper.dark-mode .user-card-item.user-card-deleted .user-fullname {
+    color: #6c727a;
+}
+
+.admin-panel-page-wrapper.dark-mode .user-card-item.user-card-deleted .user-username,
+.admin-panel-page-wrapper.dark-mode .user-card-item.user-card-deleted .user-role-label,
+.admin-panel-page-wrapper.dark-mode .user-card-item.user-card-deleted .user-status-label,
+.admin-panel-page-wrapper.dark-mode .user-card-item.user-card-deleted .user-joindate-label {
+    color: #5c6168;
+}
+
+/* Dark Mode Admin Task Cards */
+.admin-panel-page-wrapper.dark-mode .admin-task-card-item {
+    background-color: #2c3034;
+    border-color: #383c40;
+}
+
+.admin-panel-page-wrapper.dark-mode .task-title-text,
+.admin-panel-page-wrapper.dark-mode .task-status-text {
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .task-id-text,
+.admin-panel-page-wrapper.dark-mode .task-project-name,
+.admin-panel-page-wrapper.dark-mode .task-dates-text,
+.admin-panel-page-wrapper.dark-mode .task-assignee-text {
+    color: #888888;
+}
+
+.admin-panel-page-wrapper.dark-mode .task-desc-text {
+    color: #b0b3b8;
+}
+
+/* Dark Mode Appeal & Report Cards */
+.admin-panel-page-wrapper.dark-mode .appeal-card-item,
+.admin-panel-page-wrapper.dark-mode .report-card-item {
+    background-color: #2c3034;
+    border-color: #383c40;
+}
+
+.admin-panel-page-wrapper.dark-mode .appeal-title,
+.admin-panel-page-wrapper.dark-mode .report-title,
+.admin-panel-page-wrapper.dark-mode .appeal-modal-fullname,
+.admin-panel-page-wrapper.dark-mode .report-card-fullname {
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .appeal-reason,
+.admin-panel-page-wrapper.dark-mode .report-reason,
+.admin-panel-page-wrapper.dark-mode .appeal-user-info,
+.admin-panel-page-wrapper.dark-mode .report-user-info,
+.admin-panel-page-wrapper.dark-mode .appeal-modal-meta-row {
+    color: #b0b3b8;
+}
+
+.admin-panel-page-wrapper.dark-mode .btn-view-report {
+    border-color: #0069d1;
+    background-color: #2c3034;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .report-modal-user-box,
+.admin-panel-page-wrapper.dark-mode .report-target-group {
+    background-color: #2c3034;
+    border-color: #383c40;
+}
+
+.admin-panel-page-wrapper.dark-mode .report-modal-user-box.target-user-box {
+    background-color: #3a1c1c;
+    border-color: #611a1a;
+}
+
+.admin-panel-page-wrapper.dark-mode .report-modal-user-box.target-user-box .report-modal-box-title {
+    color: #ff6b6b;
+}
+
+.admin-panel-page-wrapper.dark-mode .report-modal-user-box.target-user-box .report-card-fullname {
+    color: #ff8787;
+}
+
+.admin-panel-page-wrapper.dark-mode .report-modal-explanation-box,
+.admin-panel-page-wrapper.dark-mode .appeal-modal-reason-box,
+.admin-panel-page-wrapper.dark-mode .report-modal-meta-tag {
+    background-color: #2c3034;
+    border-color: #383c40;
+    color: #e1e3e6;
+}
+
+.admin-panel-page-wrapper.dark-mode .report-modal-meta-tag {
+    background-color: #383c40;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .btn-appeal-action,
+.admin-panel-page-wrapper.dark-mode .btn-modal-dismiss {
+    background-color: #2c3034;
+    color: #b0b3b8;
+}
+
+.admin-panel-page-wrapper.dark-mode .appeal-modal-user-header {
+    background-color: #2c3034;
+    color: #e1e3e6;
+}
+
+/* Dark Mode Action Popup Speech Bubble */
+body.dark-mode .action-popup-bubble,
+.action-popup-bubble.dark-mode,
+.admin-panel-page-wrapper.dark-mode .action-popup-bubble,
+.admin-panel-page-wrapper.dark-mode .popup-menu-btn {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+
+body.dark-mode .action-popup-bubble::before,
+.action-popup-bubble.dark-mode::before,
+.admin-panel-page-wrapper.dark-mode .action-popup-bubble::before {
+    border-right-color: #24272a;
+}
+
+body.dark-mode .action-popup-bubble::after,
+.action-popup-bubble.dark-mode::after,
+.admin-panel-page-wrapper.dark-mode .action-popup-bubble::after {
+    border-right-color: #383c40;
+}
+
+body.dark-mode .popup-menu-btn,
+.action-popup-bubble.dark-mode .popup-menu-btn,
+.admin-panel-page-wrapper.dark-mode .popup-menu-btn {
+    color: #e1e3e6;
+}
+
+body.dark-mode .popup-menu-btn:hover,
+.action-popup-bubble.dark-mode .popup-menu-btn:hover,
+.admin-panel-page-wrapper.dark-mode .popup-menu-btn:hover {
+    background-color: #2c3034;
+    color: #00a2ff;
+}
+
+body.dark-mode .popup-menu-divider,
+.action-popup-bubble.dark-mode .popup-menu-divider,
+.admin-panel-page-wrapper.dark-mode .popup-menu-divider {
+    background-color: #383c40;
+}
+
+/* Dark Mode Modals & Form Dialogs */
+.admin-panel-page-wrapper.dark-mode .modal-card,
+.admin-panel-page-wrapper.dark-mode .delete-modal-card,
+.admin-panel-page-wrapper.dark-mode .members-modal-card {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+    color: #e1e3e6;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.admin-panel-page-wrapper.dark-mode .modal-title,
+.admin-panel-page-wrapper.dark-mode .delete-modal-title,
+.admin-panel-page-wrapper.dark-mode .members-modal-title {
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .form-label {
+    color: #d0d2d6;
+}
+
+.admin-panel-page-wrapper.dark-mode .form-input,
+.admin-panel-page-wrapper.dark-mode .form-select,
+.admin-panel-page-wrapper.dark-mode .form-textarea,
+.admin-panel-page-wrapper.dark-mode .members-search-box {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .form-input:focus,
+.admin-panel-page-wrapper.dark-mode .form-select:focus,
+.admin-panel-page-wrapper.dark-mode .form-textarea:focus {
+    border-color: #00a2ff;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.25);
+}
+
+.admin-panel-page-wrapper.dark-mode .form-input::placeholder,
+.admin-panel-page-wrapper.dark-mode .form-textarea::placeholder,
+.admin-panel-page-wrapper.dark-mode .members-search-input::placeholder {
+    color: #888888;
+}
+
+.admin-panel-page-wrapper.dark-mode .btn-modal-cancel {
+    background-color: #383c40;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .btn-modal-cancel:hover {
+    background-color: #4a4f54;
+}
+
+.admin-panel-page-wrapper.dark-mode .member-item-row:hover {
+    background-color: #2c3034;
+}
+
+.admin-panel-page-wrapper.dark-mode .member-fullname {
+    color: #ffffff;
+}
+
+.admin-panel-page-wrapper.dark-mode .member-username {
+    color: #888888;
+}
+
+.admin-panel-page-wrapper.dark-mode .members-modal-close-btn {
+    color: #b0b3b8;
+}
+
+.admin-panel-page-wrapper.dark-mode .members-modal-close-btn:hover {
+    color: #ffffff;
+}
+
+/* Dark Mode Unauthorized / Failed to Load View */
+.admin-panel-page-wrapper.dark-mode .unauthorized-container {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+}
+
+.admin-panel-page-wrapper.dark-mode .unauthorized-message {
+    color: #ffffff;
+}
+
+/* Dark Mode Reload Button */
+.admin-panel-page-wrapper.dark-mode .section-reload-btn {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+}
+
+.admin-panel-page-wrapper.dark-mode .section-reload-btn svg {
+    stroke: #b0b3b8;
+}
+
+.admin-panel-page-wrapper.dark-mode .section-reload-btn:hover {
+    background-color: #383c40;
+    border-color: #60646c;
+}
+
+/* Disable all transitions during page load */
+.admin-panel-page-wrapper.no-theme-transition,
+.admin-panel-page-wrapper.no-theme-transition * {
+    transition: none !important;
+}
+
+/* Only transition colors when user explicitly changes theme */
+.admin-panel-page-wrapper.theme-transition {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.admin-panel-page-wrapper.theme-transition .admin-main-card,
+.admin-panel-page-wrapper.theme-transition .project-card-item,
+.admin-panel-page-wrapper.theme-transition .user-card-item,
+.admin-panel-page-wrapper.theme-transition .admin-task-card-item,
+.admin-panel-page-wrapper.theme-transition .admin-tab,
+.admin-panel-page-wrapper.theme-transition .tab-search-input,
+.admin-panel-page-wrapper.theme-transition .section-reload-btn {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
 /* #endregion */

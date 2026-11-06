@@ -193,3 +193,115 @@
     margin-bottom: 20px;
     line-height: 1.4;
 }
+
+/* #region Dark Mode Theme Overrides */
+.report-page-wrapper.dark-mode {
+    background-color: #1a1c1e;
+    color: #e1e3e6;
+}
+
+.report-page-wrapper.dark-mode .report-card {
+    background-color: #24272a;
+    border: 1px solid #383c40;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.report-page-wrapper.dark-mode .report-title {
+    color: #ff6b6b;
+}
+
+.report-page-wrapper.dark-mode .report-subtitle {
+    color: #b0b3b8;
+}
+
+.report-page-wrapper.dark-mode .report-target-badge {
+    background-color: #2c3034;
+    border-color: #383c40;
+    color: #b0b3b8;
+}
+
+.report-page-wrapper.dark-mode .report-target-badge strong {
+    color: #ffffff;
+}
+
+.report-page-wrapper.dark-mode .form-label {
+    color: #d0d2d6;
+}
+
+/* Dark Mode Inputs, Selects, and Textareas */
+.report-page-wrapper.dark-mode .form-input,
+.report-page-wrapper.dark-mode .form-select,
+.report-page-wrapper.dark-mode .form-textarea {
+    background-color: #2c3034;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.report-page-wrapper.dark-mode .form-input:focus,
+.report-page-wrapper.dark-mode .form-select:focus,
+.report-page-wrapper.dark-mode .form-textarea:focus {
+    border-color: #ff6b6b;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.25);
+}
+
+.report-page-wrapper.dark-mode .form-input::placeholder,
+.report-page-wrapper.dark-mode .form-textarea::placeholder {
+    color: #888888;
+}
+
+/* Dark Mode Action Buttons */
+.report-page-wrapper.dark-mode .btn-cancel {
+    background-color: #383c40;
+    border-color: #4a4f54;
+    color: #ffffff;
+}
+
+.report-page-wrapper.dark-mode .btn-cancel:hover {
+    background-color: #4a4f54;
+    color: #ffffff;
+}
+
+.report-page-wrapper.dark-mode .btn-submit-report {
+    background-color: #d93025;
+    color: #ffffff;
+}
+
+.report-page-wrapper.dark-mode .btn-submit-report:hover:not(:disabled) {
+    background-color: #e53935;
+}
+
+/* Dark Mode Success Box */
+.report-page-wrapper.dark-mode .report-success-box {
+    background-color: #1e2c22;
+    border: 1px solid #2e5939;
+}
+
+.report-page-wrapper.dark-mode .report-success-title {
+    color: #4ade80;
+}
+
+.report-page-wrapper.dark-mode .report-success-desc {
+    color: #bbf7d0;
+}
+
+/* Disable all transitions during page load */
+.report-page-wrapper.no-theme-transition,
+.report-page-wrapper.no-theme-transition * {
+    transition: none !important;
+}
+
+/* Only transition colors when user explicitly changes theme */
+.report-page-wrapper.theme-transition {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.report-page-wrapper.theme-transition .report-card,
+.report-page-wrapper.theme-transition .form-input,
+.report-page-wrapper.theme-transition .form-select,
+.report-page-wrapper.theme-transition .form-textarea,
+.report-page-wrapper.theme-transition .btn-cancel,
+.report-page-wrapper.theme-transition .btn-submit-report {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+/* #endregion */
+
