@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import './Report.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
-import { getUserAvatarUrl } from './utils';
 import { useTheme } from './useTheme';
 import useCurrentUser from './useCurrentUser';
 

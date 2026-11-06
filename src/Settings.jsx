@@ -3,7 +3,6 @@ import './Settings.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
-import { getUserAvatarUrl } from './utils';
 import useCurrentUser from './useCurrentUser';
 
 // Sidebar Navigation Component

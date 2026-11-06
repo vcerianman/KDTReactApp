@@ -309,7 +309,7 @@ function Home() {
         } finally {
             setTasksLoading(false);
         }
-    }, [currentUser.id]);
+    }, [currentUser]);
 
     // 4. Fetch projects for current logged-in user via GET /api/users/{ID} -> GET /api/projects/{ID}
     const fetchProjects = useCallback(async () => {
@@ -399,7 +399,7 @@ function Home() {
         } finally {
             setProjectsLoading(false);
         }
-    }, [currentUser.id]);
+    }, [currentUser]);
 
     useEffect(() => {
         fetchUsers();

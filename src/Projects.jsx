@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import './Projects.css';
 import NavBar from './NavBar';
 import request from './api/Request';
-import { getProjectStatusClass, getUserAvatarUrl } from './utils';
+import { getProjectStatusClass } from './utils';
 import { useTheme } from './useTheme';
 import useCurrentUser from './useCurrentUser';
 

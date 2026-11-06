@@ -374,7 +374,7 @@ function CreateTasks() {
         } finally {
             setLoadingProjects(false);
         }
-    }, [searchParams]);
+    }, [searchParams, currentUser?.id, currentUser?.username]);
 
     // Fetch users for assignee selection prompt
     const fetchUsers = useCallback(async () => {

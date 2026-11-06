@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import request from './api/Request';
+import { Link } from 'react-router-dom';
 import Blockbanner from './Blockbanner';
 import { useCurrentUser } from './useCurrentUser';
 
 function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/ProfilePic/0.jpg", userRole = "", role = "", theme = "", themeTransition = false }) {
-    const navigate = useNavigate();
     const { currentUser: cachedUser } = useCurrentUser();
     // 1. SCRIPTS
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
