@@ -2,18 +2,18 @@ import axios from 'axios';
 
 // Dynamically resolve the backend API Base URL based on the current laptop IP/hostname
 const getBaseURL = () => {
-  if (process.env.REACT_APP_API_BASE_URL) {
-    return process.env.REACT_APP_API_BASE_URL;
-  }
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
-    return process.env.NEXT_PUBLIC_API_BASE_URL;
-  }
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-    const protocol = window.location.protocol || 'http:';
-    const hostname = window.location.hostname;
-    return `${protocol}//${hostname}:8080`;
-  }
-  return 'http://localhost:8080';
+  // if (process.env.REACT_APP_API_BASE_URL) {
+  //   return process.env.REACT_APP_API_BASE_URL;
+  // }
+  // if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+  //   return process.env.NEXT_PUBLIC_API_BASE_URL;
+  // }
+  // if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+  //   const protocol = window.location.protocol || 'http:';
+  //   const hostname = window.location.hostname;
+  //   return `${protocol}//${hostname}:8080`;
+  // }
+  return 'https://kdttaskflow.onrender.com/';
 };
 
 // Create Axios instance with dynamic host IP and port 8080
