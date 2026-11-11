@@ -1119,7 +1119,9 @@ function CommunicationContent() {
 
             return combinedPosts;
         },
-        enabled: Boolean(activeProjectId)
+        enabled: Boolean(activeProjectId),
+        refetchInterval: 3500, // Seamless fallback: keeps posts in sync even if SSE stream is buffered, closed or drops
+        refetchIntervalInBackground: false
     });
 
     // Real-time SSE Connection for Posts & Replies
@@ -1130,17 +1132,138 @@ function CommunicationContent() {
 
         const jwtToken = localStorage.getItem('token') || '';
         const isGlobal = activeProjectId === 'global';
-        const projectIdParam = isGlobal ? 'null' : encodeURIComponent(activeProjectId);
         const apiBase = (request?.defaults?.baseURL || 'https://kdttaskflow.onrender.com').replace(/\/+$/, '');
-        const streamUrl = `${apiBase}/api/posts/stream?projectId=${projectIdParam}${jwtToken ? `&token=${encodeURIComponent(jwtToken)}` : ''}`;
+
+        // Build query string cleanly (avoid passing invalid "null" string to number-typed backend params)
+        const params = [];
+        if (!isGlobal && activeProjectId) {
+            params.push(`projectId=${encodeURIComponent(activeProjectId)}`);
+        }
+        if (jwtToken) {
+            params.push(`token=${encodeURIComponent(jwtToken)}`);
+        }
+        const streamUrl = `${apiBase}/api/posts/stream${params.length > 0 ? `?${params.join('&')}` : ''}`;
 
         let eventSource;
         try {
-            eventSource = new EventSource(streamUrl);
+            eventSource = new EventSource(streamUrl, { withCredentials: true });
         } catch (err) {
-            console.error('Failed to initialize EventSource:', err);
-            return;
+            try {
+                eventSource = new EventSource(streamUrl);
+            } catch (fallbackErr) {
+                console.error('Failed to initialize EventSource:', fallbackErr);
+                return;
+            }
         }
+
+        const handlePostCreated = (rawPost) => {
+            if (!rawPost) return;
+
+            const rawParent = (
+                (typeof rawPost.reply === 'object' && rawPost.reply !== null ? (rawPost.reply.id ?? rawPost.reply._id) : rawPost.reply) ??
+                (typeof rawPost.reply_id === 'object' && rawPost.reply_id !== null ? (rawPost.reply_id.id ?? rawPost.reply_id._id) : rawPost.reply_id) ??
+                rawPost.parentId ??
+                rawPost.parent_id
+            );
+            const isReply = rawParent !== null && rawParent !== undefined && rawParent !== 0 && rawParent !== '';
+            const parentId = isReply ? String(rawParent) : null;
+            const formattedItem = formatPostItem(rawPost);
+
+            client.setQueryData(['commPosts', activeProjectId], (old = []) => {
+                if (!Array.isArray(old)) return old;
+
+                if (isReply && parentId) {
+                    return old.map(post => {
+                        if (String(post.id) === parentId) {
+                            const existingReplies = post.replies || [];
+                            const exists = existingReplies.some(r => String(r.id) === String(formattedItem.id));
+                            const updatedReplies = exists
+                                ? existingReplies.map(r => String(r.id) === String(formattedItem.id) ? { ...r, ...formattedItem } : r)
+                                : [...existingReplies, formattedItem];
+                            return {
+                                ...post,
+                                replies: updatedReplies
+                            };
+                        }
+                        return post;
+                    });
+                }
+
+                const exists = old.some(p => String(p.id) === String(formattedItem.id));
+                if (exists) {
+                    return old.map(p => String(p.id) === String(formattedItem.id) ? { ...p, ...formattedItem, replies: p.replies || [] } : p);
+                }
+                return [{ ...formattedItem, replies: formattedItem.replies || [] }, ...old];
+            });
+
+            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
+        };
+
+        const handlePostUpdated = (rawPost) => {
+            if (!rawPost) return;
+
+            const formattedItem = formatPostItem(rawPost);
+            const targetId = String(formattedItem.id);
+
+            client.setQueryData(['commPosts', activeProjectId], (old = []) => {
+                if (!Array.isArray(old)) return old;
+
+                const isTopLevel = old.some(p => String(p.id) === targetId);
+                if (isTopLevel) {
+                    return old.map(p => {
+                        if (String(p.id) === targetId) {
+                            return {
+                                ...p,
+                                ...formattedItem,
+                                replies: p.replies || []
+                            };
+                        }
+                        return p;
+                    });
+                }
+
+                return old.map(p => {
+                    const hasReply = (p.replies || []).some(r => String(r.id) === targetId);
+                    if (hasReply) {
+                        return {
+                            ...p,
+                            replies: (p.replies || []).map(r => {
+                                if (String(r.id) === targetId) {
+                                    return { ...r, ...formattedItem };
+                                }
+                                return r;
+                            })
+                        };
+                    }
+                    return p;
+                });
+            });
+
+            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
+        };
+
+        const handlePostDeleted = (id) => {
+            const deletedId = String(id || '');
+            if (!deletedId) return;
+
+            client.setQueryData(['commPosts', activeProjectId], (old = []) => {
+                if (!Array.isArray(old)) return old;
+
+                return old
+                    .filter(p => String(p.id) !== deletedId)
+                    .map(p => {
+                        if (Array.isArray(p.replies) && p.replies.some(r => String(r.id) === deletedId)) {
+                            return {
+                                ...p,
+                                replies: p.replies.filter(r => String(r.id) !== deletedId)
+                            };
+                        }
+                        return p;
+                    });
+            });
+
+            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
+        };
 
         // 1. Initial handshake
         eventSource.addEventListener('CONNECTED', (e) => {
@@ -1152,133 +1275,59 @@ function CommunicationContent() {
             }
         });
 
-        // 2. New post or reply created
+        // 2. New post or reply created (named event)
         eventSource.addEventListener('POST_CREATED', (e) => {
             try {
                 const event = JSON.parse(e.data);
-                console.log('New post:', event?.post || event);
-                const rawPost = event?.post || event?.data || event;
-                if (!rawPost) return;
-
-                const isReply = (
-                    (rawPost.reply !== null && rawPost.reply !== undefined && rawPost.reply !== 0 && rawPost.reply !== '') ||
-                    (rawPost.reply_id !== null && rawPost.reply_id !== undefined && rawPost.reply_id !== 0 && rawPost.reply_id !== '') ||
-                    (rawPost.parentId !== null && rawPost.parentId !== undefined && rawPost.parentId !== 0 && rawPost.parentId !== '') ||
-                    (rawPost.parent_id !== null && rawPost.parent_id !== undefined && rawPost.parent_id !== 0 && rawPost.parent_id !== '')
-                );
-                const parentId = isReply ? String(rawPost.reply ?? rawPost.reply_id ?? rawPost.parentId ?? rawPost.parent_id) : null;
-                const formattedItem = formatPostItem(rawPost);
-
-                client.setQueryData(['commPosts', activeProjectId], (old = []) => {
-                    if (!Array.isArray(old)) return old;
-
-                    if (isReply && parentId) {
-                        return old.map(post => {
-                            if (String(post.id) === parentId) {
-                                const existingReplies = post.replies || [];
-                                const exists = existingReplies.some(r => String(r.id) === String(formattedItem.id));
-                                const updatedReplies = exists
-                                    ? existingReplies.map(r => String(r.id) === String(formattedItem.id) ? { ...r, ...formattedItem } : r)
-                                    : [...existingReplies, formattedItem];
-                                return {
-                                    ...post,
-                                    replies: updatedReplies
-                                };
-                            }
-                            return post;
-                        });
-                    }
-
-                    const exists = old.some(p => String(p.id) === String(formattedItem.id));
-                    if (exists) {
-                        return old.map(p => String(p.id) === String(formattedItem.id) ? { ...p, ...formattedItem, replies: p.replies || [] } : p);
-                    }
-                    return [{ ...formattedItem, replies: formattedItem.replies || [] }, ...old];
-                });
+                console.log('New post (POST_CREATED):', event?.post || event);
+                handlePostCreated(event?.post || event?.data || event);
             } catch (err) {
                 console.error('Failed to handle POST_CREATED SSE event:', err);
             }
         });
 
-        // 3. Post updated
+        // 3. Post updated (named event)
         eventSource.addEventListener('POST_UPDATED', (e) => {
             try {
                 const event = JSON.parse(e.data);
-                console.log('Updated post:', event?.post || event);
-                const rawPost = event?.post || event?.data || event;
-                if (!rawPost) return;
-
-                const formattedItem = formatPostItem(rawPost);
-                const targetId = String(formattedItem.id);
-
-                client.setQueryData(['commPosts', activeProjectId], (old = []) => {
-                    if (!Array.isArray(old)) return old;
-
-                    const isTopLevel = old.some(p => String(p.id) === targetId);
-                    if (isTopLevel) {
-                        return old.map(p => {
-                            if (String(p.id) === targetId) {
-                                return {
-                                    ...p,
-                                    ...formattedItem,
-                                    replies: p.replies || []
-                                };
-                            }
-                            return p;
-                        });
-                    }
-
-                    return old.map(p => {
-                        const hasReply = (p.replies || []).some(r => String(r.id) === targetId);
-                        if (hasReply) {
-                            return {
-                                ...p,
-                                replies: (p.replies || []).map(r => {
-                                    if (String(r.id) === targetId) {
-                                        return { ...r, ...formattedItem };
-                                    }
-                                    return r;
-                                })
-                            };
-                        }
-                        return p;
-                    });
-                });
+                console.log('Updated post (POST_UPDATED):', event?.post || event);
+                handlePostUpdated(event?.post || event?.data || event);
             } catch (err) {
                 console.error('Failed to handle POST_UPDATED SSE event:', err);
             }
         });
 
-        // 4. Post deleted
+        // 4. Post deleted (named event)
         eventSource.addEventListener('POST_DELETED', (e) => {
             try {
                 const event = JSON.parse(e.data);
-                console.log('Deleted post ID:', event?.postId ?? event?.id);
-                const deletedId = String(event?.postId ?? event?.id ?? (typeof event === 'number' || typeof event === 'string' ? event : ''));
-                if (!deletedId) return;
-
-                client.setQueryData(['commPosts', activeProjectId], (old = []) => {
-                    if (!Array.isArray(old)) return old;
-
-                    return old
-                        .filter(p => String(p.id) !== deletedId)
-                        .map(p => {
-                            if (Array.isArray(p.replies) && p.replies.some(r => String(r.id) === deletedId)) {
-                                return {
-                                    ...p,
-                                    replies: p.replies.filter(r => String(r.id) !== deletedId)
-                                };
-                            }
-                            return p;
-                        });
-                });
+                console.log('Deleted post ID (POST_DELETED):', event?.postId ?? event?.id);
+                handlePostDeleted(event?.postId ?? event?.id ?? event);
             } catch (err) {
                 console.error('Failed to handle POST_DELETED SSE event:', err);
             }
         });
 
-        // 5. Periodic heartbeat
-        eventSource.addEventListener('HEARTBEAT', (e) => {
+        // 5. Generic message listener (fallback if backend emits standard unnamed SSE message)
+        eventSource.addEventListener('message', (e) => {
+            try {
+                if (!e.data) return;
+                const event = JSON.parse(e.data);
+                const eventType = String(event?.type || event?.event || event?.action || '').toUpperCase();
+                if (eventType === 'POST_CREATED') {
+                    handlePostCreated(event?.post || event?.data || event);
+                } else if (eventType === 'POST_UPDATED') {
+                    handlePostUpdated(event?.post || event?.data || event);
+                } else if (eventType === 'POST_DELETED') {
+                    handlePostDeleted(event?.postId ?? event?.id ?? event);
+                }
+            } catch (err) {
+                // Ignore raw or non-JSON heartbeats
+            }
+        });
+
+        // 6. Periodic heartbeat
+        eventSource.addEventListener('HEARTBEAT', () => {
             // connection is alive
         });
 
@@ -1452,7 +1501,7 @@ function CommunicationContent() {
 
             client.setQueryData(['commPosts', activeProjectId], (old = []) =>
                 old.map(p => {
-                    if (p.id === postId) {
+                    if (String(p.id) === String(postId)) {
                         return {
                             ...p,
                             replies: [...(p.replies || []), newReply]
@@ -1532,7 +1581,7 @@ function CommunicationContent() {
 
             client.setQueryData(['commPosts', activeProjectId], (old = []) =>
                 old.map(p => {
-                    if (p.id === postId) {
+                    if (String(p.id) === String(postId)) {
                         return { ...p, title: newTitle, content: newContent };
                     }
                     return p;
@@ -1563,11 +1612,11 @@ function CommunicationContent() {
 
             client.setQueryData(['commPosts', activeProjectId], (old = []) =>
                 old.map(p => {
-                    if (p.id === postId) {
+                    if (String(p.id) === String(postId)) {
                         return {
                             ...p,
                             replies: (p.replies || []).map(r => {
-                                if (r.id === replyId) {
+                                if (String(r.id) === String(replyId)) {
                                     return { ...r, content: newContent };
                                 }
                                 return r;
