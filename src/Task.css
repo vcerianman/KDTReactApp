@@ -474,7 +474,11 @@
 }
 
 .tasks-page-wrapper .current-project-card {
-    flex: 1;
+    flex: 0 0 1036px;
+    width: 1036px;
+    min-width: 0;
+    max-width: 1036px;
+    box-sizing: content-box;
     background-color: #f8f9fa;
     border-radius: 20px;
     padding: 18px 24px;
