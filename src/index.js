@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { startServerPing } from './serverPing';
+
+// Start server availability check (every 10 seconds)
+startServerPing();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
