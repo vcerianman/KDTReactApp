@@ -234,7 +234,7 @@ function ProjectUsersModal({ isOpen, onClose, title, users, usersMap }) {
 }
 
 // Message Options Dropdown Menu ("...")
-function MessageOptionsMenu({ isAuthor, onOpenInfo, onEdit, onReport }) {
+function MessageOptionsMenu({ isAuthor, canDelete, onOpenInfo, onEdit, onDelete, onReport }) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
@@ -289,6 +289,20 @@ function MessageOptionsMenu({ isAuthor, onOpenInfo, onEdit, onReport }) {
                         }}
                     >
                         Edit
+                    </button>
+                )}
+                {canDelete && (
+                    <button
+                        type="button"
+                        className="msg-options-menu-item msg-options-menu-item-danger"
+                        style={{ color: '#d93025' }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsMenuOpen(false);
+                            onDelete && onDelete();
+                        }}
+                    >
+                        Delete
                     </button>
                 )}
                 <button
@@ -554,6 +568,7 @@ function PostCard({
     onOpenInfo,
     onOpenEditPost,
     onOpenEditReply,
+    onDelete,
     onReport
 }) {
     const [replyText, setReplyText] = useState('');
@@ -577,6 +592,10 @@ function PostCard({
         }
     };
 
+    // Check if current user holds ADMIN or GOD privileges
+    const normalizedRole = String(currentUser?.role || currentUser?.userRole || '').toUpperCase();
+    const isAdminOrGod = normalizedRole.includes('ADMIN') || normalizedRole.includes('GOD');
+
     // Resolve exact author profile (id, fullname, username)
     const authorProfile = resolveAuthorProfile(post.authorId, post.authorHandle, post.author, usersMap);
     const postAuthorId = authorProfile.id;
@@ -591,6 +610,8 @@ function PostCard({
             currentUser.username.toLowerCase() === String(post.author || '').toLowerCase()
         ))
     );
+
+    const canDeletePost = isPostAuthor || isAdminOrGod;
 
     return (
         <div className="post-card-item">
@@ -619,6 +640,7 @@ function PostCard({
                 {/* Three dots options menu on top right of post */}
                 <MessageOptionsMenu
                     isAuthor={isPostAuthor}
+                    canDelete={canDeletePost}
                     onOpenInfo={() => onOpenInfo({
                         type: 'post',
                         fullname: postFullName,
@@ -627,6 +649,7 @@ function PostCard({
                         timestamp: post.timestamp
                     })}
                     onEdit={() => onOpenEditPost(post)}
+                    onDelete={() => onDelete && onDelete(post.id, 'post')}
                     onReport={() => onReport({
                         type: 'post',
                         id: post.id,
@@ -679,6 +702,8 @@ function PostCard({
                                 ))
                             );
 
+                            const canDeleteReply = isReplyAuthor || isAdminOrGod;
+
                             return (
                                 <div key={reply.id} className="reply-item-row">
                                     <Link to={`/profile/${replyAuthorId}`} className="author-avatar-link" title={`View profile of ${replyFullName} (ID: ${replyAuthorId})`}>
@@ -704,6 +729,7 @@ function PostCard({
                                             {/* Three dots options menu on top right of reply */}
                                             <MessageOptionsMenu
                                                 isAuthor={isReplyAuthor}
+                                                canDelete={canDeleteReply}
                                                 onOpenInfo={() => onOpenInfo({
                                                     type: 'reply',
                                                     fullname: replyFullName,
@@ -712,6 +738,7 @@ function PostCard({
                                                     timestamp: reply.timestamp
                                                 })}
                                                 onEdit={() => onOpenEditReply(post.id, reply)}
+                                                onDelete={() => onDelete && onDelete(reply.id, 'reply')}
                                                 onReport={() => onReport({
                                                     type: 'reply',
                                                     id: reply.id,
@@ -1437,9 +1464,9 @@ function CommunicationContent() {
         } catch (err) {
             console.error('Failed to create post (POST /api/posts):', err);
             const errStatus = err.response?.status;
-            const errMessage = err.response?.data?.message || err.response?.data?.error || 
-                (errStatus === 401 || errStatus === 403 
-                    ? 'You are not authorized to create posts.' 
+            const errMessage = err.response?.data?.message || err.response?.data?.error ||
+                (errStatus === 401 || errStatus === 403
+                    ? 'You are not authorized to create posts.'
                     : 'Failed to create post. Please try again.');
             showToast(errMessage, 'error');
         } finally {
@@ -1516,10 +1543,64 @@ function CommunicationContent() {
         } catch (err) {
             console.error(`Failed to send reply to post ${postId}:`, err);
             const errStatus = err.response?.status;
-            const errMessage = err.response?.data?.message || err.response?.data?.error || 
-                (errStatus === 401 || errStatus === 403 
-                    ? 'You are not authorized to send replies.' 
+            const errMessage = err.response?.data?.message || err.response?.data?.error ||
+                (errStatus === 401 || errStatus === 403
+                    ? 'You are not authorized to send replies.'
                     : 'Failed to send reply. Please try again.');
+            showToast(errMessage, 'error');
+        }
+    };
+
+    // Delete Post or Reply Handler (exclusive to author, ADMIN, and GOD)
+    const handleDeleteMessage = async (targetId, type = 'post') => {
+        if (!targetId) return;
+
+        const label = type === 'reply' ? 'reply' : 'post';
+        if (!window.confirm(`Are you sure you want to delete this ${label}?`)) {
+            return;
+        }
+
+        try {
+            let deleteError = null;
+
+            try {
+                await request.delete(`/api/posts/${encodeURIComponent(targetId)}`);
+            } catch (dErr1) {
+                deleteError = dErr1;
+                try {
+                    await request.delete(`/api/post/${encodeURIComponent(targetId)}`);
+                    deleteError = null;
+                } catch (dErr2) {
+                    deleteError = dErr2;
+                }
+            }
+
+            if (deleteError) {
+                throw deleteError;
+            }
+
+            const deletedId = String(targetId);
+            client.setQueryData(['commPosts', activeProjectId], (old = []) => {
+                if (!Array.isArray(old)) return old;
+                return old
+                    .filter(p => String(p.id) !== deletedId)
+                    .map(p => ({
+                        ...p,
+                        replies: Array.isArray(p.replies)
+                            ? p.replies.filter(r => String(r.id) !== deletedId)
+                            : []
+                    }));
+            });
+            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
+
+            showToast(`${type === 'reply' ? 'Reply' : 'Post'} deleted successfully.`, 'success');
+        } catch (err) {
+            console.error(`Failed to delete ${label} (${targetId}):`, err);
+            const errStatus = err.response?.status;
+            const errMessage = err.response?.data?.message || err.response?.data?.error ||
+                (errStatus === 401 || errStatus === 403
+                    ? `You are not authorized to delete this ${label}.`
+                    : `Failed to delete ${label}. Please try again.`);
             showToast(errMessage, 'error');
         }
     };
@@ -1752,7 +1833,7 @@ function CommunicationContent() {
                                     <div className="banner-project-title-row">
                                         <span className="banner-project-title">{activeProject.title}</span>
                                         {activeProject.id && (
-                                             <span className="banner-project-id">(id:{activeProject.id})</span>
+                                            <span className="banner-project-id">(id:{activeProject.id})</span>
                                         )}
                                         {isGlobalChat && (
                                             <span className="banner-project-id banner-global-badge">Public</span>
@@ -1848,6 +1929,7 @@ function CommunicationContent() {
                                             onOpenInfo={handleOpenInfo}
                                             onOpenEditPost={handleOpenEditPost}
                                             onOpenEditReply={handleOpenEditReply}
+                                            onDelete={handleDeleteMessage}
                                             onReport={handleReport}
                                         />
                                     ))}

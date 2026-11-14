@@ -1497,6 +1497,42 @@
 }
 
 /* Left Section: ID + Title, Priority Tag, Status */
+/* Priority Tag Pills */
+.admin-panel-page-wrapper .task-priority-tag {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.admin-panel-page-wrapper .priority-tag-urgent {
+    background-color: #ffe5e5;
+    color: #d32f2f;
+    border: 1px solid #ffcdd2;
+}
+
+.admin-panel-page-wrapper .priority-tag-high {
+    background-color: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffe0b2;
+}
+
+.admin-panel-page-wrapper .priority-tag-medium {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.admin-panel-page-wrapper .priority-tag-low {
+    background-color: #f5f5f5;
+    color: #616161;
+    border: 1px solid #e0e0e0;
+}
+
+
 .admin-panel-page-wrapper .admin-task-left-section {
     display: flex;
     align-items: center;

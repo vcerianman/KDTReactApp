@@ -81,17 +81,132 @@ function TasksHeader({ searchQuery, onSearchChange }) {
     );
 }
 
-// Single Task Card Component
-function TaskCard({ task, onTaskAction, onTaskClick }) {
+// Definition of the 4 Kanban columns
+const COLUMNS_DEF = [
+    {
+        key: 'TODO',
+        title: 'TODO',
+        borderClass: 'col-todo',
+        statusValue: 'TODO',
+        matcher: (status) => {
+            const s = (status || '').toUpperCase();
+            return s === 'TODO' || s === 'TO_DO' || s === 'PLANNING' || s === 'BACKLOG';
+        }
+    },
+    {
+        key: 'IN_PROGRESS',
+        title: 'IN PROGRESS',
+        borderClass: 'col-in-progress',
+        statusValue: 'IN_PROGRESS',
+        matcher: (status) => {
+            const s = (status || '').toUpperCase();
+            return s === 'IN_PROGRESS' || s === 'IN PROGRESS' || s === 'DOING' || s === 'IN_REVIEW' || s === 'ON_HOLD';
+        }
+    },
+    {
+        key: 'COMPLETED',
+        title: 'COMPLETED',
+        borderClass: 'col-completed',
+        statusValue: 'DONE',
+        matcher: (status) => {
+            const s = (status || '').toUpperCase();
+            return s === 'COMPLETED' || s === 'DONE' || s === 'FINISHED';
+        }
+    },
+    {
+        key: 'CANCELLED',
+        title: 'CANCELLED',
+        borderClass: 'col-cancelled',
+        statusValue: 'CANCELLED',
+        matcher: (status) => {
+            const s = (status || '').toUpperCase();
+            return s === 'CANCELLED' || s === 'CANCELED' || s === 'ARCHIVED';
+        }
+    }
+];
+
+// Helper to reorder tasks in a project when dropped into a column at a specific index
+function reorderTasks({ allTasks, draggedTaskId, targetColumnKey, targetIndex, newStatus, columnsDef = COLUMNS_DEF }) {
+    const draggedTask = allTasks.find(t => String(t.id) === String(draggedTaskId));
+    if (!draggedTask) return allTasks;
+
+    const updatedDraggedTask = {
+        ...draggedTask,
+        status: newStatus
+    };
+
+    const targetColDef = columnsDef.find(c => c.key === targetColumnKey);
+    if (!targetColDef) return allTasks;
+
+    // Remaining tasks in allTasks excluding the dragged task
+    const remainingTasks = allTasks.filter(t => String(t.id) !== String(draggedTaskId));
+
+    // Tasks currently matching the target column in remainingTasks
+    const targetColTasks = remainingTasks.filter(t => targetColDef.matcher(t.status));
+
+    // Insert updatedDraggedTask at targetIndex among targetColTasks
+    const newTargetColTasks = [...targetColTasks];
+    const safeIndex = Math.max(0, Math.min(targetIndex, newTargetColTasks.length));
+    newTargetColTasks.splice(safeIndex, 0, updatedDraggedTask);
+
+    // Reconstruct allTasks: for the target column, insert newTargetColTasks in place
+    const result = [];
+    columnsDef.forEach(col => {
+        if (col.key === targetColumnKey) {
+            result.push(...newTargetColTasks);
+        } else {
+            result.push(...remainingTasks.filter(t => col.matcher(t.status)));
+        }
+    });
+
+    // Append any tasks that did not match any of the standard 4 columns (edge cases)
+    const processedIds = new Set(result.map(t => String(t.id)));
+    remainingTasks.forEach(t => {
+        if (!processedIds.has(String(t.id))) {
+            result.push(t);
+        }
+    });
+
+    return result;
+}
+
+// Single Task Card Component (Draggable)
+function TaskCard({
+    task,
+    onTaskAction,
+    onTaskClick,
+    onDragStart,
+    onDragEnd,
+    onDragOverTask,
+    isDragging
+}) {
     const priorityClass = getTaskPriorityClass(task.priority);
     const tagClass = getPriorityTagClass(task.priority);
     const taskDescription = task.desc || task.description || '';
+    const isDraggingRef = useRef(false);
 
     return (
         <div
-            className={`task-card ${priorityClass}`}
+            className={`task-card ${priorityClass}${isDragging ? ' is-dragging' : ''}`}
             data-task-id={task.id}
-            onClick={() => onTaskClick && onTaskClick(task)}
+            draggable={true}
+            onDragStart={(e) => {
+                isDraggingRef.current = true;
+                onDragStart && onDragStart(e, task);
+            }}
+            onDragEnd={(e) => {
+                onDragEnd && onDragEnd(e, task);
+                setTimeout(() => {
+                    isDraggingRef.current = false;
+                }, 80);
+            }}
+            onDragOver={(e) => {
+                onDragOverTask && onDragOverTask(e);
+            }}
+            onClick={() => {
+                if (isDraggingRef.current) return;
+                onTaskClick && onTaskClick(task);
+            }}
         >
             <div className="task-main-content">
                 <div className="task-title-row">
@@ -110,56 +225,106 @@ function TaskCard({ task, onTaskAction, onTaskClick }) {
                     <span>{task.dates}</span>
                 </div>
             </div>
-            <button
-                className="btn-task-action"
-                title="Proceed / View Task"
-                aria-label="Proceed / View Task"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onTaskAction(task);
-                }}
-            >
-                <svg viewBox="0 0 24 24" width="20" height="20">
-                    <path d="M8 5v14l11-7z" />
-                </svg>
-            </button>
+
         </div>
     );
 }
 
-// Single Status Column Component with Vertical Scroll
-function StatusColumnCard({ columnKey, title, borderClass, tasks, onTaskAction, onTaskClick }) {
+// Single Status Column Component with Drag-and-Drop and Insertion Placeholder
+function StatusColumnCard({
+    columnKey,
+    title,
+    borderClass,
+    tasks,
+    onTaskAction,
+    onTaskClick,
+    draggedTask,
+    draggedCardHeight,
+    dragOverInfo,
+    onDragStartTask,
+    onDragEndTask,
+    onDragOverColumn,
+    onDragOverTask,
+    onDropColumn
+}) {
+    const isTargetColumn = dragOverInfo?.columnKey === columnKey;
+    const dropIndex = isTargetColumn ? dragOverInfo.index : null;
+
+    // Filter out the dragged card from visible list so it's replaced by the outline placeholder
+    const visibleTasks = draggedTask ? tasks.filter(t => String(t.id) !== String(draggedTask.id)) : tasks;
+
     return (
-        <div className={`status-column-card ${borderClass}`}>
+        <div
+            className={`status-column-card ${borderClass}${isTargetColumn ? ' is-drag-over' : ''}`}
+            onDragOver={(e) => onDragOverColumn(e, columnKey, visibleTasks)}
+            onDrop={(e) => onDropColumn(e, columnKey)}
+        >
             <div className="column-header">
                 <h2 className="column-title">
                     {title}
                     <span className="column-count-badge">{tasks.length}</span>
                 </h2>
             </div>
-            <div className="column-tasks-scroll">
-                {tasks.length > 0 ? (
-                    tasks.map(task => (
-                        <TaskCard
-                            key={task.id}
-                            task={task}
-                            onTaskAction={onTaskAction}
-                            onTaskClick={onTaskClick}
-                        />
-                    ))
+            <div
+                className="column-tasks-scroll"
+                onDragOver={(e) => onDragOverColumn(e, columnKey, visibleTasks)}
+                onDrop={(e) => onDropColumn(e, columnKey)}
+            >
+                {visibleTasks.length > 0 ? (
+                    <React.Fragment>
+                        {visibleTasks.map((task, idx) => (
+                            <React.Fragment key={task.id}>
+                                {isTargetColumn && dropIndex === idx && (
+                                    <div
+                                        className="task-drop-placeholder"
+                                        style={{ height: draggedCardHeight ? `${draggedCardHeight}px` : undefined }}
+                                    />
+                                )}
+                                <TaskCard
+                                    task={task}
+                                    onTaskAction={onTaskAction}
+                                    onTaskClick={onTaskClick}
+                                    onDragStart={(e) => onDragStartTask(e, task)}
+                                    onDragEnd={onDragEndTask}
+                                    onDragOverTask={(e) => onDragOverTask(e, columnKey, idx)}
+                                    isDragging={draggedTask && String(draggedTask.id) === String(task.id)}
+                                />
+                            </React.Fragment>
+                        ))}
+                        {isTargetColumn && dropIndex !== null && dropIndex >= visibleTasks.length && (
+                            <div
+                                className="task-drop-placeholder"
+                                style={{ height: draggedCardHeight ? `${draggedCardHeight}px` : undefined }}
+                            />
+                        )}
+                    </React.Fragment>
                 ) : (
-                    <div className="column-empty-state">
-                        <span>No tasks in {title.toLowerCase()}</span>
-                    </div>
+                    <React.Fragment>
+                        {isTargetColumn ? (
+                            <div
+                                className="task-drop-placeholder"
+                                style={{ height: draggedCardHeight ? `${draggedCardHeight}px` : undefined }}
+                            />
+                        ) : (
+                            <div className="column-empty-state">
+                                <span>No tasks in {title.toLowerCase()}</span>
+                            </div>
+                        )}
+                    </React.Fragment>
                 )}
             </div>
         </div>
     );
 }
 
-// 4 Columns Kanban Board with Bottom Horizontal Scrollbar
-function KanbanBoard({ currentProject, searchQuery, onTaskAction, onTaskClick }) {
+// 4 Columns Kanban Board with Drag & Drop Insertion
+function KanbanBoard({ currentProject, searchQuery, onTaskAction, onTaskClick, onTaskDrop }) {
     const query = searchQuery.toLowerCase().trim();
+
+    // Drag and drop state
+    const [draggedTask, setDraggedTask] = useState(null);
+    const [draggedCardHeight, setDraggedCardHeight] = useState(80);
+    const [dragOverInfo, setDragOverInfo] = useState(null); // { columnKey, index }
 
     // Filter tasks by live search query
     const projectTasks = currentProject ? currentProject.tasks || [] : [];
@@ -169,54 +334,103 @@ function KanbanBoard({ currentProject, searchQuery, onTaskAction, onTaskClick })
         return searchCorpus.includes(query);
     });
 
-    // Bucket tasks into the 4 columns
-    const columnsDef = [
-        {
-            key: 'TODO',
-            title: 'TODO',
-            borderClass: 'col-todo',
-            matcher: (status) => {
-                const s = (status || '').toUpperCase();
-                return s === 'TODO' || s === 'TO_DO' || s === 'PLANNING' || s === 'BACKLOG';
-            }
-        },
-        {
-            key: 'IN_PROGRESS',
-            title: 'IN PROGRESS',
-            borderClass: 'col-in-progress',
-            matcher: (status) => {
-                const s = (status || '').toUpperCase();
-                return s === 'IN_PROGRESS' || s === 'IN PROGRESS' || s === 'DOING' || s === 'IN_REVIEW' || s === 'ON_HOLD';
-            }
-        },
-        {
-            key: 'COMPLETED',
-            title: 'COMPLETED',
-            borderClass: 'col-completed',
-            matcher: (status) => {
-                const s = (status || '').toUpperCase();
-                return s === 'COMPLETED' || s === 'DONE' || s === 'FINISHED';
-            }
-        },
-        {
-            key: 'CANCELLED',
-            title: 'CANCELLED',
-            borderClass: 'col-cancelled',
-            matcher: (status) => {
-                const s = (status || '').toUpperCase();
-                return s === 'CANCELLED' || s === 'CANCELED' || s === 'ARCHIVED';
+    const handleDragStartTask = (e, task) => {
+        const height = e.currentTarget.offsetHeight || 80;
+        setDraggedCardHeight(height);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(task.id));
+
+        // Use setTimeout so the browser captures the full drag ghost before state hides the original
+        setTimeout(() => {
+            setDraggedTask(task);
+        }, 0);
+    };
+
+    const handleDragEndTask = () => {
+        setDraggedTask(null);
+        setDragOverInfo(null);
+    };
+
+    const handleDragOverTask = (e, colKey, idx) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const insertIndex = e.clientY < midY ? idx : idx + 1;
+        setDragOverInfo(prev => {
+            if (prev?.columnKey === colKey && prev?.index === insertIndex) return prev;
+            return { columnKey: colKey, index: insertIndex };
+        });
+    };
+
+    const handleDragOverColumn = (e, colKey, visibleTasks) => {
+        e.preventDefault();
+        if (visibleTasks.length === 0) {
+            setDragOverInfo(prev => {
+                if (prev?.columnKey === colKey && prev?.index === 0) return prev;
+                return { columnKey: colKey, index: 0 };
+            });
+            return;
+        }
+
+        const container = e.currentTarget.classList.contains('column-tasks-scroll')
+            ? e.currentTarget
+            : e.currentTarget.querySelector('.column-tasks-scroll');
+
+        if (container) {
+            const cards = container.querySelectorAll('.task-card');
+            if (cards.length > 0) {
+                const firstCardRect = cards[0].getBoundingClientRect();
+                if (e.clientY < firstCardRect.top) {
+                    setDragOverInfo(prev => {
+                        if (prev?.columnKey === colKey && prev?.index === 0) return prev;
+                        return { columnKey: colKey, index: 0 };
+                    });
+                    return;
+                }
+                const lastCardRect = cards[cards.length - 1].getBoundingClientRect();
+                if (e.clientY > lastCardRect.bottom) {
+                    setDragOverInfo(prev => {
+                        if (prev?.columnKey === colKey && prev?.index === visibleTasks.length) return prev;
+                        return { columnKey: colKey, index: visibleTasks.length };
+                    });
+                    return;
+                }
             }
         }
-    ];
+    };
+
+    const handleDropColumn = (e, targetColumnKey) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!draggedTask) return;
+
+        const targetIndex = dragOverInfo?.index ?? 0;
+        if (onTaskDrop) {
+            onTaskDrop({
+                taskId: draggedTask.id,
+                targetColumnKey,
+                targetIndex
+            });
+        }
+
+        setDraggedTask(null);
+        setDragOverInfo(null);
+    };
 
     return (
-        <div className="kanban-board-scroll-container" id="kanbanBoardScrollWrapper">
+        <div
+            className="kanban-board-scroll-container"
+            id="kanbanBoardScrollWrapper"
+            onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) {
+                    setDragOverInfo(null);
+                }
+            }}
+        >
             <div className="kanban-board-track">
-                {columnsDef.map(col => {
-                    // Filter and sort by priority: URGENT -> HIGH -> MEDIUM -> LOW
-                    const colTasks = filteredTasks
-                        .filter(task => col.matcher(task.status))
-                        .sort((a, b) => getPriorityRank(a.priority) - getPriorityRank(b.priority));
+                {COLUMNS_DEF.map(col => {
+                    const colTasks = filteredTasks.filter(task => col.matcher(task.status));
 
                     return (
                         <StatusColumnCard
@@ -227,6 +441,14 @@ function KanbanBoard({ currentProject, searchQuery, onTaskAction, onTaskClick })
                             tasks={colTasks}
                             onTaskAction={onTaskAction}
                             onTaskClick={onTaskClick}
+                            draggedTask={draggedTask}
+                            draggedCardHeight={draggedCardHeight}
+                            dragOverInfo={dragOverInfo}
+                            onDragStartTask={handleDragStartTask}
+                            onDragEndTask={handleDragEndTask}
+                            onDragOverColumn={handleDragOverColumn}
+                            onDragOverTask={handleDragOverTask}
+                            onDropColumn={handleDropColumn}
                         />
                     );
                 })}
@@ -333,11 +555,33 @@ function CurrentProjectSection({ currentProject, onPrevProject, onNextProject, o
     );
 }
 
-// Task Detail Prompt Modal Component (matching reference image)
-function TaskDetailModal({ task, onClose }) {
+// Helper to format dates into YYYY-MM-DD for <input type="date">
+function toInputDateString(val) {
+    if (!val) return '';
+    const str = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    if (str.includes('T')) return str.split('T')[0];
+    try {
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+    } catch (e) {
+        // fallback
+    }
+    return '';
+}
+
+// Assignee User Picker Modal
+function AssigneeSelectModal({ isOpen, onClose, users, onSelectUser }) {
+    const [searchQuery, setSearchQuery] = useState('');
+
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' && isOpen) {
                 onClose();
             }
         };
@@ -345,7 +589,119 @@ function TaskDetailModal({ task, onClose }) {
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
         };
-    }, [onClose]);
+    }, [isOpen, onClose]);
+
+    if (!isOpen) return null;
+
+    const filteredUsers = (users || []).filter((u) => {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+            (u.fullname && u.fullname.toLowerCase().includes(q)) ||
+            (u.username && u.username.toLowerCase().includes(q))
+        );
+    });
+
+    return (
+        <div className="members-modal-overlay assignee-modal-overlay" onClick={onClose}>
+            <div className="members-modal-card" onClick={(e) => e.stopPropagation()}>
+                <div className="members-modal-header">
+                    <h3 className="members-modal-title">Select Assignee</h3>
+                    <div className="members-header-right">
+                        <div className="members-search-box">
+                            <svg className="members-search-icon" viewBox="0 0 24 24">
+                                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                            </svg>
+                            <input
+                                type="text"
+                                className="members-search-input"
+                                placeholder="Search users..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+                        <button type="button" className="btn-modal-close" onClick={onClose} aria-label="Close">
+                            &times;
+                        </button>
+                    </div>
+                </div>
+
+                <div className="members-list-scroll">
+                    {filteredUsers.length > 0 ? (
+                        filteredUsers.map((u) => (
+                            <div
+                                key={u.id}
+                                className="member-item-row"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => onSelectUser(u)}
+                            >
+                                <img
+                                    src={u.image || getUserAvatarUrl(u.username)}
+                                    alt={u.fullname || u.username}
+                                    className="member-avatar-img"
+                                    onError={(e) => {
+                                        e.target.src = '/ProfilePic/0.jpg';
+                                    }}
+                                />
+                                <div className="member-info-text">
+                                    <span className="member-fullname">{u.fullname}</span>
+                                    <span className="member-username">@{u.username}</span>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="members-empty-text">No users found...</div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Task Detail Prompt Modal Component (with Edit Mode & Save Tick Button)
+function TaskDetailModal({ task, onClose, onTaskUpdated, users = [], currentUser, onShowToast }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isUserPickerOpen, setIsUserPickerOpen] = useState(false);
+
+    // Form state
+    const [editTitle, setEditTitle] = useState('');
+    const [editDesc, setEditDesc] = useState('');
+    const [editAssignee, setEditAssignee] = useState('');
+    const [editAssigner, setEditAssigner] = useState('');
+    const [editPriority, setEditPriority] = useState('MEDIUM');
+    const [editDueDate, setEditDueDate] = useState('');
+
+    useEffect(() => {
+        if (task) {
+            setIsEditing(false);
+            setEditTitle(task.title || '');
+            setEditDesc(task.desc || task.description || '');
+            setEditAssignee(task.assignedTo || task.assignee || '');
+            setEditAssigner(task.assigner || currentUser?.username || 'KDT');
+            setEditPriority((task.priority || 'MEDIUM').toUpperCase());
+            setEditDueDate(toInputDateString(task.dueDate || task.dates));
+        }
+    }, [task, currentUser]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (isUserPickerOpen) {
+                    setIsUserPickerOpen(false);
+                } else if (isEditing) {
+                    setIsEditing(false);
+                } else {
+                    onClose();
+                }
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onClose, isEditing, isUserPickerOpen]);
 
     if (!task) return null;
 
@@ -354,48 +710,272 @@ function TaskDetailModal({ task, onClose }) {
     const dueDateDisplay = formatTaskDueDate(task.dueDate || task.dates);
     const description = task.desc || task.description || 'Task Description...';
 
-    return (
-        <div
-            className="members-modal-overlay task-modal-overlay"
-            id="taskModalOverlay"
-            onClick={(e) => {
-                if (e.target.id === 'taskModalOverlay') {
-                    onClose();
+    const handleSave = async (e) => {
+        if (e) e.preventDefault();
+        if (!editTitle.trim()) {
+            if (onShowToast) onShowToast('Task title cannot be empty!', 'error');
+            return;
+        }
+
+        setIsSaving(true);
+        const payload = {
+            title: editTitle.trim(),
+            description: editDesc.trim(),
+            desc: editDesc.trim(),
+            priority: editPriority,
+            assignee: editAssignee.trim(),
+            assignedTo: editAssignee.trim(),
+            assigner: editAssigner.trim(),
+            dueDate: editDueDate
+        };
+
+        try {
+            let updatedRes = null;
+            try {
+                updatedRes = await request.put(`/api/tasks/${task.id}`, payload);
+            } catch (pErr) {
+                try {
+                    updatedRes = await request.patch(`/api/tasks/${task.id}`, payload);
+                } catch (patchErr) {
+                    throw pErr || patchErr;
                 }
-            }}
-        >
-            <div className="members-modal-card task-detail-modal-card">
-                <div className="task-modal-header">
-                    <div className="task-modal-title-group">
-                        <h2 className="task-modal-title">{task.title || 'Task Name'}</h2>
-                        <span className={`task-priority-tag ${tagClass}`}>{task.priority || 'MEDIUM'}</span>
-                        <span className="task-assigner-pill">{task.assigner || 'KDT'}</span>
+            }
+
+            const updatedTask = {
+                ...task,
+                title: payload.title,
+                desc: payload.description,
+                description: payload.description,
+                priority: payload.priority,
+                assignee: payload.assignee,
+                assignedTo: payload.assignee,
+                assigner: payload.assigner,
+                dueDate: payload.dueDate || task.dueDate,
+                dates: payload.dueDate || task.dates,
+                raw: {
+                    ...(task.raw || {}),
+                    ...(updatedRes?.data || updatedRes || {}),
+                    ...payload
+                }
+            };
+
+            if (onTaskUpdated) {
+                onTaskUpdated(updatedTask);
+            }
+
+            if (onShowToast) {
+                onShowToast('Task updated successfully!', 'success');
+            }
+
+            setIsEditing(false);
+        } catch (err) {
+            console.error(`Failed to update task ${task.id}:`, err);
+            const errMsg = err?.response?.data?.message || err?.message || 'Failed to update task. Please try again.';
+            if (onShowToast) {
+                onShowToast(errMsg, 'error');
+            }
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <React.Fragment>
+            <div
+                className="members-modal-overlay task-modal-overlay"
+                id="taskModalOverlay"
+                onClick={(e) => {
+                    if (e.target.id === 'taskModalOverlay') {
+                        onClose();
+                    }
+                }}
+            >
+                <div className="members-modal-card task-detail-modal-card">
+                    {/* Header */}
+                    <div className="task-modal-header">
+                        {!isEditing ? (
+                            <React.Fragment>
+                                <div className="task-modal-title-group">
+                                    <h2 className="task-modal-title">{task.title || 'Task Name'}</h2>
+                                    <span className={`task-priority-tag ${tagClass}`}>{task.priority || 'MEDIUM'}</span>
+                                    <span className="task-assigner-pill">{task.assigner || 'KDT'}</span>
+                                </div>
+                                <div className="task-modal-header-actions">
+                                    <button
+                                        type="button"
+                                        className="task-modal-edit-btn"
+                                        title="Edit Task"
+                                        aria-label="Edit Task"
+                                        onClick={() => setIsEditing(true)}
+                                    >
+                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="task-modal-close-btn"
+                                        aria-label="Close"
+                                        onClick={onClose}
+                                    >
+                                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </React.Fragment>
+                        ) : (
+                            <React.Fragment>
+                                <input
+                                    type="text"
+                                    className="task-modal-title-input"
+                                    value={editTitle}
+                                    onChange={(e) => setEditTitle(e.target.value)}
+                                    placeholder="Task title..."
+                                    required
+                                    autoFocus
+                                />
+                                <div className="task-modal-header-actions">
+                                    <button
+                                        type="button"
+                                        className="task-modal-save-btn"
+                                        title="Save Task"
+                                        aria-label="Save Task"
+                                        disabled={isSaving}
+                                        onClick={handleSave}
+                                    >
+                                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="task-modal-close-btn"
+                                        aria-label="Close"
+                                        onClick={() => setIsEditing(false)}
+                                    >
+                                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </React.Fragment>
+                        )}
                     </div>
-                    <button
-                        type="button"
-                        className="task-modal-close-btn"
-                        aria-label="Close"
-                        onClick={onClose}
-                    >
-                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                    </button>
-                </div>
 
-                <hr className="task-modal-divider" />
+                    {!isEditing && <hr className="task-modal-divider" />}
 
-                <div className="task-modal-body">
-                    <p className="task-modal-desc">{description}</p>
-                </div>
+                    {/* Content: Normal View vs Edit View */}
+                    {!isEditing ? (
+                        <React.Fragment>
+                            <div className="task-modal-body">
+                                <p className="task-modal-desc">{description}</p>
+                            </div>
+                            <div className="task-modal-footer">
+                                <span className="task-modal-assigned">Assigned to: {assignedUser}</span>
+                                <span className="task-modal-due">Due: {dueDateDisplay}</span>
+                            </div>
+                        </React.Fragment>
+                    ) : (
+                        <div className="task-modal-edit-body">
+                            {/* Task Description */}
+                            <div className="task-modal-form-group">
+                                <label className="task-modal-form-label">Description:</label>
+                                <textarea
+                                    className="task-modal-textarea"
+                                    rows={4}
+                                    value={editDesc}
+                                    onChange={(e) => setEditDesc(e.target.value)}
+                                    placeholder="Brief description of the task..."
+                                />
+                            </div>
 
-                <div className="task-modal-footer">
-                    <span className="task-modal-assigned">Assigned to: {assignedUser}</span>
-                    <span className="task-modal-due">Due: {dueDateDisplay}</span>
+                            {/* Assignee & Assigner Row (from CreateTasks.jsx) */}
+                            <div className="task-modal-form-row">
+                                <div className="task-modal-form-col">
+                                    <label className="task-modal-form-label">Assignee:</label>
+                                    <div className="task-modal-input-with-button">
+                                        <input
+                                            type="text"
+                                            className="task-modal-input"
+                                            placeholder="Assignee username (e.g. KDT)..."
+                                            value={editAssignee}
+                                            onChange={(e) => setEditAssignee(e.target.value)}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="task-modal-search-btn"
+                                            onClick={() => setIsUserPickerOpen(true)}
+                                            title="Search and select user"
+                                            aria-label="Search and select user"
+                                        >
+                                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 11.99 14 9.5 14z" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="task-modal-form-col">
+                                    <label className="task-modal-form-label">Assigner:</label>
+                                    <input
+                                        type="text"
+                                        className="task-modal-input task-modal-input-readonly"
+                                        value={editAssigner}
+                                        readOnly
+                                        tabIndex={-1}
+                                        title="Assigner cannot be changed"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Priority & Due Date Row (from CreateTasks.jsx) */}
+                            <div className="task-modal-form-row">
+                                <div className="task-modal-form-col">
+                                    <label className="task-modal-form-label">Priority:</label>
+                                    <select
+                                        className="task-modal-select"
+                                        value={editPriority}
+                                        onChange={(e) => setEditPriority(e.target.value)}
+                                    >
+                                        <option value="URGENT">URGENT</option>
+                                        <option value="HIGH">HIGH</option>
+                                        <option value="MEDIUM">MEDIUM</option>
+                                        <option value="LOW">LOW</option>
+                                    </select>
+                                </div>
+
+                                <div className="task-modal-form-col">
+                                    <label className="task-modal-form-label">Due Date:</label>
+                                    <input
+                                        type="date"
+                                        className="task-modal-input"
+                                        value={editDueDate}
+                                        onChange={(e) => setEditDueDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
-        </div>
+
+            {/* Assignee Picker Modal */}
+            {isUserPickerOpen && (
+                <AssigneeSelectModal
+                    isOpen={isUserPickerOpen}
+                    onClose={() => setIsUserPickerOpen(false)}
+                    users={users}
+                    onSelectUser={(u) => {
+                        setEditAssignee(u.username || u.fullname || '');
+                        setIsUserPickerOpen(false);
+                    }}
+                />
+            )}
+        </React.Fragment>
     );
 }
 
@@ -671,6 +1251,9 @@ async function fetchTasksPageData(currentUser) {
                 };
             });
 
+            // Initially sort tasks by priority: URGENT -> HIGH -> MEDIUM -> LOW
+            formattedTasks.sort((a, b) => getPriorityRank(a.priority) - getPriorityRank(b.priority));
+
             const pDatesFormatted = projData?.dates || (projData?.start_date && projData?.end_date
                 ? `${projData.start_date} - ${projData.end_date}`
                 : (projData?.startDate && projData?.endDate
@@ -831,8 +1414,8 @@ function TaskContent() {
 
             client.setQueryData(taskQueryKey, (old) => {
                 if (!old || !old.projects) return old;
-                const updatedProjects = old.projects.map((proj, pIdx) => {
-                    if (pIdx !== currentProjectIndex) return proj;
+                const updatedProjects = old.projects.map((proj) => {
+                    if (String(proj.id) !== String(currentProject?.id)) return proj;
                     const updatedTasks = proj.tasks.map(t => {
                         if (String(t.id) !== String(taskId)) return t;
                         return { ...t, status: nextStatus };
@@ -854,17 +1437,54 @@ function TaskContent() {
                 message: errMsg,
                 type: 'error'
             });
+            client.invalidateQueries({ queryKey: taskQueryKey });
         },
         onSuccess: (res, variables) => {
             setToast({
                 message: `Task moved to ${variables.nextStatus}!`,
                 type: 'success'
             });
-        },
-        onSettled: () => {
-            client.invalidateQueries({ queryKey: taskQueryKey });
         }
     });
+
+    // Drag-and-drop task reorder and status mutation handler
+    const handleTaskDrop = ({ taskId, targetColumnKey, targetIndex }) => {
+        if (!currentProject) return;
+
+        const allTasks = currentProject.tasks || [];
+        const taskToMove = allTasks.find(t => String(t.id) === String(taskId));
+        if (!taskToMove) return;
+
+        const targetColDef = COLUMNS_DEF.find(c => c.key === targetColumnKey);
+        if (!targetColDef) return;
+
+        const isSameColumn = targetColDef.matcher(taskToMove.status);
+        const newStatus = isSameColumn ? taskToMove.status : targetColDef.statusValue;
+
+        const updatedTasks = reorderTasks({
+            allTasks,
+            draggedTaskId: taskId,
+            targetColumnKey,
+            targetIndex,
+            newStatus,
+            columnsDef: COLUMNS_DEF
+        });
+
+        // Optimistically update query cache
+        client.setQueryData(taskQueryKey, (old) => {
+            if (!old || !old.projects) return old;
+            const updatedProjects = old.projects.map((proj) => {
+                if (String(proj.id) !== String(currentProject.id)) return proj;
+                return { ...proj, tasks: updatedTasks };
+            });
+            return { ...old, projects: updatedProjects };
+        });
+
+        // If status changed, call backend mutation to update status
+        if (newStatus !== taskToMove.status) {
+            updateTaskStatusMutation.mutate({ taskId, nextStatus: newStatus });
+        }
+    };
 
     // Interactive Task Action Button
     const handleTaskAction = (taskToMove) => {
@@ -884,6 +1504,25 @@ function TaskContent() {
         }
 
         updateTaskStatusMutation.mutate({ taskId: taskToMove.id, nextStatus });
+    };
+
+    // Update task details handler (called from TaskDetailModal)
+    const handleTaskUpdated = (updatedTask) => {
+        setSelectedTask(updatedTask);
+
+        // Update task in TanStack Query cache
+        client.setQueryData(taskQueryKey, (old) => {
+            if (!old || !old.projects) return old;
+            const updatedProjects = old.projects.map((proj) => {
+                if (String(proj.id) !== String(currentProject?.id)) return proj;
+                const updatedTasks = proj.tasks.map((t) => {
+                    if (String(t.id) !== String(updatedTask.id)) return t;
+                    return { ...t, ...updatedTask };
+                });
+                return { ...proj, tasks: updatedTasks };
+            });
+            return { ...old, projects: updatedProjects };
+        });
     };
 
     // Handle initial search and projectId query parameters without resetting on data mutations
@@ -1110,6 +1749,7 @@ function TaskContent() {
                             searchQuery={searchQuery}
                             onTaskAction={handleTaskAction}
                             onTaskClick={setSelectedTask}
+                            onTaskDrop={handleTaskDrop}
                         />
 
                         {/* Current Project Card & Switch Buttons */}
@@ -1130,6 +1770,10 @@ function TaskContent() {
                         <TaskDetailModal
                             task={selectedTask}
                             onClose={() => setSelectedTask(null)}
+                            onTaskUpdated={handleTaskUpdated}
+                            users={globalUsers && globalUsers.length > 0 ? globalUsers : (currentProject?.users || [])}
+                            currentUser={currentUser}
+                            onShowToast={(msg, type) => setToast({ message: msg, type })}
                         />
 
                         {/* Users Prompt Modal (Global Edit Mode or Project Involved Users View) */}

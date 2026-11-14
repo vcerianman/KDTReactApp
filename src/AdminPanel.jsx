@@ -2866,6 +2866,11 @@ function AdminPanelContent() {
         enabled: isAuthorizedAdmin
     });
 
+
+
+
+
+
     // 5. TanStack Query: Appeals List
     const {
         data: appealsList = [],
@@ -3584,6 +3589,8 @@ function AdminPanelContent() {
                     >
                         Edit Users
                     </button>
+
+
                     <button
                         type="button"
                         className={`admin-tab tab-reports ${activeTab === 'reports' ? 'active' : ''}`}
@@ -3669,6 +3676,7 @@ function AdminPanelContent() {
                             />
                         )
                     )}
+
 
                     {activeTab === 'reports' && (
                         reportsError ? (
