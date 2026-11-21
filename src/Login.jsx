@@ -131,6 +131,10 @@ function Login() {
                         New here? Create account now: <Link to="/signup" className="terms-link">Sign up</Link>
                     </p>
 
+                    <p className="signup-text">
+                        <Link to="/forgot-password" className="terms-link">Forgot Password?</Link>
+                    </p>
+
                     {/* Submit Button */}
                     <button type="submit" className="btn-signup" disabled={loading}>
                         {loading ? 'Logging in...' : 'Login'}

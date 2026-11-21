@@ -2845,8 +2845,8 @@ function AdminPanelContent() {
                                 projectId: String(projId),
                                 projectTitle: projTitle,
                                 description: t.description || t.desc || '',
-                                assignee: t.assignee || t.assignedTo || t.userName || t.username || 'Unassigned',
-                                assigner: t.assigner || t.createdBy || t.owner || 'Admin',
+                                assignee: t.assignee || t.assignedTo || t.userName || t.username || 'No One',
+                                assigner: t.assigner || t.createdBy || t.owner || 'KDT',
                                 startDate: parsed.startDate,
                                 dueDate: parsed.dueDate,
                                 dates: datesFormatted

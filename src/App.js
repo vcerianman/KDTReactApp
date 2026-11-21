@@ -24,6 +24,7 @@ const Appeal = lazy(() => import('./Appeal'));
 const Communication = lazy(() => import('./Communication'));
 const Report = lazy(() => import('./Report'));
 const Help = lazy(() => import('./Help'));
+const Forgotpassword = lazy(() => import('./Forgotpassword'));
 
 // Generic placeholder page
 export function PlaceholderPage({ title, description }) {
@@ -351,6 +352,10 @@ const router = createBrowserRouter([
   {
     path: "/appeal",
     element: withSuspense(Appeal),
+  },
+  {
+    path: "/forgot-password",
+    element: withSuspense(Forgotpassword),
   },
 ]);
 
