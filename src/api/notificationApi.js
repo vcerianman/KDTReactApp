@@ -1,51 +1,7 @@
 import request from './Request';
 
 export const DUMMY_NOTIFICATIONS = [
-    {
-        id: '1',
-        recipientId: 1,
-        actorId: 1,
-        type: "Task",
-        title: "New changes in tasks' statuses.",
-        message: "[message]",
-        author: "By @KDT",
-        read: false,
-        is_read: false,
-        is_seen: false,
-        seenAt: null,
-        createdAt: "10m ago",
-        link: "/tasks"
-    },
-    {
-        id: '2',
-        recipientId: 1,
-        actorId: 4,
-        type: "Discussion",
-        title: "New discussion",
-        message: "New discussion in Project 1",
-        author: "By @Khanig",
-        read: true,
-        is_read: true,
-        is_seen: true,
-        seenAt: "2026-11-23T15:00:00Z",
-        createdAt: "1h ago",
-        link: "/communication"
-    },
-    {
-        id: '3',
-        recipientId: 1,
-        actorId: 1,
-        type: "Task",
-        title: "Assigned to new task",
-        message: "Process 2 in Project Alpha has been assigned to you.",
-        author: "By @KDT",
-        read: false,
-        is_read: false,
-        is_seen: false,
-        seenAt: null,
-        createdAt: "2h ago",
-        link: "/tasks"
-    }
+
 ];
 
 /**
