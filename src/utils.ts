@@ -51,12 +51,59 @@ export function getPriorityTagClass(priority?: TaskPriority | null): string {
     }
 }
 
+export const DEFAULT_AVATAR_URL =
+    'https://res.cloudinary.com/bs5wxybt/image/upload/v1795596240/b93vlbtifk49gy3jh2fn.png';
+
 /**
- * Returns the profile picture path in ProfilePic directory based on username, defaulting to 0.jpg placeholder.
+ * Resolves a user's avatar URL from cloud fields (`avatarUrl`/`avatar_url`) or legacy fields,
+ * ignoring old `/ProfilePic/...` local paths and falling back to DEFAULT_AVATAR_URL.
  */
-export function getUserAvatarUrl(username?: string | null, fallback: string = '/ProfilePic/0.jpg'): string {
-    if (!username) return fallback;
-    return `/ProfilePic/${username}.jpg`;
+export function resolveUserAvatar(userOrUrl?: any, fallback: string = DEFAULT_AVATAR_URL): string {
+    const sanitize = (candidate: unknown): string | null => {
+        if (typeof candidate !== 'string') return null;
+        const trimmed = candidate.trim();
+        if (!trimmed || trimmed.startsWith('/ProfilePic/')) return null;
+        return trimmed;
+    };
+
+    if (!userOrUrl) return fallback;
+    if (typeof userOrUrl === 'string') {
+        return sanitize(userOrUrl) || fallback;
+    }
+
+    if (typeof userOrUrl === 'object') {
+        const cloud = sanitize(userOrUrl.avatarUrl) || sanitize(userOrUrl.avatar_url);
+        if (cloud) return cloud;
+
+        const legacy =
+            sanitize(userOrUrl.image) ||
+            sanitize(userOrUrl.avatar) ||
+            sanitize(userOrUrl.profilePic);
+        if (legacy) return legacy;
+    }
+
+    return fallback;
+}
+
+/**
+ * Returns the avatar URL for a user object or URL string, defaulting to DEFAULT_AVATAR_URL.
+ */
+export function getUserAvatarUrl(userOrUsername?: any, fallback: string = DEFAULT_AVATAR_URL): string {
+    if (userOrUsername && typeof userOrUsername === 'object') {
+        return resolveUserAvatar(userOrUsername, fallback);
+    }
+    if (typeof userOrUsername === 'string') {
+        const trimmed = userOrUsername.trim();
+        if (
+            trimmed.startsWith('http://') ||
+            trimmed.startsWith('https://') ||
+            trimmed.startsWith('data:') ||
+            trimmed.startsWith('blob:')
+        ) {
+            return trimmed;
+        }
+    }
+    return fallback;
 }
 
 /**

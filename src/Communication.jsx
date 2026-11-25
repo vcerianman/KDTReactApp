@@ -8,8 +8,8 @@ import './Communication.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
-import { getUserAvatarUrl, getProjectStatusClass } from './utils';
-import useCurrentUser from './useCurrentUser';
+import { resolveUserAvatar, getProjectStatusClass } from './utils';
+import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
 
 // Reload button
 function ReloadButton({ onReload, isLoading, title = "Reload" }) {
@@ -212,10 +212,13 @@ function ProjectUsersModal({ isOpen, onClose, title, users, usersMap }) {
                                     title={`View profile of ${u.fullname || u.username} (ID: ${uId})`}
                                 >
                                     <img
-                                        src={u.image || getUserAvatarUrl(u.username)}
+                                        src={resolveUserAvatar(u)}
                                         alt={u.fullname || u.username}
                                         className="project-user-item-avatar"
-                                        onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = DEFAULT_AVATAR_URL;
+                                        }}
                                     />
                                     <div className="project-user-item-info">
                                         <span className="project-user-item-fullname">{u.fullname || u.username || 'User'}</span>
@@ -620,10 +623,17 @@ function PostCard({
                 <div className="post-header-left">
                     <Link to={`/profile/${postAuthorId}`} className="author-avatar-link" title={`View profile of ${postFullName} (ID: ${postAuthorId})`}>
                         <img
-                            src={post.avatar || getUserAvatarUrl(postHandle)}
+                            src={
+                                resolveUserAvatar(post.avatar) !== DEFAULT_AVATAR_URL
+                                    ? resolveUserAvatar(post.avatar)
+                                    : (usersMap[postAuthorId]?.image || usersMap[(postHandle || '').toLowerCase().trim()]?.image || DEFAULT_AVATAR_URL)
+                            }
                             alt={postFullName}
                             className="post-author-avatar"
-                            onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                            onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = DEFAULT_AVATAR_URL;
+                            }}
                         />
                     </Link>
                     <div className="post-author-info">
@@ -708,10 +718,17 @@ function PostCard({
                                 <div key={reply.id} className="reply-item-row">
                                     <Link to={`/profile/${replyAuthorId}`} className="author-avatar-link" title={`View profile of ${replyFullName} (ID: ${replyAuthorId})`}>
                                         <img
-                                            src={reply.avatar || getUserAvatarUrl(replyHandle)}
+                                            src={
+                                                resolveUserAvatar(reply.avatar) !== DEFAULT_AVATAR_URL
+                                                    ? resolveUserAvatar(reply.avatar)
+                                                    : (usersMap[replyAuthorId]?.image || usersMap[(replyHandle || '').toLowerCase().trim()]?.image || DEFAULT_AVATAR_URL)
+                                            }
                                             alt={replyFullName}
                                             className="reply-author-avatar"
-                                            onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = DEFAULT_AVATAR_URL;
+                                            }}
                                         />
                                     </Link>
                                     <div className="reply-content-box">
@@ -819,7 +836,7 @@ function CommunicationContent() {
             const uid = rawId !== undefined && rawId !== null ? String(rawId).trim() : '';
             const uname = u.username || u.userName || u.Username || '';
             const fname = u.fullname || u.full_name || u.fullName || u.name || uname || 'User';
-            const profile = { id: uid, username: uname, fullname: fname };
+            const profile = { id: uid, username: uname, fullname: fname, image: resolveUserAvatar(u) };
 
             if (uid && uid !== '' && uid !== 'undefined' && uid !== 'null') {
                 map[uid] = profile;
@@ -952,13 +969,18 @@ function CommunicationContent() {
         const handle = item.username || item.authorHandle || item.author || item.user?.username || 'User';
         const rawAuthorId = item.userId ?? item.user_id ?? item.authorId ?? item.author_id ?? item.UserId ?? item.AuthorId ?? item.user?.id ?? item.user?._id;
         const authorId = resolveAuthorUserId(rawAuthorId, handle, uName, usersMapRef.current);
+        const authorProfile = usersMapRef.current[authorId] || usersMapRef.current[(handle || '').toLowerCase().trim()];
+        const embeddedAvatar = resolveUserAvatar(item.user || item);
+        const resolvedAvatar = embeddedAvatar !== DEFAULT_AVATAR_URL
+            ? embeddedAvatar
+            : (authorProfile?.image || DEFAULT_AVATAR_URL);
 
         return {
             id: item.id || item._id,
             authorId: authorId,
             author: item.user?.fullname || item.fullname || uName,
             authorHandle: handle,
-            avatar: item.avatar || item.user?.image || getUserAvatarUrl(handle),
+            avatar: resolvedAvatar,
             title: item.title || item.Title || '',
             content: item.description || item.Description || item.content || item.desc || '',
             timestamp: formatTimestamp(item.createdAt || item.created_at || item.timestamp),
@@ -979,7 +1001,7 @@ function CommunicationContent() {
                     status: 'ACTIVE',
                     owner: 'All Users',
                     users: [
-                        { id: '1', fullname: 'All Users', username: 'everyone', image: '/ProfilePic/0.jpg' }
+                        { id: '1', fullname: 'All Users', username: 'everyone', image: DEFAULT_AVATAR_URL }
                     ]
                 };
             }
@@ -1013,7 +1035,7 @@ function CommunicationContent() {
                         id: String(u.id || u._id || ''),
                         fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
                         username: u.username || '',
-                        image: u.image || getUserAvatarUrl(u.username)
+                        image: resolveUserAvatar(u)
                     }));
                 }
             } catch (uErr) {
@@ -1021,25 +1043,25 @@ function CommunicationContent() {
             }
 
             if (pUsers.length === 0 && Array.isArray(pData?.users) && pData.users.length > 0) {
-                pUsers = pData.users.map(u => (typeof u === 'object' ? u : {
+                pUsers = pData.users.map(u => (typeof u === 'object' && u !== null ? { ...u, image: resolveUserAvatar(u) } : {
                     id: String(u),
                     fullname: String(u),
                     username: String(u),
-                    image: getUserAvatarUrl(String(u))
+                    image: DEFAULT_AVATAR_URL
                 }));
             } else if (pUsers.length === 0 && pData?.owner) {
                 pUsers = [{
                     id: '1',
                     fullname: pData.owner,
                     username: pData.owner,
-                    image: getUserAvatarUrl(pData.owner)
+                    image: DEFAULT_AVATAR_URL
                 }];
             } else if (pUsers.length === 0) {
                 pUsers = [
-                    { id: '1', fullname: 'vcerianman', username: 'vcerianman', image: '/ProfilePic/0.jpg' },
-                    { id: '2', fullname: 'Ngo Lo Do', username: 'NgoLoDo', image: '/ProfilePic/0.jpg' },
-                    { id: '3', fullname: 'KDT', username: 'KDT', image: '/ProfilePic/KDT.jpg' },
-                    { id: '4', fullname: 'Khang nig', username: 'khanig', image: '/ProfilePic/khanig.jpg' }
+                    { id: '1', fullname: 'vcerianman', username: 'vcerianman', image: DEFAULT_AVATAR_URL },
+                    { id: '2', fullname: 'Ngo Lo Do', username: 'NgoLoDo', image: DEFAULT_AVATAR_URL },
+                    { id: '3', fullname: 'KDT', username: 'KDT', image: DEFAULT_AVATAR_URL },
+                    { id: '4', fullname: 'Khang nig', username: 'khanig', image: DEFAULT_AVATAR_URL }
                 ];
             }
 
@@ -1395,7 +1417,7 @@ function CommunicationContent() {
         desc: 'For all users',
         status: 'ACTIVE',
         owner: 'All Users',
-        users: [{ id: '1', fullname: 'All Users', username: 'everyone', image: '/ProfilePic/0.jpg' }]
+        users: [{ id: '1', fullname: 'All Users', username: 'everyone', image: DEFAULT_AVATAR_URL }]
     } : (projects.find(p => String(p.id) === String(activeProjectId)) || projects[0]));
 
     const showLoading = loadingPosts && currentPosts === undefined;
@@ -1448,7 +1470,7 @@ function CommunicationContent() {
                 authorId: String(currentUser.id || '1'),
                 author: currentUser.fullname || currentUser.username || 'User',
                 authorHandle: currentUser.username || 'User',
-                avatar: currentUser.image || '/ProfilePic/0.jpg',
+                avatar: resolveUserAvatar(currentUser),
                 title,
                 content,
                 timestamp: 'Just now',
@@ -1521,7 +1543,7 @@ function CommunicationContent() {
                 authorId: String(currentUser.id || '1'),
                 author: currentUser.fullname || currentUser.username || 'User',
                 authorHandle: currentUser.username || 'User',
-                avatar: currentUser.image || '/ProfilePic/0.jpg',
+                avatar: resolveUserAvatar(currentUser),
                 content: replyContent,
                 timestamp: 'Just now'
             };
@@ -1866,11 +1888,14 @@ function CommunicationContent() {
                                         {displayedBannerUsers.map((u, idx) => (
                                             <img
                                                 key={u.id || idx}
-                                                src={u.image || getUserAvatarUrl(u.username)}
+                                                src={resolveUserAvatar(u)}
                                                 alt={u.fullname || u.username}
                                                 className="banner-user-avatar"
                                                 title={`${u.fullname || u.username} (@${u.username})`}
-                                                onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                                                onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.src = DEFAULT_AVATAR_URL;
+                                                }}
                                             />
                                         ))}
                                         {extraUsersCount > 0 && (

@@ -3,9 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import './Users.css';
 import NavBar from './NavBar';
 import request from './api/Request';
-import { getUserAvatarUrl } from './utils';
+import { resolveUserAvatar } from './utils';
 import { useTheme } from './useTheme';
-import useCurrentUser from './useCurrentUser';
+import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
 
 // Section Reload Button Component matching the reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -74,7 +74,7 @@ function UsersHeader({ searchQuery, onSearchChange, category, onCategoryChange }
 
 // Single User Card Component with Inline-Styled Reputation Bar
 function UserCard({ user }) {
-    const avatarSrc = user.image || getUserAvatarUrl(user.username);
+    const avatarSrc = resolveUserAvatar(user);
     const isBlocked = String(user.status || '').toUpperCase() === 'BLOCKED';
 
     const upvotes = user.upvotes ?? 0;
@@ -103,7 +103,7 @@ function UserCard({ user }) {
                     className="user-avatar-img"
                     onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = '/ProfilePic/0.jpg';
+                        e.target.src = DEFAULT_AVATAR_URL;
                     }}
                 />
             </div>
@@ -280,7 +280,7 @@ function Users() {
                             username: u.username || '',
                             role: u.role || 'MEMBER',
                             status: u.status || 'Active',
-                            image: u.image || getUserAvatarUrl(u.username),
+                            image: resolveUserAvatar(u),
                             upvotes,
                             downvotes
                         };

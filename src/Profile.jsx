@@ -8,9 +8,9 @@ import {
 import './Profile.css';
 import NavBar from './NavBar';
 import request from './api/Request';
-import { getProjectStatusClass, getUserAvatarUrl } from './utils';
+import { getProjectStatusClass, resolveUserAvatar } from './utils';
 import { useTheme } from './useTheme';
-import { useCurrentUser } from './useCurrentUser';
+import { useCurrentUser, DEFAULT_AVATAR_URL } from './useCurrentUser';
 
 // Section Reload Button Component
 function ReloadButton({ onReload, isLoading }) {
@@ -63,7 +63,7 @@ function ProfileHeader({ profile, onOpenStats, targetUserId, loggedInUserId }) {
         };
     }, []);
 
-    const avatarSrc = profile.image || getUserAvatarUrl(profile.username_viewing);
+    const avatarSrc = resolveUserAvatar(profile);
 
     // ── GET /api/users/{targetUserId}/reputation ─────────────────────────────
     const { data: repData } = useQuery({
@@ -216,7 +216,7 @@ function ProfileHeader({ profile, onOpenStats, targetUserId, loggedInUserId }) {
                     className="avatar-img"
                     onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = '/ProfilePic/0.jpg';
+                        e.target.src = DEFAULT_AVATAR_URL;
                     }}
                 />
             </div>
@@ -541,7 +541,8 @@ function Profile() {
                     ID: String(data.id || viewingId),
                     username_viewing: uname,
                     fullname_viewing: fname,
-                    image: data.image || getUserAvatarUrl(uname),
+                    image: resolveUserAvatar(data),
+                    avatarUrl: data.avatarUrl || data.avatar_url || undefined,
                     role: data.role || "MEMBER",
                     status: data.status || "ACTIVE",
                     about: {

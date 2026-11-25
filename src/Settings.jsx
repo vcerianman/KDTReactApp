@@ -3,7 +3,8 @@ import './Settings.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
-import useCurrentUser from './useCurrentUser';
+import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
+import { uploadAvatarFile, uploadIntroVideoFile } from './api/cloudinaryUpload';
 
 // Sidebar Navigation Component
 function SettingsSidebar({ activeTab, onSelectTab }) {
@@ -119,26 +120,58 @@ function AccountTab({ account, onChange, onSave }) {
 }
 
 // Tab 2: Edit Info
-function EditInfoTab({ info, onChange, onSave }) {
+function EditInfoTab({ info, onChange, onSave, onError, isSaving }) {
     const handleAvatarChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = (uploadEvent) => {
-                onChange('avatar', uploadEvent.target.result);
-                onChange('avatarName', file.name);
-            };
-            reader.readAsDataURL(file);
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowedImages = ['image/png', 'image/jpeg', 'image/webp'];
+        if (!allowedImages.includes(file.type)) {
+            onError('Profile picture must be a PNG, JPG, or WebP image.');
+            e.target.value = '';
+            return;
         }
+        if (file.size > 10 * 1024 * 1024) {
+            onError('Profile picture must be 10 MB or smaller.');
+            e.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (uploadEvent) => {
+            onChange('avatar', uploadEvent.target.result);
+            onChange('avatarName', file.name);
+            onChange('avatarFile', file);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
     };
 
     const handleVideoChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const fileURL = URL.createObjectURL(file);
-            onChange('videoUrl', fileURL);
-            onChange('videoName', file.name);
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowedVideos = ['video/mp4', 'video/webm'];
+        if (!allowedVideos.includes(file.type)) {
+            onError('Only MP4 and WebM videos are allowed.');
+            e.target.value = '';
+            return;
         }
+        if (file.size > 20 * 1024 * 1024) {
+            onError('Introduction video must be 20 MB or smaller.');
+            e.target.value = '';
+            return;
+        }
+
+        if (info.videoUrl && info.videoUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(info.videoUrl);
+        }
+
+        const fileURL = URL.createObjectURL(file);
+        onChange('videoUrl', fileURL);
+        onChange('videoName', file.name);
+        onChange('videoFile', file);
+        e.target.value = '';
     };
 
     return (
@@ -152,12 +185,12 @@ function EditInfoTab({ info, onChange, onSave }) {
                     <div className="upload-control-group">
                         <div className="avatar-preview-box">
                             <img
-                                src={info.avatar}
+                                src={info.avatar || DEFAULT_AVATAR_URL}
                                 alt="Profile Avatar"
                                 className="avatar-preview-img"
                                 onError={(e) => {
                                     e.target.onerror = null;
-                                    e.target.src = '/ProfilePic/0.jpg';
+                                    e.target.src = DEFAULT_AVATAR_URL;
                                 }}
                             />
                         </div>
@@ -170,8 +203,9 @@ function EditInfoTab({ info, onChange, onSave }) {
                         <input
                             type="file"
                             id="avatarFileInput"
-                            accept="image/*"
+                            accept="image/png,image/jpeg,image/webp"
                             style={{ display: 'none' }}
+                            disabled={isSaving}
                             onChange={handleAvatarChange}
                         />
                         <span className="upload-filename-text">{info.avatarName}</span>
@@ -187,6 +221,7 @@ function EditInfoTab({ info, onChange, onSave }) {
                         className="setting-select-box"
                         id="editStatusSelect"
                         value={info.status || 'ACTIVE'}
+                        disabled={isSaving}
                         onChange={(e) => onChange('status', e.target.value)}
                     >
                         <option value="ACTIVE">ACTIVE</option>
@@ -204,6 +239,7 @@ function EditInfoTab({ info, onChange, onSave }) {
                         id="editAboutInput"
                         placeholder="Edit about..."
                         value={info.about}
+                        disabled={isSaving}
                         onChange={(e) => onChange('about', e.target.value)}
                     />
                 </div>
@@ -215,8 +251,15 @@ function EditInfoTab({ info, onChange, onSave }) {
                 <div className="field-container">
                     <div className="video-upload-wrapper">
                         {info.videoUrl && (
-                            <video className="video-preview-player" controls loop muted key={info.videoUrl}>
-                                <source src={info.videoUrl} type="video/mp4" />
+                            <video
+                                className="video-preview-player"
+                                src={info.videoUrl}
+                                controls
+                                loop
+                                muted
+                                preload="metadata"
+                                key={info.videoUrl}
+                            >
                                 Your browser does not support the video tag.
                             </video>
                         )}
@@ -230,8 +273,9 @@ function EditInfoTab({ info, onChange, onSave }) {
                             <input
                                 type="file"
                                 id="videoFileInput"
-                                accept="video/*"
+                                accept="video/mp4,video/webm"
                                 style={{ display: 'none' }}
+                                disabled={isSaving}
                                 onChange={handleVideoChange}
                             />
                             <span className="upload-filename-text">{info.videoName}</span>
@@ -242,8 +286,13 @@ function EditInfoTab({ info, onChange, onSave }) {
 
             {/* Save Info Button */}
             <div className="btn-save-container">
-                <button type="button" className="btn-save-setting" onClick={onSave}>
-                    Save Info
+                <button
+                    type="button"
+                    className="btn-save-setting"
+                    onClick={onSave}
+                    disabled={isSaving}
+                >
+                    {isSaving ? 'Saving...' : 'Save Info'}
                 </button>
             </div>
         </div>
@@ -327,7 +376,7 @@ function Settings() {
         id: "?",
         fullname: "?",
         username: "?",
-        image: "/ProfilePic/0.jpg"
+        image: DEFAULT_AVATAR_URL
     });
 
     // Account settings state
@@ -341,15 +390,18 @@ function Settings() {
 
     const [themeTransitionEnabled, setThemeTransitionEnabled] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
 
     // Profile info state
     const [profileInfo, setProfileInfo] = useState({
-        avatar: "/ProfilePic/0.jpg",
-        avatarName: "0.jpg",
+        avatar: DEFAULT_AVATAR_URL,
+        avatarName: "Default profile picture",
+        avatarFile: null,
         status: "ACTIVE",
         about: "",
-        videoUrl: "ProfileVid.mp4",
-        videoName: "ProfileVid.mp4"
+        videoUrl: "",
+        videoName: "No video uploaded",
+        videoFile: null
     });
 
     // Security state
@@ -384,19 +436,14 @@ function Settings() {
             const uname = authUser.username;
             const fname = authUser.fullname;
             const email = authUser.email || "";
-            const img = authUser.image;
 
-            setCurrentUser({
-                id: userId,
-                fullname: fname,
-                username: uname,
-                image: img
-            });
-
-            // Fetch detailed user profile for about, status, and theme
+            // Fetch detailed user profile for about, status, theme, avatar, and intro video
             let userAboutText = "";
             let userStatus = (authUser.status || "ACTIVE").toUpperCase();
             let userTheme = authUser.theme || "light";
+            let resolvedAvatar = authUser.avatarUrl || authUser.image || DEFAULT_AVATAR_URL;
+            if (resolvedAvatar === '/ProfilePic/0.jpg') resolvedAvatar = DEFAULT_AVATAR_URL;
+            let resolvedVideoUrl = authUser.introVideoUrl || "";
 
             try {
                 const userRes = await request.get(`/api/users/${userId}`);
@@ -413,15 +460,29 @@ function Settings() {
                     if (uData.theme) {
                         userTheme = uData.theme;
                     }
+                    if (uData.avatarUrl || uData.image) {
+                        const candidateAvatar = uData.avatarUrl || uData.image;
+                        resolvedAvatar = candidateAvatar === '/ProfilePic/0.jpg' ? DEFAULT_AVATAR_URL : candidateAvatar;
+                    }
+                    if (uData.introVideoUrl) {
+                        resolvedVideoUrl = uData.introVideoUrl;
+                    }
                 }
             } catch (uErr) {
                 console.error(`Failed to fetch user details for ID ${userId}:`, uErr);
             }
 
+            setCurrentUser({
+                id: userId,
+                fullname: fname,
+                username: uname,
+                image: resolvedAvatar
+            });
+
             const finalTheme = String(userTheme || 'light').toLowerCase();
             try {
                 localStorage.setItem('taskflow_theme', finalTheme);
-            } catch (e) {}
+            } catch (e) { }
 
             setAccount(prev => ({
                 ...prev,
@@ -433,10 +494,16 @@ function Settings() {
 
             setProfileInfo(prev => ({
                 ...prev,
-                avatar: img,
-                avatarName: uname !== '?' ? `${uname}.jpg` : '0.jpg',
+                avatar: resolvedAvatar,
+                avatarName: resolvedAvatar === DEFAULT_AVATAR_URL
+                    ? 'Default profile picture'
+                    : 'Current profile picture',
+                avatarFile: null,
                 status: userStatus,
-                about: userAboutText
+                about: userAboutText,
+                videoUrl: resolvedVideoUrl,
+                videoName: resolvedVideoUrl ? 'Current intro video' : 'No video uploaded',
+                videoFile: null
             }));
         } catch (err) {
             console.error('Failed to initialize settings user:', err);
@@ -466,7 +533,7 @@ function Settings() {
             setThemeTransitionEnabled(true);
             try {
                 localStorage.setItem('taskflow_theme', value);
-            } catch (e) {}
+            } catch (e) { }
             window.dispatchEvent(new CustomEvent('taskflow_theme_change', { detail: { theme: value } }));
         }
         setAccount(prev => ({ ...prev, [key]: value }));
@@ -496,7 +563,7 @@ function Settings() {
             await request.put(`/api/users/${currentUser.id}`, payload);
             try {
                 localStorage.setItem('taskflow_theme', account.theme);
-            } catch (e) {}
+            } catch (e) { }
 
             // Update current user state for NavBar immediately
             setCurrentUser(prev => ({
@@ -518,7 +585,9 @@ function Settings() {
             showToast('Unable to identify logged in user. Please log in again.', 'error');
             return;
         }
+        if (isSavingProfile) return;
 
+        setIsSavingProfile(true);
         try {
             const compiledAbout = compileAboutList(profileInfo.about);
 
@@ -527,13 +596,56 @@ function Settings() {
                 status: profileInfo.status || 'ACTIVE'
             };
 
+            let updatedAvatarUrl = profileInfo.avatar;
+            let updatedVideoUrl = profileInfo.videoUrl;
+
+            // 1. Compress and upload new profile picture to Cloudinary if selected
+            if (profileInfo.avatarFile) {
+                const avatarMedia = await uploadAvatarFile(currentUser.id, profileInfo.avatarFile);
+                payload.avatarUrl = avatarMedia.url;
+                payload.avatarPublicId = avatarMedia.publicId;
+                updatedAvatarUrl = avatarMedia.url;
+            }
+
+            // 2. Upload new introduction video to Cloudinary if selected
+            if (profileInfo.videoFile) {
+                const videoMedia = await uploadIntroVideoFile(profileInfo.videoFile);
+                payload.introVideoUrl = videoMedia.url;
+                payload.introVideoPublicId = videoMedia.publicId;
+                updatedVideoUrl = videoMedia.url;
+            }
+
+            // 3. Persist profile updates + Cloudinary URLs to backend
             await request.put(`/api/users/${currentUser.id}`, payload);
+
+            if (profileInfo.videoUrl && profileInfo.videoUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(profileInfo.videoUrl);
+            }
+
+            // 4. Refresh NavBar avatar and clear pending local file references
+            setCurrentUser(prev => ({
+                ...prev,
+                image: updatedAvatarUrl
+            }));
+
+            setProfileInfo(prev => ({
+                ...prev,
+                avatar: updatedAvatarUrl,
+                avatarName: profileInfo.avatarFile ? 'Current profile picture' : prev.avatarName,
+                avatarFile: null,
+                videoUrl: updatedVideoUrl,
+                videoName: profileInfo.videoFile ? 'Current intro video' : prev.videoName,
+                videoFile: null
+            }));
+
             invalidateCurrentUser();
             showToast('Saved successfully!', 'success');
         } catch (err) {
             console.error(`Failed to update profile info (/api/users/${currentUser.id}):`, err);
-            const errMsg = err?.response?.data?.message || err?.message || 'Failed to save profile info!';
+            const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Failed to save profile info!';
             showToast(errMsg, 'error');
+        } finally {
+            setIsSavingProfile(false);
         }
     };
 
@@ -641,6 +753,8 @@ function Settings() {
                                 info={profileInfo}
                                 onChange={handleProfileInfoChange}
                                 onSave={handleSaveProfileInfo}
+                                onError={(msg) => showToast(msg, 'error')}
+                                isSaving={isSavingProfile}
                             />
                         )}
                         {activeTab === 'security' && (

@@ -8,9 +8,9 @@ import './AdminPanel.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
-import { getUserAvatarUrl, getProjectStatusClass, getPriorityTagClass } from './utils';
+import { resolveUserAvatar, getProjectStatusClass, getPriorityTagClass } from './utils';
 import { useTheme } from './useTheme';
-import { useCurrentUser } from './useCurrentUser';
+import { useCurrentUser, DEFAULT_AVATAR_URL } from './useCurrentUser';
 
 // Section Reload Button Component matching the universal reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -284,11 +284,12 @@ function GlobalUsersModal({
                             return (
                                 <div key={u.id} className="member-item-row">
                                     <img
-                                        src={u.image || getUserAvatarUrl(u.username)}
+                                        src={resolveUserAvatar(u)}
                                         alt={u.fullname}
                                         className="member-avatar-img"
                                         onError={(e) => {
-                                            e.target.src = '/ProfilePic/0.jpg';
+                                            e.target.onerror = null;
+                                            e.target.src = DEFAULT_AVATAR_URL;
                                         }}
                                     />
                                     <div className="member-info-text">
@@ -350,9 +351,9 @@ function ProjectCardItem({ project, onEdit, onManageUsers, onArchive, onDelete, 
             id: '0',
             fullname: project.owner,
             username: project.owner,
-            image: getUserAvatarUrl(project.owner)
+            image: DEFAULT_AVATAR_URL
         }] : [
-            { id: '0', fullname: '(no one)', username: 'N/A', image: '/ProfilePic/0.jpg' }
+            { id: '0', fullname: '(no one)', username: 'N/A', image: DEFAULT_AVATAR_URL }
         ]);
 
     const displayedUsers = projectUsers.slice(0, 4);
@@ -392,11 +393,14 @@ function ProjectCardItem({ project, onEdit, onManageUsers, onArchive, onDelete, 
                     {displayedUsers.map((u, idx) => (
                         <img
                             key={u.id || idx}
-                            src={u.image || getUserAvatarUrl(u.username)}
+                            src={resolveUserAvatar(u)}
                             alt={u.fullname || u.username}
                             className="project-user-avatar-thumb"
                             title={`${u.fullname || u.username} (@${u.username})`}
-                            onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                            onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = DEFAULT_AVATAR_URL;
+                            }}
                         />
                     ))}
                     {extraCount > 0 && (
@@ -508,11 +512,12 @@ function UserSelectModal({
                                 title={`Select @${u.username}`}
                             >
                                 <img
-                                    src={u.image || getUserAvatarUrl(u.username)}
+                                    src={resolveUserAvatar(u)}
                                     alt={u.fullname}
                                     className="member-avatar-img"
                                     onError={(e) => {
-                                        e.target.src = '/ProfilePic/0.jpg';
+                                        e.target.onerror = null;
+                                        e.target.src = DEFAULT_AVATAR_URL;
                                     }}
                                 />
                                 <div className="member-info-text">
@@ -1121,10 +1126,13 @@ function UserCardItem({ user, onEdit, onTempBan, onDeactivate, currentUserRole }
             <div className="user-card-left">
                 <div className="user-id-badge">{user.id}</div>
                 <img
-                    src={user.image || getUserAvatarUrl(user.username)}
+                    src={resolveUserAvatar(user)}
                     alt={user.fullname || user.username}
                     className="user-avatar-thumb"
-                    onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                    onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = DEFAULT_AVATAR_URL;
+                    }}
                 />
                 <div className="user-identity-info">
                     <div className="user-name-row">
@@ -2194,10 +2202,13 @@ function AppealCardItem({ appeal, onView, onAccept, onReject }) {
             <div className="user-card-left">
                 <div className="user-id-badge">{appeal.id}</div>
                 <img
-                    src={appeal.image || getUserAvatarUrl(appeal.username)}
+                    src={resolveUserAvatar(appeal)}
                     alt={appeal.fullname || appeal.username}
                     className="user-avatar-thumb"
-                    onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                    onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = DEFAULT_AVATAR_URL;
+                    }}
                 />
                 <div className="user-identity-info">
                     <div className="user-name-row">
@@ -2311,10 +2322,13 @@ function ViewAppealModal({ appeal, onClose }) {
 
                 <div className="appeal-modal-user-header">
                     <img
-                        src={appeal.image || getUserAvatarUrl(appeal.username)}
+                        src={resolveUserAvatar(appeal)}
                         alt={appeal.fullname || appeal.username}
                         className="appeal-modal-avatar"
-                        onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = DEFAULT_AVATAR_URL;
+                        }}
                     />
                     <div className="appeal-modal-user-info">
                         <div className="appeal-modal-name-row">
@@ -2355,10 +2369,13 @@ function ReportCardItem({ report, onView }) {
             <div className="report-card-left">
                 <span className="report-card-id-number">{report.id}</span>
                 <img
-                    src={report.authorImage || getUserAvatarUrl(report.author)}
+                    src={resolveUserAvatar(report.authorImage)}
                     alt={report.authorFullname || report.author}
                     className="report-card-avatar"
-                    onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                    onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = DEFAULT_AVATAR_URL;
+                    }}
                 />
                 <div className="report-card-user-info">
                     <div className="report-user-name-row">
@@ -2374,10 +2391,13 @@ function ReportCardItem({ report, onView }) {
                 <div className="report-target-group">
                     <span className="report-target-label">reporting user:</span>
                     <img
-                        src={report.targetImage || getUserAvatarUrl(report.targetUsername)}
+                        src={resolveUserAvatar(report.targetImage)}
                         alt={report.targetFullname || report.targetUsername}
                         className="report-card-avatar"
-                        onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = DEFAULT_AVATAR_URL;
+                        }}
                     />
                     <div className="report-card-user-info">
                         <div className="report-user-name-row">
@@ -2503,10 +2523,13 @@ function ViewReportModal({ report, onClose, onBlock, onDismiss }) {
                         <div className="report-modal-box-title">Submitted By</div>
                         <div className="report-modal-user-row">
                             <img
-                                src={report.authorImage || getUserAvatarUrl(report.author)}
+                                src={resolveUserAvatar(report.authorImage)}
                                 alt={report.authorFullname || report.author}
                                 className="report-card-avatar"
-                                onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                                onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = DEFAULT_AVATAR_URL;
+                                }}
                             />
                             <div className="report-card-user-info">
                                 <div className="report-user-name-row">
@@ -2523,10 +2546,13 @@ function ViewReportModal({ report, onClose, onBlock, onDismiss }) {
                         <div className="report-modal-box-title">Reported User (Target)</div>
                         <div className="report-modal-user-row">
                             <img
-                                src={report.targetImage || getUserAvatarUrl(report.targetUsername)}
+                                src={resolveUserAvatar(report.targetImage)}
                                 alt={report.targetFullname || report.targetUsername}
                                 className="report-card-avatar"
-                                onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                                onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = DEFAULT_AVATAR_URL;
+                                }}
                             />
                             <div className="report-card-user-info">
                                 <div className="report-user-name-row">
@@ -2602,7 +2628,7 @@ const initialAdminUsers = [
         username: "KDT",
         role: "GOD",
         status: "ACTIVE",
-        image: "/ProfilePic/KDT.jpg",
+        image: DEFAULT_AVATAR_URL,
         joinDate: "(date here)"
     },
     {
@@ -2611,7 +2637,7 @@ const initialAdminUsers = [
         username: "Turtlely",
         role: "ADMIN",
         status: "ACTIVE",
-        image: "/ProfilePic/Turtlely.jpg",
+        image: DEFAULT_AVATAR_URL,
         joinDate: "(date here)"
     },
     {
@@ -2620,7 +2646,7 @@ const initialAdminUsers = [
         username: "NgoDo",
         role: "MEMBER",
         status: "ACTIVE",
-        image: "/ProfilePic/NgoDo.jpg",
+        image: DEFAULT_AVATAR_URL,
         joinDate: "(date here)"
     },
     {
@@ -2629,7 +2655,7 @@ const initialAdminUsers = [
         username: "CodeMaster",
         role: "MEMBER",
         status: "BLOCKED",
-        image: "/ProfilePic/0.jpg",
+        image: DEFAULT_AVATAR_URL,
         joinDate: "(date here)"
     },
     {
@@ -2638,7 +2664,7 @@ const initialAdminUsers = [
         username: "dds",
         role: "MEMBER",
         status: "ACTIVE",
-        image: "/ProfilePic/dds.jpg",
+        image: DEFAULT_AVATAR_URL,
         joinDate: "(date here)"
     }
 ];
@@ -2718,7 +2744,7 @@ function AdminPanelContent() {
                     about: u.about || u.bio || '',
                     role: (u.role || 'MEMBER').toUpperCase(),
                     status: (u.status || (u.deleted ? 'INACTIVE' : 'ACTIVE')).toUpperCase(),
-                    image: u.image || getUserAvatarUrl(u.username),
+                    image: resolveUserAvatar(u),
                     joinDate: u.joinDate || u.createdAt || u.created_at || '(date here)',
                     deleted: !!u.deleted
                 })).sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
@@ -2754,7 +2780,7 @@ function AdminPanelContent() {
                             id: String(u.id || u._id || ''),
                             fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
                             username: u.username || '',
-                            image: u.image || getUserAvatarUrl(u.username)
+                            image: resolveUserAvatar(u)
                         }));
                     } else {
                         try {
@@ -2765,7 +2791,7 @@ function AdminPanelContent() {
                                     id: String(u.id || u._id || ''),
                                     fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
                                     username: u.username || '',
-                                    image: u.image || getUserAvatarUrl(u.username)
+                                    image: resolveUserAvatar(u)
                                 }));
                             }
                         } catch (dErr) {
@@ -2779,7 +2805,7 @@ function AdminPanelContent() {
                             id: 'owner-1',
                             fullname: oName,
                             username: oName,
-                            image: getUserAvatarUrl(oName)
+                            image: DEFAULT_AVATAR_URL
                         }];
                     }
 
@@ -2891,12 +2917,13 @@ function AdminPanelContent() {
                         (a.userId && String(u.id) === String(a.userId)) ||
                         (uname && u.username && u.username.toLowerCase() === uname.toLowerCase())
                     );
+                    const appealAvatar = resolveUserAvatar(a);
                     return {
                         id: appealId,
                         userId: String(a.userId || a.user_id || a.user?.id || (uMatch ? uMatch.id : 'N/A')),
                         username: uname || (uMatch ? uMatch.username : 'Unknown'),
                         fullname: a.fullname || a.full_name || a.name || (uMatch ? uMatch.fullname : (uname || 'User')),
-                        image: a.image || (uMatch ? uMatch.image : (uname ? getUserAvatarUrl(uname) : '/ProfilePic/0.jpg')),
+                        image: appealAvatar !== DEFAULT_AVATAR_URL ? appealAvatar : (uMatch ? resolveUserAvatar(uMatch) : DEFAULT_AVATAR_URL),
                         reason: a.reason || a.appealReason || a.description || a.message || '',
                         status: (a.status || 'PENDING').toUpperCase(),
                         createdAt: a.createdAt || a.created_at || a.date || ''
@@ -2940,17 +2967,19 @@ function AdminPanelContent() {
                         (r.targetId && String(u.id) === String(r.targetId))
                     );
 
+                    const authorAvatar = resolveUserAvatar(r.authorImage);
+                    const targetAvatar = resolveUserAvatar(r.targetImage);
                     return {
                         id: reportId,
                         type: r.type || 'post',
                         authorId: String(r.authorId || r.author_id || (authorMatch ? authorMatch.id : '')),
                         author: authorName || (authorMatch ? authorMatch.username : 'Unknown'),
                         authorFullname: r.authorFullname || r.author_fullname || (authorMatch ? authorMatch.fullname : authorName),
-                        authorImage: r.authorImage || (authorMatch ? authorMatch.image : (authorName ? getUserAvatarUrl(authorName) : '/ProfilePic/0.jpg')),
+                        authorImage: authorAvatar !== DEFAULT_AVATAR_URL ? authorAvatar : (authorMatch ? resolveUserAvatar(authorMatch) : DEFAULT_AVATAR_URL),
                         targetId: String(r.targetId || r.target_id || (targetMatch ? targetMatch.id : '')),
                         targetUsername: targetName || (targetMatch ? targetMatch.username : 'Unknown'),
                         targetFullname: r.targetFullname || r.target_fullname || (targetMatch ? targetMatch.fullname : targetName),
-                        targetImage: r.targetImage || (targetMatch ? targetMatch.image : (targetName ? getUserAvatarUrl(targetName) : '/ProfilePic/0.jpg')),
+                        targetImage: targetAvatar !== DEFAULT_AVATAR_URL ? targetAvatar : (targetMatch ? resolveUserAvatar(targetMatch) : DEFAULT_AVATAR_URL),
                         reason: r.reason || '',
                         explanation: r.explanation || '',
                         createdAt: r.createdAt || r.created_at || r.date || ''
@@ -2985,7 +3014,7 @@ function AdminPanelContent() {
                         id: String(u.id || u._id || ''),
                         fullname: u.fullname || u.full_name || u.fullName || u.name || u.username || 'User',
                         username: u.username || '',
-                        image: u.image || getUserAvatarUrl(u.username)
+                        image: resolveUserAvatar(u)
                     }));
                 }
             } catch (err) {

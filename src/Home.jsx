@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import './Home.css';
 import NavBar from './NavBar';
 import request from './api/Request';
-import { getProjectStatusClass, getTaskPriorityClass, getPriorityTagClass, getUserAvatarUrl } from './utils';
+import { getProjectStatusClass, getTaskPriorityClass, getPriorityTagClass, resolveUserAvatar } from './utils';
 import { useTheme } from './useTheme';
-import { useCurrentUser } from './useCurrentUser';
+import { useCurrentUser, DEFAULT_AVATAR_URL } from './useCurrentUser';
 
 // Section Reload Button Component matching the reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -53,12 +53,12 @@ function UsersSection({ users, error, loading, onReload }) {
                         {users.map(user => (
                             <Link key={user.id} to={`/profile/${user.id}`} className="user-item-col">
                                 <img
-                                    src={user.image || getUserAvatarUrl(user.username)}
+                                    src={resolveUserAvatar(user)}
                                     alt={user.name}
                                     className="user-avatar-circle"
                                     onError={(e) => {
                                         e.target.onerror = null;
-                                        e.target.src = '/ProfilePic/0.jpg';
+                                        e.target.src = DEFAULT_AVATAR_URL;
                                     }}
                                 />
                                 <span className="user-display-name">{user.name}</span>
@@ -198,7 +198,7 @@ function Home() {
                     id: String(u.id || u._id || Math.random()),
                     username: u.username || '',
                     name: u.full_name || u.fullName || u.fullname || u.name || u.username || 'User',
-                    image: u.image || getUserAvatarUrl(u.username),
+                    image: resolveUserAvatar(u),
                 })));
                 setUsersError(false);
             } else {

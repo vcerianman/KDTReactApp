@@ -506,7 +506,7 @@ export const sendMemberChangeNotification = async ({
 
 /**
  * Sends a notification when a banned user submits an appeal.
- * Queries GET /api/users to find all admins with roles GOD and ADMIN.
+ * Queries GET /api/users/admins to get all admin user IDs.
  * - type: "appeal"
  * - message: "@<username> appealed and needs reviewing."
  * - link: "/admin"
@@ -524,7 +524,7 @@ export const sendAppealNotification = async ({ username, actorId = null }) => {
         let recipientIds = [
             ...new Set(
                 adminUsers
-                    .map((u) => Number(u.id ?? u.userId ?? u._id))
+                    .map((u) => Number(typeof u === 'object' && u !== null ? (u.id ?? u.userId ?? u._id) : u))
                     .filter((id) => !isNaN(id) && id > 0)
             )
         ];

@@ -13,11 +13,11 @@ import {
     getTaskPriorityClass,
     getPriorityTagClass,
     getProjectStatusClass,
-    getUserAvatarUrl,
+    resolveUserAvatar,
     formatTaskDueDate
 } from './utils';
 import { useTheme } from './useTheme';
-import useCurrentUser from './useCurrentUser';
+import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
 import { sendTaskChangeNotification, sendMemberChangeNotification } from './api/notificationApi';
 
 // Section Reload Button Component matching the reload icon design
@@ -466,7 +466,7 @@ function CurrentProjectSection({ currentProject, onPrevProject, onNextProject, o
     const projectUsers = currentProject.users && currentProject.users.length > 0
         ? currentProject.users
         : [
-            { id: '0', fullname: '(no one)', username: 'N/A', image: '/ProfilePic/01.jpg' }
+            { id: '0', fullname: '(no one)', username: 'N/A', image: DEFAULT_AVATAR_URL }
         ];
 
     const displayedUsers = projectUsers.slice(0, 4);
@@ -507,11 +507,14 @@ function CurrentProjectSection({ currentProject, onPrevProject, onNextProject, o
                         {displayedUsers.map((u, idx) => (
                             <img
                                 key={u.id || idx}
-                                src={u.image || getUserAvatarUrl(u.username)}
+                                src={resolveUserAvatar(u)}
                                 alt={u.fullname || u.username}
                                 className="project-user-avatar-thumb"
                                 title={`${u.fullname || u.username} (@${u.username})`}
-                                onError={(e) => { e.target.src = '/ProfilePic/0.jpg'; }}
+                                onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = DEFAULT_AVATAR_URL;
+                                }}
                             />
                         ))}
                         {extraCount > 0 && (
@@ -638,11 +641,12 @@ function AssigneeSelectModal({ isOpen, onClose, users, onSelectUser }) {
                                 onClick={() => onSelectUser(u)}
                             >
                                 <img
-                                    src={u.image || getUserAvatarUrl(u.username)}
+                                    src={resolveUserAvatar(u)}
                                     alt={u.fullname || u.username}
                                     className="member-avatar-img"
                                     onError={(e) => {
-                                        e.target.src = '/ProfilePic/0.jpg';
+                                        e.target.onerror = null;
+                                        e.target.src = DEFAULT_AVATAR_URL;
                                     }}
                                 />
                                 <div className="member-info-text">
@@ -1093,11 +1097,12 @@ function GlobalUsersModal({
                             return (
                                 <div key={u.id} className="member-item-row">
                                     <img
-                                        src={u.image || getUserAvatarUrl(u.username)}
+                                        src={resolveUserAvatar(u)}
                                         alt={u.fullname}
                                         className="member-avatar-img"
                                         onError={(e) => {
-                                            e.target.src = '/ProfilePic/0.jpg';
+                                            e.target.onerror = null;
+                                            e.target.src = DEFAULT_AVATAR_URL;
                                         }}
                                     />
                                     <div className="member-info-text">
@@ -1178,7 +1183,7 @@ async function fetchTasksPageData(currentUser) {
 
     if (!userId || userId === "?") {
         return {
-            currentUser: currentUser || { id: "?", fullname: "?", username: "?", image: "/ProfilePic/0.jpg" },
+            currentUser: currentUser || { id: "?", fullname: "?", username: "?", image: DEFAULT_AVATAR_URL },
             projects: []
         };
     }
@@ -1298,7 +1303,7 @@ async function fetchTasksPageData(currentUser) {
                         id: String(u.id || u._id || Math.random()),
                         fullname: u.full_name || u.fullName || u.fullname || u.name || u.username || 'User',
                         username: u.username || '',
-                        image: u.image || getUserAvatarUrl(u.username)
+                        image: resolveUserAvatar(u)
                     }));
                 }
             } catch (uErr) {
@@ -1308,10 +1313,10 @@ async function fetchTasksPageData(currentUser) {
             // If empty or error
             if (pUsers.length === 0) {
                 if (projData?.users && Array.isArray(projData.users) && projData.users.length > 0) {
-                    pUsers = projData.users;
+                    pUsers = projData.users.map(u => (typeof u === 'object' && u !== null ? { ...u, image: resolveUserAvatar(u) } : u));
                 } else {
                     pUsers = [
-                        { id: '0', fullname: 'No one', username: 'No one', image: '/ProfilePic/0.jpg' }
+                        { id: '0', fullname: 'No one', username: 'No one', image: DEFAULT_AVATAR_URL }
                     ];
                 }
             }
@@ -1639,18 +1644,18 @@ function TaskContent() {
                     id: String(u.id || u._id || Math.random()),
                     fullname: u.full_name || u.fullName || u.fullname || u.name || u.username || 'User',
                     username: u.username || '',
-                    image: u.image || getUserAvatarUrl(u.username)
+                    image: resolveUserAvatar(u)
                 }));
                 setGlobalUsers(formatted);
                 setModalConfig(prev => prev.isEditMode ? { ...prev, users: formatted, loading: false } : prev);
             } else {
                 const defaultList = [
-                    { id: '1', fullname: 'KDT', username: 'KDT', image: '/ProfilePic/KDT.jpg' },
-                    { id: '2', fullname: 'Khang nig', username: 'Turtlely', image: '/ProfilePic/Turtlely.jpg' },
-                    { id: '3', fullname: 'Ngo Do', username: 'NgoDo', image: '/ProfilePic/NgoDo.jpg' },
-                    { id: '4', fullname: 'Eternal DESTROYER', username: 'CodeMaster', image: '/ProfilePic/0.jpg' },
-                    { id: '5', fullname: 'USER', username: 'user', image: '/ProfilePic/0.jpg' },
-                    { id: '6', fullname: 'dds', username: 'dds', image: '/ProfilePic/dds.jpg' }
+                    { id: '1', fullname: 'KDT', username: 'KDT', image: DEFAULT_AVATAR_URL },
+                    { id: '2', fullname: 'Khang nig', username: 'Turtlely', image: DEFAULT_AVATAR_URL },
+                    { id: '3', fullname: 'Ngo Do', username: 'NgoDo', image: DEFAULT_AVATAR_URL },
+                    { id: '4', fullname: 'Eternal DESTROYER', username: 'CodeMaster', image: DEFAULT_AVATAR_URL },
+                    { id: '5', fullname: 'USER', username: 'user', image: DEFAULT_AVATAR_URL },
+                    { id: '6', fullname: 'dds', username: 'dds', image: DEFAULT_AVATAR_URL }
                 ];
                 setGlobalUsers(defaultList);
                 setModalConfig(prev => prev.isEditMode ? { ...prev, users: defaultList, loading: false } : prev);
@@ -1658,12 +1663,12 @@ function TaskContent() {
         } catch (err) {
             console.error('Failed to fetch global users in Task.jsx:', err);
             const defaultList = [
-                { id: '1', fullname: 'KDT', username: 'KDT', image: '/ProfilePic/KDT.jpg' },
-                { id: '2', fullname: 'Khang nig', username: 'Turtlely', image: '/ProfilePic/Turtlely.jpg' },
-                { id: '3', fullname: 'Ngo Do', username: 'NgoDo', image: '/ProfilePic/NgoDo.jpg' },
-                { id: '4', fullname: 'Eternal DESTROYER', username: 'CodeMaster', image: '/ProfilePic/0.jpg' },
-                { id: '5', fullname: 'USER', username: 'user', image: '/ProfilePic/0.jpg' },
-                { id: '6', fullname: 'dds', username: 'dds', image: '/ProfilePic/dds.jpg' }
+                { id: '1', fullname: 'KDT', username: 'KDT', image: DEFAULT_AVATAR_URL },
+                { id: '2', fullname: 'Khang nig', username: 'Turtlely', image: DEFAULT_AVATAR_URL },
+                { id: '3', fullname: 'Ngo Do', username: 'NgoDo', image: DEFAULT_AVATAR_URL },
+                { id: '4', fullname: 'Eternal DESTROYER', username: 'CodeMaster', image: DEFAULT_AVATAR_URL },
+                { id: '5', fullname: 'USER', username: 'user', image: DEFAULT_AVATAR_URL },
+                { id: '6', fullname: 'dds', username: 'dds', image: DEFAULT_AVATAR_URL }
             ];
             setGlobalUsers(defaultList);
             setModalConfig(prev => prev.isEditMode ? { ...prev, users: defaultList, loading: false } : prev);
