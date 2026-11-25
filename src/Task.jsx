@@ -18,6 +18,7 @@ import {
 } from './utils';
 import { useTheme } from './useTheme';
 import useCurrentUser from './useCurrentUser';
+import { sendTaskChangeNotification, sendMemberChangeNotification } from './api/notificationApi';
 
 // Section Reload Button Component matching the reload icon design
 function ReloadButton({ onReload, isLoading }) {
@@ -1183,25 +1184,52 @@ async function fetchTasksPageData(currentUser) {
     }
 
     // 2. Fetch user's project IDs via GET /api/users/{ID}
-    const userRes = await request.get(`/api/users/${userId}`);
-    const userData = userRes?.data || userRes;
-    let projectIds = userData && Array.isArray(userData.projects) ? [...userData.projects] : [];
+    let userData = null;
+    try {
+        const userRes = await request.get(`/api/users/${userId}`);
+        userData = userRes?.data || userRes;
+    } catch (uErr) {
+        console.error(`Failed to fetch user /api/users/${userId}:`, uErr);
+    }
 
-    // Include target projectId if specified in query params so it can be viewed directly
+    const rawUserProjects = (userData && Array.isArray(userData.projects))
+        ? userData.projects
+        : (Array.isArray(currentUser.projects) ? currentUser.projects : []);
+
+    const userProjectIds = rawUserProjects
+        .map(item => String(typeof item === 'object' && item !== null ? (item.id || item.projectId) : item))
+        .filter(Boolean);
+
+    // Check if the user is attempting to access a specific project directly by link
     const urlParams = new URLSearchParams(window.location.search);
     const targetProjectId = urlParams.get('projectId') || urlParams.get('project');
+
+    let isUnauthorized = false;
     if (targetProjectId) {
-        const hasProject = projectIds.some(item => {
-            const pId = typeof item === 'object' && item !== null ? (item.id || item.projectId) : item;
-            return String(pId).toLowerCase() === targetProjectId.toLowerCase();
-        });
-        if (!hasProject) {
-            projectIds.push(targetProjectId);
+        const cleanTarget = String(targetProjectId).toLowerCase().trim();
+        const isAffiliated = userProjectIds.some(pId => pId.toLowerCase().trim() === cleanTarget);
+        if (!isAffiliated) {
+            isUnauthorized = true;
+            // The project will not load if the user is not affiliated
+            return {
+                currentUser,
+                projects: [],
+                unauthorized: true,
+                requestedProjectId: targetProjectId
+            };
         }
     }
 
+    // Only load projects the user is affiliated with
+    const projectIds = userProjectIds;
+
     if (projectIds.length === 0) {
-        return { currentUser, projects: [] };
+        return {
+            currentUser,
+            projects: [],
+            unauthorized: false,
+            requestedProjectId: targetProjectId
+        };
     }
 
     // 3. For each project ID, fetch project info & tasks in parallel
@@ -1305,7 +1333,12 @@ async function fetchTasksPageData(currentUser) {
     });
 
     const loadedProjects = (await Promise.all(projectPromises)).filter(Boolean);
-    return { currentUser, projects: loadedProjects };
+    return {
+        currentUser,
+        projects: loadedProjects,
+        unauthorized: isUnauthorized,
+        requestedProjectId: targetProjectId
+    };
 }
 
 // Inner Task Content with TanStack Query
@@ -1355,6 +1388,13 @@ function TaskContent() {
     });
 
     const projects = useMemo(() => data?.projects || [], [data?.projects]);
+    const targetUrlProjectId = searchParams.get('projectId') || searchParams.get('project');
+    const isUnauthorized = Boolean(
+        data?.unauthorized ||
+        (!loading && targetUrlProjectId && (
+            projects.length === 0 || !projects.some(p => String(p.id).toLowerCase().trim() === String(targetUrlProjectId).toLowerCase().trim())
+        ))
+    );
 
     // Active project determined safely by selectedProjectId or fallback index
     const currentProject = useMemo(() => {
@@ -1484,6 +1524,13 @@ function TaskContent() {
         if (newStatus !== taskToMove.status) {
             updateTaskStatusMutation.mutate({ taskId, nextStatus: newStatus });
         }
+
+        // Send task alteration notification for involved project members
+        sendTaskChangeNotification({
+            currentProject,
+            currentUser,
+            actionType: 'rearranged'
+        });
     };
 
     // Interactive Task Action Button
@@ -1504,6 +1551,13 @@ function TaskContent() {
         }
 
         updateTaskStatusMutation.mutate({ taskId: taskToMove.id, nextStatus });
+
+        // Send task alteration notification for involved project members
+        sendTaskChangeNotification({
+            currentProject,
+            currentUser,
+            actionType: 'rearranged'
+        });
     };
 
     // Update task details handler (called from TaskDetailModal)
@@ -1522,6 +1576,14 @@ function TaskContent() {
                 return { ...proj, tasks: updatedTasks };
             });
             return { ...old, projects: updatedProjects };
+        });
+
+        // Send task alteration notification for involved project members
+        sendTaskChangeNotification({
+            currentProject,
+            currentUser,
+            actionType: 'updated',
+            taskTitle: updatedTask?.title
         });
     };
 
@@ -1700,6 +1762,14 @@ function TaskContent() {
                 });
                 return { ...old, projects: updatedProjectsList };
             });
+
+            // 4. Send notification for adding/removing project member
+            sendMemberChangeNotification({
+                currentProject,
+                currentUser,
+                targetUser: user,
+                isAdd: !isCurrentlyInProject
+            });
         } catch (err) {
             console.error(`Failed to update project membership for user ${user.id}:`, err);
         } finally {
@@ -1740,6 +1810,36 @@ function TaskContent() {
                 ) : loading ? (
                     <div className="tasks-reload-center-box">
                         <ReloadButton onReload={fetchUserAndTasks} isLoading={true} />
+                    </div>
+                ) : isUnauthorized ? (
+                    <div className="tasks-reload-center-box" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            padding: '40px 20px',
+                            fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif"
+                        }}>
+                            <h2 style={{
+                                fontSize: '26px',
+                                fontWeight: 700,
+                                color: isDark ? '#ffffff' : '#111111',
+                                marginBottom: '10px',
+                                letterSpacing: '-0.3px'
+                            }}>
+                                Unable to access project
+                            </h2>
+                            <p style={{
+                                fontSize: '15px',
+                                color: isDark ? '#9da0a5' : '#666666',
+                                maxWidth: '420px',
+                                lineHeight: '1.5'
+                            }}>
+                                You are not affiliated with this project.
+                            </p>
+                        </div>
                     </div>
                 ) : (
                     <React.Fragment>

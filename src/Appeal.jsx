@@ -5,6 +5,7 @@ import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
 import useCurrentUser from './useCurrentUser';
+import { sendAppealNotification } from './api/notificationApi';
 
 // Appeal Form Component
 function AppealForm({ initialUsername, onSubmit, isSubmitting, isSubmitted }) {
@@ -218,6 +219,16 @@ function Appeal() {
             };
 
             await request.post('/api/appeals', payload);
+
+            // Push notification to all admins with roles: GOD and ADMIN
+            try {
+                await sendAppealNotification({
+                    username: usernameSubmitted,
+                    actorId: currentUser?.id
+                });
+            } catch (notiErr) {
+                console.warn('Failed to push appeal notification to admins:', notiErr);
+            }
 
             setToast({
                 message: 'Your appeal has been submitted successfully.',

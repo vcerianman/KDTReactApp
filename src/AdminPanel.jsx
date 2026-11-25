@@ -3418,18 +3418,69 @@ function AdminPanelContent() {
     };
 
     // Appeal Tab Handlers
-    const handleAcceptAppeal = async (appeal) => {
+    const resolveAppeal = async (appealId, status) => {
+        // In the backend, appeal tickets are resolved/dismissed via DELETE /api/appeals/{id}
         try {
-            await request.put(`/api/appeals/${appeal.id}`, { status: 'ACCEPTED' });
-            if (appeal.userId && appeal.userId !== 'N/A') {
+            await request.delete(`/api/appeals/${appealId}`);
+            return;
+        } catch (delErr1) {
+            try {
+                await request.delete(`/api/appeal/${appealId}`);
+                return;
+            } catch (delErr2) {
+                // If DELETE is not supported, fallback to PATCH or POST
                 try {
-                    await request.put(`/api/admin/users/${appeal.userId}`, { status: 'ACTIVE' });
-                    client.invalidateQueries({ queryKey: ['adminUsers'] });
-                } catch (uErr) {
-                    console.error(`Failed to unblock user ${appeal.userId}:`, uErr);
+                    await request.patch(`/api/appeals/${appealId}`, { status });
+                    return;
+                } catch (patchErr) {
+                    try {
+                        const action = status === 'ACCEPTED' ? 'accept' : 'reject';
+                        await request.post(`/api/appeals/${appealId}/${action}`);
+                        return;
+                    } catch (postErr1) {
+                        try {
+                            await request.post(`/api/appeals/${appealId}`, { status });
+                            return;
+                        } catch (postErr2) {
+                            console.error(`Failed to resolve appeal ${appealId}:`, postErr2);
+                            throw postErr2;
+                        }
+                    }
                 }
             }
+        }
+    };
+
+    const handleAcceptAppeal = async (appeal) => {
+        try {
+            let targetUserId = appeal.userId && appeal.userId !== 'N/A' ? appeal.userId : null;
+            if (!targetUserId && appeal.username) {
+                const matched = (usersList || []).find(
+                    (u) => u.username && u.username.toLowerCase() === appeal.username.toLowerCase()
+                );
+                if (matched) {
+                    targetUserId = matched.id;
+                }
+            }
+
+            if (targetUserId) {
+                try {
+                    await request.put(`/api/admin/users/${targetUserId}`, { status: 'ACTIVE' });
+                } catch (uErr1) {
+                    try {
+                        await request.put(`/api/users/${targetUserId}`, { status: 'ACTIVE' });
+                    } catch (uErr2) {
+                        console.error(`Failed to unblock user ${targetUserId}:`, uErr2);
+                    }
+                }
+                client.invalidateQueries({ queryKey: ['adminUsers'] });
+            }
+
+            await resolveAppeal(appeal.id, 'ACCEPTED');
             client.invalidateQueries({ queryKey: ['adminAppeals'] });
+            if (viewingAppeal?.id === appeal.id) {
+                setViewingAppeal(null);
+            }
             showToast(`Accepted appeal and unblocked user.`, 'success');
         } catch (err) {
             console.error(`Failed to accept appeal ${appeal.id}:`, err);
@@ -3439,8 +3490,11 @@ function AdminPanelContent() {
 
     const handleRejectAppeal = async (appeal) => {
         try {
-            await request.put(`/api/appeals/${appeal.id}`, { status: 'REJECTED' });
+            await resolveAppeal(appeal.id, 'REJECTED');
             client.invalidateQueries({ queryKey: ['adminAppeals'] });
+            if (viewingAppeal?.id === appeal.id) {
+                setViewingAppeal(null);
+            }
             showToast(`Rejected appeal for @${appeal.username || appeal.fullname}.`, 'error');
         } catch (err) {
             console.error(`Failed to reject appeal ${appeal.id}:`, err);
