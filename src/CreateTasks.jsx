@@ -4,8 +4,8 @@ import './CreateTasks.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
-import { getUserAvatarUrl } from './utils';
-import useCurrentUser from './useCurrentUser';
+import { resolveUserAvatar } from './utils';
+import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
 
 // User Selection Modal Component (like Edit Members in tasks.jsx)
 function UserSelectModal({
@@ -88,11 +88,12 @@ function UserSelectModal({
                                 title={`Select @${u.username}`}
                             >
                                 <img
-                                    src={u.image || getUserAvatarUrl(u.username)}
-                                    alt={u.fullname}
+                                    src={resolveUserAvatar(u)}
+                                    alt={u.fullname || u.username}
                                     className="member-avatar-img"
                                     onError={(e) => {
-                                        e.target.src = '/ProfilePic/0.jpg';
+                                        e.target.onerror = null;
+                                        e.target.src = DEFAULT_AVATAR_URL;
                                     }}
                                 />
                                 <div className="member-info-text">
@@ -387,19 +388,20 @@ function CreateTasks() {
                     id: String(u.id || u._id || Math.random()),
                     fullname: u.full_name || u.fullName || u.fullname || u.name || u.username || 'User',
                     username: u.username || '',
-                    image: u.image || getUserAvatarUrl(u.username)
+                    avatarUrl: u.avatarUrl || u.avatar_url || undefined,
+                    image: resolveUserAvatar(u)
                 }));
                 setUsersList(formatted);
             } else {
                 const defaultList = [
-                    { id: '1', fullname: 'No one', username: 'No one', image: '/ProfilePic/0.jpg' }
+                    { id: '1', fullname: 'No one', username: 'No one', image: DEFAULT_AVATAR_URL }
                 ];
                 setUsersList(defaultList);
             }
         } catch (err) {
             console.error('Failed to fetch users for modal in CreateTasks:', err);
             const defaultList = [
-                { id: '1', fullname: 'No one', username: 'No one', image: '/ProfilePic/0.jpg' }
+                { id: '1', fullname: 'No one', username: 'No one', image: DEFAULT_AVATAR_URL }
             ];
             setUsersList(defaultList);
         } finally {

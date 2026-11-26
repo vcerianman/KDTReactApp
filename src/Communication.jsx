@@ -42,6 +42,48 @@ function validateSelectedPostImages(rawFiles, currentCount, onError) {
     return validFiles;
 }
 
+function extractClipboardImageFiles(clipboardData) {
+    if (!clipboardData) return [];
+    const files = [];
+    const items = Array.from(clipboardData.items || []);
+    for (const item of items) {
+        if (item.kind === 'file') {
+            const file = item.getAsFile();
+            if (file) files.push(file);
+        }
+    }
+    if (files.length === 0 && clipboardData.files?.length) {
+        files.push(...Array.from(clipboardData.files));
+    }
+    return files;
+}
+
+function buildAttachmentPreviews(files, currentCount) {
+    const remainingSlots = Math.max(0, MAX_POST_IMAGES - currentCount);
+    if (remainingSlots === 0 || !files || files.length === 0) return [];
+    return files.slice(0, remainingSlots).map((file, idx) => ({
+        id: `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`,
+        url: URL.createObjectURL(file),
+        name: file.name || `pasted-image-${Date.now()}-${idx}.png`,
+        file
+    }));
+}
+
+function addValidatedImageFiles(rawFiles, setImages, currentCount, onError) {
+    if (currentCount >= MAX_POST_IMAGES) {
+        onError?.(`Maximum ${MAX_POST_IMAGES} images allowed.`);
+        return false;
+    }
+    const validFiles = validateSelectedPostImages(rawFiles, currentCount, onError);
+    if (validFiles.length === 0) return false;
+
+    setImages((prev) => {
+        const toAdd = buildAttachmentPreviews(validFiles, prev.length);
+        return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+    });
+    return true;
+}
+
 async function uploadAndFormatPostImages(imageFiles) {
     if (!imageFiles || imageFiles.length === 0) return [];
     const uploadedImages = await uploadPostImages(imageFiles.slice(0, MAX_POST_IMAGES));
@@ -788,21 +830,16 @@ function CreatePostModal({ isOpen, onClose, onSubmit, onError, projectTitle, isS
     if (!isOpen) return null;
 
     const handlePostImagesSelect = (e) => {
-        const files = validateSelectedPostImages(e.target.files, postImages.length, onError);
+        addValidatedImageFiles(e.target.files, setPostImages, postImages.length, onError);
         e.target.value = '';
-        if (files.length === 0) return;
+    };
 
-        setPostImages((prev) => {
-            const remainingSlots = Math.max(0, MAX_POST_IMAGES - prev.length);
-            if (remainingSlots === 0) return prev;
-            const toAdd = files.slice(0, remainingSlots).map((file, idx) => ({
-                id: `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`,
-                url: URL.createObjectURL(file),
-                name: file.name,
-                file
-            }));
-            return [...prev, ...toAdd];
-        });
+    const handlePostPaste = (e) => {
+        const pastedFiles = extractClipboardImageFiles(e.clipboardData);
+        if (pastedFiles.length === 0) return;
+        e.preventDefault();
+        if (isSubmitting) return;
+        addValidatedImageFiles(pastedFiles, setPostImages, postImages.length, onError);
     };
 
     const handleRemovePostImage = (imageId) => {
@@ -827,7 +864,7 @@ function CreatePostModal({ isOpen, onClose, onSubmit, onError, projectTitle, isS
 
     return (
         <div className="communication-modal-overlay" onClick={onClose}>
-            <div className="communication-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="communication-modal-card" onClick={(e) => e.stopPropagation()} onPaste={handlePostPaste}>
                 <div className="communication-modal-header">
                     <h3 className="communication-modal-title">Create New Post</h3>
                     <button type="button" className="communication-modal-close" onClick={onClose}>&times;</button>
@@ -976,22 +1013,19 @@ function PostCard({
     }, [isAddMenuOpen]);
 
     const handleReplyImagesSelect = (e) => {
-        const files = validateSelectedPostImages(e.target.files, replyImages.length, onError);
+        const added = addValidatedImageFiles(e.target.files, setReplyImages, replyImages.length, onError);
         e.target.value = '';
-        if (files.length === 0) return;
+        if (added) {
+            setIsAddMenuOpen(false);
+        }
+    };
 
-        setReplyImages((prev) => {
-            const remainingSlots = Math.max(0, MAX_POST_IMAGES - prev.length);
-            if (remainingSlots === 0) return prev;
-            const toAdd = files.slice(0, remainingSlots).map((file, idx) => ({
-                id: `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`,
-                url: URL.createObjectURL(file),
-                name: file.name,
-                file
-            }));
-            return [...prev, ...toAdd];
-        });
-        setIsAddMenuOpen(false);
+    const handleReplyPaste = (e) => {
+        const pastedFiles = extractClipboardImageFiles(e.clipboardData);
+        if (pastedFiles.length === 0) return;
+        e.preventDefault();
+        if (submittingReply) return;
+        addValidatedImageFiles(pastedFiles, setReplyImages, replyImages.length, onError);
     };
 
     const handleRemoveReplyImage = (imageId) => {
@@ -1226,7 +1260,7 @@ function PostCard({
                 )}
 
                 {/* Reply Input Form */}
-                <form className="reply-input-row" onSubmit={handleReplySubmit}>
+                <form className="reply-input-row" onSubmit={handleReplySubmit} onPaste={handleReplyPaste}>
                     <div className="reply-add-wrapper" ref={addMenuRef}>
                         <button
                             type="button"

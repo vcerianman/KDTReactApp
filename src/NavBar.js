@@ -331,6 +331,7 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
             width: '100%',
             marginBottom: '20px',
             fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif",
+            lineHeight: '1.2',
             boxShadow: isDark ? '0 1px 3px rgba(0, 0, 0, 0.2)' : '0 1px 3px rgba(0, 0, 0, 0.03)',
             boxSizing: 'border-box',
             transition: transitionStyle,
@@ -379,6 +380,8 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
         searchIcon: {
             position: 'absolute',
             left: '10px',
+            width: '24px',
+            height: '24px',
             pointerEvents: 'none',
         },
         topSearchInput: {
