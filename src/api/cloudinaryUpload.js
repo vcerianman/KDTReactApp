@@ -2,6 +2,8 @@ import request from '../api/Request';
 
 const CLOUD_NAME = 'bs5wxybt';
 export const DEFAULT_AVATAR_URL = 'https://res.cloudinary.com/bs5wxybt/image/upload/v1795596240/b93vlbtifk49gy3jh2fn.png';
+export const PLACEHOLDER_IMAGE_URL = 'https://res.cloudinary.com/bs5wxybt/image/upload/v1795678455/yan5wfaktfzedhxsneiq.png';
+export const PLACEHOLDER_IMAGE_PUBLIC_ID = 'yan5wfaktfzedhxsneiq';
 const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`;
 
 const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -201,4 +203,22 @@ export async function uploadPostImages(rawFiles) {
     });
 
     return Promise.all(uploads);
+}
+
+export const DEFAULT_AVATAR_PUBLIC_ID = 'b93vlbtifk49gy3jh2fn';
+
+/**
+ * Deletes a replaced or removed asset from Cloudinary via the Spring Boot backend.
+ * @param {string} publicId
+ * @param {'image'|'video'} resourceType
+ */
+export async function deleteMediaFile(publicId, resourceType = 'image') {
+    if (!publicId || publicId === DEFAULT_AVATAR_PUBLIC_ID || publicId === PLACEHOLDER_IMAGE_PUBLIC_ID) {
+        return null;
+    }
+
+    return request.post('/api/media/destroy', {
+        publicId,
+        resourceType: resourceType === 'video' ? 'video' : 'image'
+    });
 }

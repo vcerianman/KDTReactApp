@@ -4,7 +4,14 @@ import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
 import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
-import { uploadAvatarFile, uploadIntroVideoFile } from './api/cloudinaryUpload';
+import { uploadAvatarFile, uploadIntroVideoFile, deleteMediaFile, PLACEHOLDER_IMAGE_URL } from './api/cloudinaryUpload';
+
+// Fallback helper to extract Cloudinary public_id from a delivery URL if publicId was omitted
+const extractCloudinaryPublicId = (mediaUrl) => {
+    if (!mediaUrl || typeof mediaUrl !== 'string') return null;
+    const match = mediaUrl.match(/res\.cloudinary\.com\/bs5wxybt\/(?:image|video|raw)\/upload\/(?:v\d+\/)?(.+?)\.[a-z0-9]+(?:\?.*)?$/i);
+    return match ? match[1] : null;
+};
 
 // Sidebar Navigation Component
 function SettingsSidebar({ activeTab, onSelectTab }) {
@@ -121,6 +128,12 @@ function AccountTab({ account, onChange, onSave }) {
 
 // Tab 2: Edit Info
 function EditInfoTab({ info, onChange, onSave, onError, isSaving }) {
+    const [videoLoadFailed, setVideoLoadFailed] = useState(false);
+
+    useEffect(() => {
+        setVideoLoadFailed(false);
+    }, [info.videoUrl]);
+
     const handleAvatarChange = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -251,17 +264,27 @@ function EditInfoTab({ info, onChange, onSave, onError, isSaving }) {
                 <div className="field-container">
                     <div className="video-upload-wrapper">
                         {info.videoUrl && (
-                            <video
-                                className="video-preview-player"
-                                src={info.videoUrl}
-                                controls
-                                loop
-                                muted
-                                preload="metadata"
-                                key={info.videoUrl}
-                            >
-                                Your browser does not support the video tag.
-                            </video>
+                            videoLoadFailed ? (
+                                <img
+                                    className="video-preview-player"
+                                    src={PLACEHOLDER_IMAGE_URL}
+                                    alt="Media could not be loaded"
+                                    style={{ objectFit: 'contain' }}
+                                />
+                            ) : (
+                                <video
+                                    className="video-preview-player"
+                                    src={info.videoUrl}
+                                    controls
+                                    loop
+                                    muted
+                                    preload="metadata"
+                                    key={info.videoUrl}
+                                    onError={() => setVideoLoadFailed(true)}
+                                >
+                                    Your browser does not support the video tag.
+                                </video>
+                            )
                         )}
                         <div className="upload-control-group">
                             <label htmlFor="videoFileInput" className="btn-upload">
@@ -395,11 +418,13 @@ function Settings() {
     // Profile info state
     const [profileInfo, setProfileInfo] = useState({
         avatar: DEFAULT_AVATAR_URL,
+        avatarPublicId: null,
         avatarName: "Default profile picture",
         avatarFile: null,
         status: "ACTIVE",
         about: "",
         videoUrl: "",
+        videoPublicId: null,
         videoName: "No video uploaded",
         videoFile: null
     });
@@ -443,7 +468,9 @@ function Settings() {
             let userTheme = authUser.theme || "light";
             let resolvedAvatar = authUser.avatarUrl || authUser.image || DEFAULT_AVATAR_URL;
             if (resolvedAvatar === '/ProfilePic/0.jpg') resolvedAvatar = DEFAULT_AVATAR_URL;
-            let resolvedVideoUrl = authUser.introVideoUrl || "";
+            let resolvedAvatarPublicId = authUser.avatarPublicId || authUser.avatar_public_id || null;
+            let resolvedVideoUrl = authUser.introVideoUrl || authUser.intro_video_url || "";
+            let resolvedVideoPublicId = authUser.introVideoPublicId || authUser.intro_video_public_id || null;
 
             try {
                 const userRes = await request.get(`/api/users/${userId}`);
@@ -464,12 +491,25 @@ function Settings() {
                         const candidateAvatar = uData.avatarUrl || uData.image;
                         resolvedAvatar = candidateAvatar === '/ProfilePic/0.jpg' ? DEFAULT_AVATAR_URL : candidateAvatar;
                     }
-                    if (uData.introVideoUrl) {
-                        resolvedVideoUrl = uData.introVideoUrl;
+                    if (uData.avatarPublicId || uData.avatar_public_id) {
+                        resolvedAvatarPublicId = uData.avatarPublicId || uData.avatar_public_id;
+                    }
+                    if (uData.introVideoUrl || uData.intro_video_url) {
+                        resolvedVideoUrl = uData.introVideoUrl || uData.intro_video_url;
+                    }
+                    if (uData.introVideoPublicId || uData.intro_video_public_id) {
+                        resolvedVideoPublicId = uData.introVideoPublicId || uData.intro_video_public_id;
                     }
                 }
             } catch (uErr) {
                 console.error(`Failed to fetch user details for ID ${userId}:`, uErr);
+            }
+
+            if (!resolvedAvatarPublicId && resolvedAvatar !== DEFAULT_AVATAR_URL) {
+                resolvedAvatarPublicId = extractCloudinaryPublicId(resolvedAvatar);
+            }
+            if (!resolvedVideoPublicId && resolvedVideoUrl) {
+                resolvedVideoPublicId = extractCloudinaryPublicId(resolvedVideoUrl);
             }
 
             setCurrentUser({
@@ -495,6 +535,7 @@ function Settings() {
             setProfileInfo(prev => ({
                 ...prev,
                 avatar: resolvedAvatar,
+                avatarPublicId: resolvedAvatarPublicId,
                 avatarName: resolvedAvatar === DEFAULT_AVATAR_URL
                     ? 'Default profile picture'
                     : 'Current profile picture',
@@ -502,6 +543,7 @@ function Settings() {
                 status: userStatus,
                 about: userAboutText,
                 videoUrl: resolvedVideoUrl,
+                videoPublicId: resolvedVideoPublicId,
                 videoName: resolvedVideoUrl ? 'Current intro video' : 'No video uploaded',
                 videoFile: null
             }));
@@ -596,8 +638,13 @@ function Settings() {
                 status: profileInfo.status || 'ACTIVE'
             };
 
+            const previousAvatarPublicId = profileInfo.avatarPublicId;
+            const previousVideoPublicId = profileInfo.videoPublicId;
+
             let updatedAvatarUrl = profileInfo.avatar;
+            let updatedAvatarPublicId = profileInfo.avatarPublicId;
             let updatedVideoUrl = profileInfo.videoUrl;
+            let updatedVideoPublicId = profileInfo.videoPublicId;
 
             // 1. Compress and upload new profile picture to Cloudinary if selected
             if (profileInfo.avatarFile) {
@@ -605,6 +652,7 @@ function Settings() {
                 payload.avatarUrl = avatarMedia.url;
                 payload.avatarPublicId = avatarMedia.publicId;
                 updatedAvatarUrl = avatarMedia.url;
+                updatedAvatarPublicId = avatarMedia.publicId;
             }
 
             // 2. Upload new introduction video to Cloudinary if selected
@@ -613,16 +661,42 @@ function Settings() {
                 payload.introVideoUrl = videoMedia.url;
                 payload.introVideoPublicId = videoMedia.publicId;
                 updatedVideoUrl = videoMedia.url;
+                updatedVideoPublicId = videoMedia.publicId;
             }
 
-            // 3. Persist profile updates + Cloudinary URLs to backend
+            // 3. Persist profile updates + new Cloudinary URLs to backend first
             await request.put(`/api/users/${currentUser.id}`, payload);
+
+            // 4. Delete replaced Cloudinary assets after database update succeeds
+            if (
+                profileInfo.avatarFile &&
+                previousAvatarPublicId &&
+                previousAvatarPublicId !== updatedAvatarPublicId
+            ) {
+                try {
+                    await deleteMediaFile(previousAvatarPublicId, 'image');
+                } catch (cleanupErr) {
+                    console.warn('Failed to delete previous avatar from Cloudinary:', cleanupErr);
+                }
+            }
+
+            if (
+                profileInfo.videoFile &&
+                previousVideoPublicId &&
+                previousVideoPublicId !== updatedVideoPublicId
+            ) {
+                try {
+                    await deleteMediaFile(previousVideoPublicId, 'video');
+                } catch (cleanupErr) {
+                    console.warn('Failed to delete previous intro video from Cloudinary:', cleanupErr);
+                }
+            }
 
             if (profileInfo.videoUrl && profileInfo.videoUrl.startsWith('blob:')) {
                 URL.revokeObjectURL(profileInfo.videoUrl);
             }
 
-            // 4. Refresh NavBar avatar and clear pending local file references
+            // 5. Refresh NavBar avatar and update stored public IDs
             setCurrentUser(prev => ({
                 ...prev,
                 image: updatedAvatarUrl
@@ -631,9 +705,11 @@ function Settings() {
             setProfileInfo(prev => ({
                 ...prev,
                 avatar: updatedAvatarUrl,
+                avatarPublicId: updatedAvatarPublicId,
                 avatarName: profileInfo.avatarFile ? 'Current profile picture' : prev.avatarName,
                 avatarFile: null,
                 videoUrl: updatedVideoUrl,
+                videoPublicId: updatedVideoPublicId,
                 videoName: profileInfo.videoFile ? 'Current intro video' : prev.videoName,
                 videoFile: null
             }));

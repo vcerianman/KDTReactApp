@@ -1,8 +1,6 @@
 import request from './Request';
 
-export const DUMMY_NOTIFICATIONS = [
-
-];
+export const DUMMY_NOTIFICATIONS = [];
 
 /**
  * Normalizes backend notification object to the format expected by UI
@@ -86,7 +84,7 @@ export function formatNotificationItem(item, usersMap = {}) {
  */
 export const getUserNotifications = async (userId, options = {}, usersMap = {}) => {
     if (!userId || userId === '?') {
-        return DUMMY_NOTIFICATIONS;
+        return [];
     }
 
     const { limit = 20, unreadOnly = false } = options;
@@ -112,10 +110,10 @@ export const getUserNotifications = async (userId, options = {}, usersMap = {}) 
         if (Array.isArray(rawList)) {
             return rawList.map(item => formatNotificationItem(item, usersMap)).filter(Boolean);
         }
-        return DUMMY_NOTIFICATIONS;
+        return [];
     } catch (error) {
-        console.warn(`GET /api/notifications/${userId} not ready yet, using dummy notifications:`, error?.message || error);
-        return DUMMY_NOTIFICATIONS;
+        console.warn(`GET /api/notifications/${userId} error:`, error?.message || error);
+        return [];
     }
 };
 
@@ -132,7 +130,7 @@ export const getNotifications = (userId, options = {}, usersMap = {}) => {
  */
 export const getUnreadNotificationCount = async (userId) => {
     if (!userId || userId === '?') {
-        return DUMMY_NOTIFICATIONS.filter(n => !n.read).length;
+        return 0;
     }
 
     try {
@@ -155,10 +153,10 @@ export const getUnreadNotificationCount = async (userId) => {
         if (count !== null && count !== undefined && !isNaN(Number(count))) {
             return Number(count);
         }
-        return DUMMY_NOTIFICATIONS.filter(n => !n.read).length;
+        return 0;
     } catch (error) {
-        console.warn(`GET /api/notifications/n/${userId} not ready yet:`, error?.message || error);
-        return DUMMY_NOTIFICATIONS.filter(n => !n.read).length;
+        console.warn(`GET /api/notifications/n/${userId} error:`, error?.message || error);
+        return 0;
     }
 };
 

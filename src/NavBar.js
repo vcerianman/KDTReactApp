@@ -9,8 +9,7 @@ import {
     openNotificationsStream,
     formatNotificationItem,
     markNotificationAsSeen,
-    markAllNotificationsAsSeen,
-    DUMMY_NOTIFICATIONS
+    markAllNotificationsAsSeen
 } from './api/notificationApi';
 
 function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/ProfilePic/0.jpg", userRole = "", role = "", theme = "", themeTransition = false }) {
@@ -19,7 +18,7 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
     // 1. SCRIPTS
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-    const [notifications, setNotifications] = useState(DUMMY_NOTIFICATIONS);
+    const [notifications, setNotifications] = useState([]);
     const [serverUnreadCount, setServerUnreadCount] = useState(null);
     const [usersMap, setUsersMap] = useState({
         '1': { username: 'KDT', fullname: 'KDT' },

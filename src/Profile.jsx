@@ -11,6 +11,7 @@ import request from './api/Request';
 import { getProjectStatusClass, resolveUserAvatar } from './utils';
 import { useTheme } from './useTheme';
 import { useCurrentUser, DEFAULT_AVATAR_URL } from './useCurrentUser';
+import { PLACEHOLDER_IMAGE_URL } from './api/cloudinaryUpload';
 
 // Section Reload Button Component
 function ReloadButton({ onReload, isLoading }) {
@@ -301,7 +302,12 @@ function ProfileTabs({ activeTab, onSelectTab }) {
 function AboutTab({ profile }) {
     const strengths = profile.about?.strengths || [];
     const email = profile.contacts?.email || '';
-    const videoUrl = profile.about?.videoUrl || '';
+    const videoUrl = profile.introVideoUrl || profile.intro_video_url || profile.about?.videoUrl || '';
+    const [videoLoadFailed, setVideoLoadFailed] = useState(false);
+
+    useEffect(() => {
+        setVideoLoadFailed(false);
+    }, [videoUrl]);
 
     return (
         <div id="profileTabAbout" className="profile-tab-panel">
@@ -330,10 +336,34 @@ function AboutTab({ profile }) {
                 <div className="content-card">
                     <h2 className="card-header">Video about me:</h2>
                     <div className="video-container">
-                        <video width="320" height="240" controls loop muted>
-                            <source src={videoUrl} type="video/mp4" />
-                            Your browser does not support the video tag.
-                        </video>
+                        {videoLoadFailed ? (
+                            <img
+                                src={PLACEHOLDER_IMAGE_URL}
+                                alt="Media could not be loaded"
+                                width="320"
+                                height="240"
+                                style={{
+                                    objectFit: 'contain',
+                                    maxWidth: '100%',
+                                    borderRadius: '2px',
+                                    border: '1px solid #e3e5e6'
+                                }}
+                            />
+                        ) : (
+                            <video
+                                width="320"
+                                height="240"
+                                src={videoUrl}
+                                controls
+                                loop
+                                muted
+                                preload="metadata"
+                                key={videoUrl}
+                                onError={() => setVideoLoadFailed(true)}
+                            >
+                                Your browser does not support the video tag.
+                            </video>
+                        )}
                     </div>
                 </div>
             )}
@@ -537,17 +567,20 @@ function Profile() {
                     ? new Date(data.created_at || data.createdAt).toLocaleDateString('en-GB')
                     : "01/01/2026";
 
+                const resolvedVideoUrl = data.introVideoUrl || data.intro_video_url || data.videoUrl || '';
+
                 setUserViewing({
                     ID: String(data.id || viewingId),
                     username_viewing: uname,
                     fullname_viewing: fname,
                     image: resolveUserAvatar(data),
                     avatarUrl: data.avatarUrl || data.avatar_url || undefined,
+                    introVideoUrl: resolvedVideoUrl,
                     role: data.role || "MEMBER",
                     status: data.status || "ACTIVE",
                     about: {
                         strengths: strengthsList,
-                        videoUrl: data.videoUrl || "ProfileVid.mp4"
+                        videoUrl: resolvedVideoUrl
                     },
                     contacts: {
                         email: data.email || `${uname.toLowerCase()}@example.com`

@@ -54,6 +54,35 @@ export function getPriorityTagClass(priority?: TaskPriority | null): string {
 export const DEFAULT_AVATAR_URL =
     'https://res.cloudinary.com/bs5wxybt/image/upload/v1795596240/b93vlbtifk49gy3jh2fn.png';
 
+export const PLACEHOLDER_IMAGE_URL =
+    'https://res.cloudinary.com/bs5wxybt/image/upload/v1795678455/yan5wfaktfzedhxsneiq.png';
+export const PLACEHOLDER_IMAGE_PUBLIC_ID = 'yan5wfaktfzedhxsneiq';
+
+/**
+ * Resolves a media content URL (images, attachments, etc.) from string or object fields,
+ * falling back to PLACEHOLDER_IMAGE_URL when missing or invalid.
+ */
+export function resolveMediaUrl(mediaOrUrl?: any, fallback: string = PLACEHOLDER_IMAGE_URL): string {
+    if (!mediaOrUrl) return fallback;
+    if (typeof mediaOrUrl === 'string') {
+        const trimmed = mediaOrUrl.trim();
+        return trimmed || fallback;
+    }
+    if (typeof mediaOrUrl === 'object') {
+        const candidate =
+            mediaOrUrl.image_url ||
+            mediaOrUrl.url ||
+            mediaOrUrl.imageUrl ||
+            mediaOrUrl.src ||
+            mediaOrUrl.mediaUrl ||
+            mediaOrUrl.media_url;
+        if (typeof candidate === 'string' && candidate.trim()) {
+            return candidate.trim();
+        }
+    }
+    return fallback;
+}
+
 /**
  * Resolves a user's avatar URL from cloud fields (`avatarUrl`/`avatar_url`) or legacy fields,
  * ignoring old `/ProfilePic/...` local paths and falling back to DEFAULT_AVATAR_URL.

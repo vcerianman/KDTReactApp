@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     useQuery,
@@ -10,6 +11,265 @@ import Notification from './Notification';
 import request from './api/Request';
 import { resolveUserAvatar, getProjectStatusClass } from './utils';
 import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
+import {
+    uploadPostImages,
+    deleteMediaFile,
+    PLACEHOLDER_IMAGE_URL,
+    PLACEHOLDER_IMAGE_PUBLIC_ID
+} from './api/cloudinaryUpload';
+
+const ALLOWED_POST_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_POST_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_POST_IMAGES = 4;
+
+function validateSelectedPostImages(rawFiles, currentCount, onError) {
+    const remainingSlots = Math.max(0, MAX_POST_IMAGES - currentCount);
+    if (remainingSlots === 0) return [];
+
+    const validFiles = [];
+    for (const file of Array.from(rawFiles || [])) {
+        if (!ALLOWED_POST_IMAGE_TYPES.includes(file.type)) {
+            onError?.('Images must be PNG, JPG, or WebP.');
+            continue;
+        }
+        if (file.size > MAX_POST_IMAGE_BYTES) {
+            onError?.(`"${file.name}" exceeds the 5 MB limit.`);
+            continue;
+        }
+        validFiles.push(file);
+        if (validFiles.length >= remainingSlots) break;
+    }
+    return validFiles;
+}
+
+async function uploadAndFormatPostImages(imageFiles) {
+    if (!imageFiles || imageFiles.length === 0) return [];
+    const uploadedImages = await uploadPostImages(imageFiles.slice(0, MAX_POST_IMAGES));
+    return uploadedImages.map((img, idx) => ({
+        image_url: img.url,
+        public_id: img.publicId || '',
+        display_order: Math.min(idx, 3)
+    }));
+}
+
+function PostImagesGrid({ images, keyPrefix, className = '', onImageClick }) {
+    if (!Array.isArray(images) || images.length === 0) return null;
+    const count = Math.min(images.length, MAX_POST_IMAGES);
+    return (
+        <div className={`post-images-grid post-images-count-${count}${className ? ` ${className}` : ''}`}>
+            {images.slice(0, MAX_POST_IMAGES).map((img, idx) => {
+                const rawSrc = typeof img === 'string'
+                    ? img
+                    : (img?.image_url || img?.url || img?.imageUrl || img?.src || '');
+                const imgSrc = typeof rawSrc === 'string' && rawSrc.trim()
+                    ? rawSrc.trim()
+                    : PLACEHOLDER_IMAGE_URL;
+                const altText = `Attachment ${idx + 1}`;
+                return (
+                    <button
+                        key={`${keyPrefix}-img-${img?.post_id ?? idx}-${idx}`}
+                        type="button"
+                        className="post-image-item"
+                        onClick={(e) => {
+                            const activeImg = e.currentTarget.querySelector('img');
+                            const activeSrc = activeImg?.currentSrc || activeImg?.src || imgSrc;
+                            onImageClick?.(activeSrc, altText, e.currentTarget);
+                        }}
+                        title="Click to view full image"
+                        aria-label={`Expand ${altText}`}
+                    >
+                        <img
+                            src={imgSrc}
+                            alt={altText}
+                            onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                            }}
+                        />
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+function computeLightboxTargetRect(naturalWidth, naturalHeight) {
+    const maxW = window.innerWidth * 0.9;
+    const maxH = window.innerHeight * 0.9;
+    const ratio = naturalWidth > 0 && naturalHeight > 0 ? naturalWidth / naturalHeight : 1;
+    let width = maxW;
+    let height = width / ratio;
+    if (height > maxH) {
+        height = maxH;
+        width = height * ratio;
+    }
+    return {
+        left: (window.innerWidth - width) / 2,
+        top: (window.innerHeight - height) / 2,
+        width,
+        height
+    };
+}
+
+function ImageLightboxModal({ lightbox, onClosed }) {
+    const [phase, setPhase] = useState('entering');
+    const [rect, setRect] = useState(() => lightbox?.sourceRect || { left: 0, top: 0, width: 0, height: 0 });
+    const phaseRef = useRef('entering');
+    const dimsRef = useRef({ w: lightbox?.naturalWidth || 0, h: lightbox?.naturalHeight || 0 });
+    const closeTimerRef = useRef(null);
+
+    const triggerClose = useCallback(() => {
+        if (!lightbox || phaseRef.current === 'closing') return;
+        phaseRef.current = 'closing';
+        setPhase('closing');
+
+        let returnRect = lightbox.sourceRect;
+        if (lightbox.sourceEl && document.body.contains(lightbox.sourceEl)) {
+            const liveRect = lightbox.sourceEl.getBoundingClientRect();
+            returnRect = {
+                left: liveRect.left,
+                top: liveRect.top,
+                width: liveRect.width,
+                height: liveRect.height
+            };
+        }
+        setRect(returnRect);
+
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = setTimeout(() => {
+            onClosed();
+        }, 320);
+    }, [lightbox, onClosed]);
+
+    useEffect(() => {
+        if (!lightbox) return undefined;
+        phaseRef.current = 'entering';
+        setPhase('entering');
+        setRect(lightbox.sourceRect);
+        dimsRef.current = { w: lightbox.naturalWidth || 0, h: lightbox.naturalHeight || 0 };
+
+        let raf1 = 0;
+        let raf2 = 0;
+        raf1 = requestAnimationFrame(() => {
+            raf2 = requestAnimationFrame(() => {
+                if (phaseRef.current === 'closing') return;
+                phaseRef.current = 'open';
+                setPhase('open');
+                setRect(computeLightboxTargetRect(dimsRef.current.w, dimsRef.current.h));
+            });
+        });
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                triggerClose();
+            }
+        };
+        const handleResize = () => {
+            if (phaseRef.current === 'open') {
+                setRect(computeLightboxTargetRect(dimsRef.current.w, dimsRef.current.h));
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            cancelAnimationFrame(raf1);
+            cancelAnimationFrame(raf2);
+            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [lightbox, triggerClose]);
+
+    if (!lightbox) return null;
+
+    return createPortal(
+        <div
+            className={`image-lightbox-overlay${phase === 'open' ? ' open' : ''}`}
+            onClick={triggerClose}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Expanded image preview"
+        >
+            <button
+                type="button"
+                className="image-lightbox-close-btn"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    triggerClose();
+                }}
+                title="Close"
+                aria-label="Close expanded image"
+            >
+                &times;
+            </button>
+
+            <div
+                className="image-lightbox-stage"
+                style={{
+                    left: `${rect.left}px`,
+                    top: `${rect.top}px`,
+                    width: `${rect.width}px`,
+                    height: `${rect.height}px`
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <img
+                    src={lightbox.src || PLACEHOLDER_IMAGE_URL}
+                    alt={lightbox.alt || 'Expanded attachment'}
+                    onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                    }}
+                    onLoad={(e) => {
+                        const nw = e.currentTarget.naturalWidth;
+                        const nh = e.currentTarget.naturalHeight;
+                        if (nw && nh && (nw !== dimsRef.current.w || nh !== dimsRef.current.h)) {
+                            dimsRef.current = { w: nw, h: nh };
+                            if (phaseRef.current === 'open') {
+                                setRect(computeLightboxTargetRect(nw, nh));
+                            }
+                        }
+                    }}
+                />
+            </div>
+        </div>,
+        document.body
+    );
+}
+
+function normalizePostImages(rawImages, postId = null) {
+    if (!Array.isArray(rawImages)) return [];
+    return [...rawImages]
+        .sort((a, b) => {
+            const orderA = typeof a === 'object' && a !== null ? (a.display_order ?? a.displayOrder ?? 0) : 0;
+            const orderB = typeof b === 'object' && b !== null ? (b.display_order ?? b.displayOrder ?? 0) : 0;
+            return Number(orderA) - Number(orderB);
+        })
+        .map((img, idx) => {
+            if (img === null || img === undefined) return null;
+            if (typeof img === 'string') {
+                const trimmed = img.trim();
+                return {
+                    post_id: postId,
+                    image_url: trimmed || PLACEHOLDER_IMAGE_URL,
+                    public_id: trimmed ? '' : PLACEHOLDER_IMAGE_PUBLIC_ID,
+                    display_order: idx
+                };
+            }
+            const rawUrl = img?.image_url || img?.url || img?.imageUrl || img?.src || '';
+            const imageUrl = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+            return {
+                post_id: img?.post_id ?? img?.postId ?? postId,
+                image_url: imageUrl || PLACEHOLDER_IMAGE_URL,
+                public_id: img?.public_id || img?.publicId || (imageUrl ? '' : PLACEHOLDER_IMAGE_PUBLIC_ID),
+                display_order: img?.display_order ?? img?.displayOrder ?? idx
+            };
+        })
+        .filter(Boolean)
+        .slice(0, 4);
+}
 
 // Reload button
 function ReloadButton({ onReload, isLoading, title = "Reload" }) {
@@ -493,23 +753,76 @@ function EditReplyModal({ isOpen, onClose, onSave, postId, reply, isSubmitting }
 }
 
 // Modal for Creating a New Discussion Post
-function CreatePostModal({ isOpen, onClose, onSubmit, projectTitle, isSubmitting }) {
+function CreatePostModal({ isOpen, onClose, onSubmit, onError, projectTitle, isSubmitting }) {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
+    const [postImages, setPostImages] = useState([]);
+    const postImageInputRef = useRef(null);
+    const postImagesRef = useRef([]);
+
+    useEffect(() => {
+        postImagesRef.current = postImages;
+    }, [postImages]);
 
     useEffect(() => {
         if (isOpen) {
             setTitle('');
             setContent('');
+            setPostImages((prev) => {
+                prev.forEach((img) => {
+                    if (img.url) URL.revokeObjectURL(img.url);
+                });
+                return [];
+            });
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        return () => {
+            postImagesRef.current.forEach((img) => {
+                if (img.url) URL.revokeObjectURL(img.url);
+            });
+        };
+    }, []);
+
     if (!isOpen) return null;
+
+    const handlePostImagesSelect = (e) => {
+        const files = validateSelectedPostImages(e.target.files, postImages.length, onError);
+        e.target.value = '';
+        if (files.length === 0) return;
+
+        setPostImages((prev) => {
+            const remainingSlots = Math.max(0, MAX_POST_IMAGES - prev.length);
+            if (remainingSlots === 0) return prev;
+            const toAdd = files.slice(0, remainingSlots).map((file, idx) => ({
+                id: `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`,
+                url: URL.createObjectURL(file),
+                name: file.name,
+                file
+            }));
+            return [...prev, ...toAdd];
+        });
+    };
+
+    const handleRemovePostImage = (imageId) => {
+        setPostImages((prev) => {
+            const target = prev.find((img) => img.id === imageId);
+            if (target?.url) {
+                URL.revokeObjectURL(target.url);
+            }
+            return prev.filter((img) => img.id !== imageId);
+        });
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!title.trim() || !content.trim()) return;
-        onSubmit(title.trim(), content.trim());
+        onSubmit(
+            title.trim(),
+            content.trim(),
+            postImages.map((img) => img.file).filter(Boolean)
+        );
     };
 
     return (
@@ -546,6 +859,60 @@ function CreatePostModal({ isOpen, onClose, onSubmit, projectTitle, isSubmitting
                             required
                         />
                     </div>
+                    <div className="form-group">
+                        <label className="form-label">Images</label>
+                        <div className="post-images-bar">
+                            <button
+                                type="button"
+                                className="reply-add-btn"
+                                title={postImages.length >= 4 ? 'Maximum 4 images reached' : 'Add images'}
+                                aria-label="Add images"
+                                disabled={isSubmitting || postImages.length >= 4}
+                                onClick={() => postImageInputRef.current?.click()}
+                            >
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                            </button>
+
+                            <input
+                                ref={postImageInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                multiple
+                                style={{ display: 'none' }}
+                                onChange={handlePostImagesSelect}
+                            />
+
+                            {postImages.length > 0 && (
+                                <div className="reply-images-preview-list">
+                                    {postImages.map((img) => (
+                                        <button
+                                            key={img.id}
+                                            type="button"
+                                            className="reply-image-preview-item post-image-preview-item"
+                                            onClick={() => handleRemovePostImage(img.id)}
+                                            title={`Remove ${img.name || 'image'}`}
+                                            aria-label={`Remove ${img.name || 'image'}`}
+                                        >
+                                            <img
+                                                src={img.url || PLACEHOLDER_IMAGE_URL}
+                                                alt={img.name || 'Post upload preview'}
+                                                onError={(e) => {
+                                                    e.currentTarget.onerror = null;
+                                                    e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                                                }}
+                                            />
+                                            <span className="reply-image-remove-overlay" aria-hidden="true">
+                                                &times;
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                     <div className="modal-btn-row">
                         <button type="button" className="btn-modal-cancel" onClick={onClose}>
                             Cancel
@@ -564,6 +931,8 @@ function CreatePostModal({ isOpen, onClose, onSubmit, projectTitle, isSubmitting
 function PostCard({
     post,
     onAddReply,
+    onImageClick,
+    onError,
     currentUser,
     usersMap,
     projectTitle,
@@ -577,6 +946,63 @@ function PostCard({
     const [replyText, setReplyText] = useState('');
     const [showAllReplies, setShowAllReplies] = useState(false);
     const [submittingReply, setSubmittingReply] = useState(false);
+    const [replyImages, setReplyImages] = useState([]);
+    const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+    const addMenuRef = useRef(null);
+    const imageInputRef = useRef(null);
+    const replyImagesRef = useRef([]);
+
+    useEffect(() => {
+        replyImagesRef.current = replyImages;
+    }, [replyImages]);
+
+    useEffect(() => {
+        return () => {
+            replyImagesRef.current.forEach((img) => {
+                if (img.url) URL.revokeObjectURL(img.url);
+            });
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isAddMenuOpen) return;
+        const handleOutsideClick = (e) => {
+            if (addMenuRef.current && !addMenuRef.current.contains(e.target)) {
+                setIsAddMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, [isAddMenuOpen]);
+
+    const handleReplyImagesSelect = (e) => {
+        const files = validateSelectedPostImages(e.target.files, replyImages.length, onError);
+        e.target.value = '';
+        if (files.length === 0) return;
+
+        setReplyImages((prev) => {
+            const remainingSlots = Math.max(0, MAX_POST_IMAGES - prev.length);
+            if (remainingSlots === 0) return prev;
+            const toAdd = files.slice(0, remainingSlots).map((file, idx) => ({
+                id: `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`,
+                url: URL.createObjectURL(file),
+                name: file.name,
+                file
+            }));
+            return [...prev, ...toAdd];
+        });
+        setIsAddMenuOpen(false);
+    };
+
+    const handleRemoveReplyImage = (imageId) => {
+        setReplyImages((prev) => {
+            const target = prev.find((img) => img.id === imageId);
+            if (target?.url) {
+                URL.revokeObjectURL(target.url);
+            }
+            return prev.filter((img) => img.id !== imageId);
+        });
+    };
 
     const replies = post.replies || [];
     // Show only the 2 newest replies unless showAllReplies is true
@@ -588,8 +1014,17 @@ function PostCard({
         if (!replyText.trim() || submittingReply) return;
         setSubmittingReply(true);
         try {
-            await onAddReply(post.id, replyText.trim());
-            setReplyText('');
+            const filesToUpload = replyImages.map((img) => img.file).filter(Boolean);
+            const ok = await onAddReply(post.id, replyText.trim(), filesToUpload);
+            if (ok) {
+                setReplyText('');
+                setReplyImages((prev) => {
+                    prev.forEach((img) => {
+                        if (img.url) URL.revokeObjectURL(img.url);
+                    });
+                    return [];
+                });
+            }
         } finally {
             setSubmittingReply(false);
         }
@@ -675,6 +1110,13 @@ function PostCard({
             {/* Post Title & Body */}
             <h3 className="post-title-text">{post.title}</h3>
             <p className="post-content-text">{post.content}</p>
+
+            {/* Post Images */}
+            <PostImagesGrid
+                images={post.images}
+                keyPrefix={post.id}
+                onImageClick={onImageClick}
+            />
 
             {/* Replies Section */}
             <div className="post-replies-container">
@@ -767,7 +1209,15 @@ function PostCard({
                                                 })}
                                             />
                                         </div>
-                                        <div className="reply-text-body">{reply.content}</div>
+                                        {reply.content && (
+                                            <div className="reply-text-body">{reply.content}</div>
+                                        )}
+                                        <PostImagesGrid
+                                            images={reply.images}
+                                            keyPrefix={reply.id}
+                                            className="reply-images-grid"
+                                            onImageClick={onImageClick}
+                                        />
                                     </div>
                                 </div>
                             );
@@ -777,6 +1227,47 @@ function PostCard({
 
                 {/* Reply Input Form */}
                 <form className="reply-input-row" onSubmit={handleReplySubmit}>
+                    <div className="reply-add-wrapper" ref={addMenuRef}>
+                        <button
+                            type="button"
+                            className="reply-add-btn"
+                            title="Add attachments"
+                            aria-label="Add attachments"
+                            onClick={() => setIsAddMenuOpen((prev) => !prev)}
+                            disabled={submittingReply}
+                        >
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                        </button>
+
+                        {isAddMenuOpen && (
+                            <div className="reply-add-popup" role="menu">
+                                <button
+                                    type="button"
+                                    className={`reply-add-popup-item${replyImages.length >= 4 ? ' disabled' : ''}`}
+                                    disabled={replyImages.length >= 4}
+                                    onClick={() => {
+                                        if (replyImages.length >= 4) return;
+                                        imageInputRef.current?.click();
+                                    }}
+                                >
+                                    Add Images
+                                </button>
+                            </div>
+                        )}
+
+                            <input
+                                ref={imageInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                multiple
+                                style={{ display: 'none' }}
+                                onChange={handleReplyImagesSelect}
+                            />
+                    </div>
+
                     <input
                         type="text"
                         className="reply-text-input"
@@ -785,6 +1276,34 @@ function PostCard({
                         onChange={(e) => setReplyText(e.target.value)}
                         disabled={submittingReply}
                     />
+
+                    {replyImages.length > 0 && (
+                        <div className="reply-images-preview-list">
+                            {replyImages.map((img) => (
+                                <button
+                                    key={img.id}
+                                    type="button"
+                                    className="reply-image-preview-item"
+                                    onClick={() => handleRemoveReplyImage(img.id)}
+                                    title={`Remove ${img.name || 'image'}`}
+                                    aria-label={`Remove ${img.name || 'image'}`}
+                                >
+                                    <img
+                                        src={img.url || PLACEHOLDER_IMAGE_URL}
+                                        alt={img.name || 'Reply upload preview'}
+                                        onError={(e) => {
+                                            e.currentTarget.onerror = null;
+                                            e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                                        }}
+                                    />
+                                    <span className="reply-image-remove-overlay" aria-hidden="true">
+                                        &times;
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     <button
                         type="submit"
                         className="reply-submit-btn"
@@ -975,14 +1494,22 @@ function CommunicationContent() {
             ? embeddedAvatar
             : (authorProfile?.image || DEFAULT_AVATAR_URL);
 
+        const rawImages = item.images || item.imageUrls || item.image_urls || item.attachments || (item.imageUrl ? [item.imageUrl] : []);
+        const images = normalizePostImages(rawImages, item.id || item._id || null);
+
         return {
             id: item.id || item._id,
+            reply: item.reply ?? null,
+            project_id: item.project_id ?? item.projectId ?? null,
             authorId: authorId,
             author: item.user?.fullname || item.fullname || uName,
             authorHandle: handle,
             avatar: resolvedAvatar,
             title: item.title || item.Title || '',
             content: item.description || item.Description || item.content || item.desc || '',
+            images,
+            created_at: item.created_at || item.createdAt || null,
+            updated_at: item.updated_at || item.updatedAt || null,
             timestamp: formatTimestamp(item.createdAt || item.created_at || item.timestamp),
             replies: []
         };
@@ -1143,15 +1670,20 @@ function CommunicationContent() {
             const repliesByParent = {};
 
             projectItems.forEach(item => {
-                const isReply = item.reply !== null && item.reply !== undefined && item.reply !== 0 && item.reply !== '';
+                const rawParent = item.reply ?? item.reply_id ?? item.replyId ?? null;
+                const isReply = rawParent !== null && rawParent !== undefined && rawParent !== 0 && rawParent !== '';
                 if (isReply) {
-                    const parentId = String(item.reply);
+                    const parentId = String(rawParent);
                     if (!repliesByParent[parentId]) {
                         repliesByParent[parentId] = [];
                     }
                     repliesByParent[parentId].push(formatPostItem(item));
                 } else {
-                    topLevelPosts.push(formatPostItem(item));
+                    const formatted = formatPostItem(item);
+                    if (Array.isArray(item.replies) && item.replies.length > 0) {
+                        formatted.replies = item.replies.map(formatPostItem);
+                    }
+                    topLevelPosts.push(formatted);
                 }
             });
 
@@ -1159,7 +1691,7 @@ function CommunicationContent() {
                 const nestedReplies = Array.isArray(post.replies) && post.replies.length > 0 ? post.replies : [];
                 const flatReplies = repliesByParent[String(post.id)] || [];
                 const allReplies = [...nestedReplies, ...flatReplies];
-                const uniqueReplies = Array.from(new Map(allReplies.map(r => [r.id, r])).values());
+                const uniqueReplies = Array.from(new Map(allReplies.map(r => [String(r.id), r])).values());
                 return {
                     ...post,
                     replies: uniqueReplies
@@ -1216,7 +1748,10 @@ function CommunicationContent() {
             );
             const isReply = rawParent !== null && rawParent !== undefined && rawParent !== 0 && rawParent !== '';
             const parentId = isReply ? String(rawParent) : null;
-            const formattedItem = formatPostItem(rawPost);
+            const formattedItem = {
+                ...formatPostItem(rawPost),
+                _receivedAt: Date.now()
+            };
 
             client.setQueryData(['commPosts', activeProjectId], (old = []) => {
                 if (!Array.isArray(old)) return old;
@@ -1225,23 +1760,61 @@ function CommunicationContent() {
                     return old.map(post => {
                         if (String(post.id) === parentId) {
                             const existingReplies = post.replies || [];
-                            const exists = existingReplies.some(r => String(r.id) === String(formattedItem.id));
-                            const updatedReplies = exists
-                                ? existingReplies.map(r => String(r.id) === String(formattedItem.id) ? { ...r, ...formattedItem } : r)
-                                : [...existingReplies, formattedItem];
+                            const existsById = existingReplies.some(r => String(r.id) === String(formattedItem.id));
+                            if (existsById) {
+                                return {
+                                    ...post,
+                                    replies: existingReplies.map(r =>
+                                        String(r.id) === String(formattedItem.id)
+                                            ? { ...r, ...formattedItem, _optimistic: false }
+                                            : r
+                                    )
+                                };
+                            }
+
+                            const optimisticIdx = existingReplies.findIndex(r =>
+                                r._optimistic &&
+                                String(r.content || '').trim() === String(formattedItem.content || '').trim() &&
+                                String(r.authorId || '') === String(formattedItem.authorId || '')
+                            );
+                            if (optimisticIdx !== -1) {
+                                const updatedReplies = [...existingReplies];
+                                updatedReplies[optimisticIdx] = formattedItem;
+                                return { ...post, replies: updatedReplies };
+                            }
+
                             return {
                                 ...post,
-                                replies: updatedReplies
+                                replies: [...existingReplies, formattedItem]
                             };
                         }
                         return post;
                     });
                 }
 
-                const exists = old.some(p => String(p.id) === String(formattedItem.id));
-                if (exists) {
-                    return old.map(p => String(p.id) === String(formattedItem.id) ? { ...p, ...formattedItem, replies: p.replies || [] } : p);
+                const existsById = old.some(p => String(p.id) === String(formattedItem.id));
+                if (existsById) {
+                    return old.map(p =>
+                        String(p.id) === String(formattedItem.id)
+                            ? { ...p, ...formattedItem, _optimistic: false, replies: p.replies || [] }
+                            : p
+                    );
                 }
+
+                const optimisticPostIdx = old.findIndex(p =>
+                    p._optimistic &&
+                    String(p.title || '').trim() === String(formattedItem.title || '').trim() &&
+                    String(p.content || '').trim() === String(formattedItem.content || '').trim()
+                );
+                if (optimisticPostIdx !== -1) {
+                    const next = [...old];
+                    next[optimisticPostIdx] = {
+                        ...formattedItem,
+                        replies: old[optimisticPostIdx].replies || []
+                    };
+                    return next;
+                }
+
                 return [{ ...formattedItem, replies: formattedItem.replies || [] }, ...old];
             });
 
@@ -1392,6 +1965,26 @@ function CommunicationContent() {
     const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
     const [submittingPost, setSubmittingPost] = useState(false);
     const [toast, setToast] = useState(null);
+    const [lightbox, setLightbox] = useState(null);
+
+    const handleOpenImageLightbox = useCallback((src, alt, sourceEl) => {
+        if (!src || !sourceEl) return;
+        const rect = sourceEl.getBoundingClientRect();
+        const imgEl = sourceEl.querySelector('img');
+        setLightbox({
+            src,
+            alt,
+            sourceEl,
+            sourceRect: {
+                left: rect.left,
+                top: rect.top,
+                width: rect.width,
+                height: rect.height
+            },
+            naturalWidth: imgEl?.naturalWidth || rect.width,
+            naturalHeight: imgEl?.naturalHeight || rect.height
+        });
+    }, []);
 
     // Project Users Modal state
     const [projectUsersModal, setProjectUsersModal] = useState({
@@ -1423,7 +2016,7 @@ function CommunicationContent() {
     const showLoading = loadingPosts && currentPosts === undefined;
 
     // Add New Post Handler
-    const handleCreatePost = async (title, content) => {
+    const handleCreatePost = async (title, content, imageFiles = []) => {
         if (!activeProjectId) return;
 
         const isUserBlocked = String(currentUser.status || '').toUpperCase() === 'BLOCKED' || String(currentUser.status || '').toUpperCase() === 'BANNED';
@@ -1434,17 +2027,19 @@ function CommunicationContent() {
 
         setSubmittingPost(true);
 
-        const payload = {
-            title: title.trim(),
-            description: content.trim(),
-            desc: content.trim(),
-            content: content.trim(),
-            reply: null,
-            project_id: isGlobalChat ? null : (Number(activeProjectId) || activeProjectId),
-            projectId: isGlobalChat ? null : (Number(activeProjectId) || activeProjectId)
-        };
-
         try {
+            const requestStartTime = Date.now();
+            const formattedImages = await uploadAndFormatPostImages(imageFiles);
+
+            const resolvedProjectId = isGlobalChat ? null : (Number(activeProjectId) || activeProjectId);
+            const payload = {
+                title: title.trim(),
+                description: content.trim(),
+                reply: null,
+                projectId: resolvedProjectId,
+                images: formattedImages
+            };
+
             let createdItem = null;
             let postError = null;
 
@@ -1465,20 +2060,51 @@ function CommunicationContent() {
             }
 
             const itemData = createdItem?.data || createdItem;
+            const createdPostId = itemData?.id ?? itemData?._id ?? itemData?.post?.id ?? null;
+            const responseImages = Array.isArray(itemData?.images) && itemData.images.length > 0
+                ? normalizePostImages(itemData.images, createdPostId)
+                : formattedImages.map((img) => ({
+                    post_id: createdPostId,
+                    image_url: img.image_url,
+                    public_id: img.public_id,
+                    display_order: img.display_order
+                }));
+
             const newPost = {
-                id: itemData?.id || Date.now(),
+                id: createdPostId || Date.now(),
+                _optimistic: !createdPostId,
+                reply: null,
+                project_id: resolvedProjectId,
                 authorId: String(currentUser.id || '1'),
                 author: currentUser.fullname || currentUser.username || 'User',
                 authorHandle: currentUser.username || 'User',
                 avatar: resolveUserAvatar(currentUser),
                 title,
                 content,
+                images: responseImages,
                 timestamp: 'Just now',
                 replies: []
             };
 
-            // Update TanStack query cache optimistically and invalidate
-            client.setQueryData(['commPosts', activeProjectId], (old = []) => [newPost, ...old]);
+            // Update TanStack query cache optimistically (deduplicating against SSE) and invalidate
+            client.setQueryData(['commPosts', activeProjectId], (old = []) => {
+                if (!Array.isArray(old)) return [newPost];
+                if (createdPostId && old.some(p => String(p.id) === String(createdPostId))) {
+                    return old.map(p =>
+                        String(p.id) === String(createdPostId)
+                            ? { ...newPost, ...p, replies: p.replies || [] }
+                            : p
+                    );
+                }
+                if (!createdPostId && old.some(p =>
+                    (p._receivedAt || 0) >= requestStartTime &&
+                    String(p.title || '').trim() === String(title || '').trim() &&
+                    String(p.content || '').trim() === String(content || '').trim()
+                )) {
+                    return old;
+                }
+                return [newPost, ...old];
+            });
             client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
 
             showToast('Post created successfully.', 'success');
@@ -1486,7 +2112,7 @@ function CommunicationContent() {
         } catch (err) {
             console.error('Failed to create post (POST /api/posts):', err);
             const errStatus = err.response?.status;
-            const errMessage = err.response?.data?.message || err.response?.data?.error ||
+            const errMessage = err.response?.data?.message || err.response?.data?.error || err?.message ||
                 (errStatus === 401 || errStatus === 403
                     ? 'You are not authorized to create posts.'
                     : 'Failed to create post. Please try again.');
@@ -1497,27 +2123,30 @@ function CommunicationContent() {
     };
 
     // Add Reply Handler
-    const handleAddReply = async (postId, replyContent) => {
-        if (!activeProjectId) return;
+    const handleAddReply = async (postId, replyContent, imageFiles = []) => {
+        if (!activeProjectId) return false;
+        if (!replyContent || !replyContent.trim()) return false;
 
         const isUserBlocked = String(currentUser.status || '').toUpperCase() === 'BLOCKED' || String(currentUser.status || '').toUpperCase() === 'BANNED';
         if (isUserBlocked) {
             showToast('You are blocked from sending replies.', 'error');
-            return;
+            return false;
         }
 
-        const payload = {
-            title: null,
-            description: replyContent.trim(),
-            desc: replyContent.trim(),
-            content: replyContent.trim(),
-            reply: Number(postId) || postId,
-            reply_id: Number(postId) || postId,
-            project_id: isGlobalChat ? null : (Number(activeProjectId) || activeProjectId),
-            projectId: isGlobalChat ? null : (Number(activeProjectId) || activeProjectId)
-        };
-
         try {
+            const requestStartTime = Date.now();
+            const formattedImages = await uploadAndFormatPostImages(imageFiles);
+            const resolvedProjectId = isGlobalChat ? null : (Number(activeProjectId) || activeProjectId);
+            const payload = {
+                title: null,
+                description: replyContent.trim(),
+                reply: Number(postId) || postId,
+                reply_id: Number(postId) || postId,
+                project_id: resolvedProjectId,
+                projectId: resolvedProjectId,
+                images: formattedImages
+            };
+
             let createdReply = null;
             let replyError = null;
 
@@ -1538,22 +2167,54 @@ function CommunicationContent() {
             }
 
             const rData = createdReply?.data || createdReply;
+            const createdReplyId = rData?.id ?? rData?._id ?? rData?.post?.id ?? null;
+            const responseImages = Array.isArray(rData?.images) && rData.images.length > 0
+                ? normalizePostImages(rData.images, createdReplyId)
+                : formattedImages.map((img) => ({
+                    post_id: createdReplyId,
+                    image_url: img.image_url,
+                    public_id: img.public_id,
+                    display_order: img.display_order
+                }));
+
             const newReply = {
-                id: rData?.id || Date.now(),
+                id: createdReplyId || Date.now(),
+                _optimistic: !createdReplyId,
+                reply: Number(postId) || postId,
+                project_id: resolvedProjectId,
                 authorId: String(currentUser.id || '1'),
                 author: currentUser.fullname || currentUser.username || 'User',
                 authorHandle: currentUser.username || 'User',
                 avatar: resolveUserAvatar(currentUser),
                 content: replyContent,
+                images: responseImages,
                 timestamp: 'Just now'
             };
 
             client.setQueryData(['commPosts', activeProjectId], (old = []) =>
                 old.map(p => {
                     if (String(p.id) === String(postId)) {
+                        const existingReplies = p.replies || [];
+                        if (createdReplyId && existingReplies.some(r => String(r.id) === String(createdReplyId))) {
+                            return {
+                                ...p,
+                                replies: existingReplies.map(r =>
+                                    String(r.id) === String(createdReplyId)
+                                        ? { ...newReply, ...r }
+                                        : r
+                                )
+                            };
+                        }
+                        if (!createdReplyId && existingReplies.some(r =>
+                            (r._receivedAt || 0) >= requestStartTime &&
+                            String(r.content || '').trim() === String(replyContent || '').trim() &&
+                            String(r.authorId || '') === String(newReply.authorId || '')
+                        )) {
+                            return p;
+                        }
                         return {
                             ...p,
-                            replies: [...(p.replies || []), newReply]
+                            replies: [...existingReplies, newReply]
                         };
                     }
                     return p;
@@ -1562,14 +2223,16 @@ function CommunicationContent() {
             client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
 
             showToast('Reply sent.', 'success');
+            return true;
         } catch (err) {
             console.error(`Failed to send reply to post ${postId}:`, err);
             const errStatus = err.response?.status;
-            const errMessage = err.response?.data?.message || err.response?.data?.error ||
+            const errMessage = err.response?.data?.message || err.response?.data?.error || err?.message ||
                 (errStatus === 401 || errStatus === 403
                     ? 'You are not authorized to send replies.'
                     : 'Failed to send reply. Please try again.');
             showToast(errMessage, 'error');
+            return false;
         }
     };
 
@@ -1581,6 +2244,39 @@ function CommunicationContent() {
         if (!window.confirm(`Are you sure you want to delete this ${label}?`)) {
             return;
         }
+
+        const deletedId = String(targetId);
+        const cachedPosts = client.getQueryData(['commPosts', activeProjectId]) || currentPosts || [];
+        const extractImagePublicIds = (item) => {
+            if (!item || !Array.isArray(item.images)) return [];
+            return item.images
+                .map((img) => (typeof img === 'object' && img !== null ? (img.public_id || img.publicId || '') : ''))
+                .filter((pubId) => Boolean(pubId) && pubId !== PLACEHOLDER_IMAGE_PUBLIC_ID);
+        };
+
+        const publicIdsToDestroy = [];
+        if (Array.isArray(cachedPosts)) {
+            if (type === 'reply') {
+                for (const p of cachedPosts) {
+                    const targetReply = (p.replies || []).find(r => String(r.id) === deletedId);
+                    if (targetReply) {
+                        publicIdsToDestroy.push(...extractImagePublicIds(targetReply));
+                        break;
+                    }
+                }
+            } else {
+                const targetPost = cachedPosts.find(p => String(p.id) === deletedId);
+                if (targetPost) {
+                    publicIdsToDestroy.push(...extractImagePublicIds(targetPost));
+                    if (Array.isArray(targetPost.replies)) {
+                        targetPost.replies.forEach((r) => {
+                            publicIdsToDestroy.push(...extractImagePublicIds(r));
+                        });
+                    }
+                }
+            }
+        }
+        const uniquePublicIds = [...new Set(publicIdsToDestroy)];
 
         try {
             let deleteError = null;
@@ -1601,7 +2297,16 @@ function CommunicationContent() {
                 throw deleteError;
             }
 
-            const deletedId = String(targetId);
+            if (uniquePublicIds.length > 0) {
+                await Promise.all(
+                    uniquePublicIds.map((pubId) =>
+                        deleteMediaFile(pubId, 'image').catch((cleanupErr) => {
+                            console.warn(`Failed to delete image (${pubId}) from Cloudinary:`, cleanupErr);
+                        })
+                    )
+                );
+            }
+
             client.setQueryData(['commPosts', activeProjectId], (old = []) => {
                 if (!Array.isArray(old)) return old;
                 return old
@@ -1947,6 +2652,8 @@ function CommunicationContent() {
                                             key={post.id}
                                             post={post}
                                             onAddReply={handleAddReply}
+                                            onImageClick={handleOpenImageLightbox}
+                                            onError={(msg) => showToast(msg, 'error')}
                                             currentUser={currentUser}
                                             usersMap={usersMap}
                                             projectTitle={activeProject?.title || (isGlobalChat ? 'Global Discussion' : 'Current Project')}
@@ -1981,6 +2688,7 @@ function CommunicationContent() {
                 isOpen={isCreatePostOpen}
                 onClose={() => setIsCreatePostOpen(false)}
                 onSubmit={handleCreatePost}
+                onError={(msg) => showToast(msg, 'error')}
                 projectTitle={activeProject?.title || (isGlobalChat ? 'Global Discussion' : 'Current Project')}
                 isSubmitting={submittingPost}
             />
@@ -2019,6 +2727,14 @@ function CommunicationContent() {
                 reply={editReplyModal.reply}
                 isSubmitting={false}
             />
+
+            {/* Expanded Image Lightbox */}
+            {lightbox && (
+                <ImageLightboxModal
+                    lightbox={lightbox}
+                    onClosed={() => setLightbox(null)}
+                />
+            )}
         </div>
     );
 }
