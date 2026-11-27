@@ -303,50 +303,8 @@
     justify-content: center;
     min-height: 200px;
     width: 100%;
+    flex: 1;
     margin: auto 0;
-}
-
-.projects-page-wrapper .section-reload-btn {
-    width: 52px;
-    height: 48px;
-    background-color: #f0f2f4;
-    border: 2px solid #b8bac0;
-    border-radius: 12px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.2s ease, transform 0.15s ease, background-color 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    outline: none;
-}
-
-.projects-page-wrapper .section-reload-btn:hover {
-    background-color: #e4e7ea;
-    border-color: #999da4;
-}
-
-.projects-page-wrapper .section-reload-btn:active {
-    opacity: 0.4;
-    transform: scale(0.94);
-}
-
-.projects-page-wrapper .section-reload-btn.loading {
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-.projects-page-wrapper .section-reload-btn.loading svg {
-    animation: reload-spin 1s linear infinite;
-}
-
-@keyframes reload-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
 }
 /* #endregion */
 
@@ -437,21 +395,6 @@
 
 .projects-page-wrapper.dark-mode .projects-scroll-wrapper::-webkit-scrollbar-thumb:hover {
     background: #5c626a;
-}
-
-/* Dark Mode Reload Button */
-.projects-page-wrapper.dark-mode .section-reload-btn {
-    background-color: #2c3034;
-    border-color: #4a4f54;
-}
-
-.projects-page-wrapper.dark-mode .section-reload-btn svg {
-    stroke: #b0b3b8;
-}
-
-.projects-page-wrapper.dark-mode .section-reload-btn:hover {
-    background-color: #383c40;
-    border-color: #60646c;
 }
 
 /* Disable all transitions during page load */

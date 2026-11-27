@@ -8,6 +8,7 @@ import {
 import './Task.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
+import TaskSkeleton from './TaskSkeleton';
 import request from './api/Request';
 import {
     getTaskPriorityClass,
@@ -19,33 +20,7 @@ import {
 import { useTheme } from './useTheme';
 import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
 import { sendTaskChangeNotification, sendMemberChangeNotification } from './api/notificationApi';
-
-// Section Reload Button Component matching the reload icon design
-function ReloadButton({ onReload, isLoading }) {
-    return (
-        <button
-            type="button"
-            className={`section-reload-btn ${isLoading ? 'loading' : ''}`}
-            onClick={onReload}
-            title="Reload tasks"
-            aria-label="Reload tasks"
-        >
-            <svg
-                viewBox="0 0 24 24"
-                width="28"
-                height="28"
-                fill="none"
-                stroke="#60646c"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-                <path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4" />
-                <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
-            </svg>
-        </button>
-    );
-}
+import ReloadButton, { useReloadTimeout } from './ReloadButton';
 
 // Priority Sorting Weights: URGENT (1) -> HIGH (2) -> MEDIUM (3) -> LOW (4)
 const PRIORITY_ORDER = {
@@ -1349,7 +1324,7 @@ async function fetchTasksPageData(currentUser) {
 // Inner Task Content with TanStack Query
 function TaskContent() {
     const { isDark } = useTheme();
-    const { currentUser } = useCurrentUser();
+    const { currentUser, refetch: refetchCurrentUser } = useCurrentUser();
     const [searchParams, setSearchParams] = useSearchParams();
     const client = useQueryClient();
 
@@ -1384,12 +1359,32 @@ function TaskContent() {
     const {
         data,
         isPending: loading,
+        isFetching,
         isError: loadError,
         refetch: fetchUserAndTasks
     } = useQuery({
         queryKey: taskQueryKey,
         queryFn: () => fetchTasksPageData(currentUser),
         enabled: Boolean(currentUser && currentUser.id !== '?'),
+    });
+
+    const handleTasksReload = useCallback(async () => {
+        if (!currentUser || currentUser.id === '?') {
+            await refetchCurrentUser();
+            return;
+        }
+        return fetchUserAndTasks({ cancelRefetch: true });
+    }, [currentUser, refetchCurrentUser, fetchUserAndTasks]);
+
+    const {
+        showReload: showTasksReload,
+        isReloading: isTasksReloading,
+        handleReload: onTasksReloadClick
+    } = useReloadTimeout({
+        loading: loading || isFetching,
+        error: loadError,
+        hasData: Boolean(data),
+        onReload: handleTasksReload
     });
 
     const projects = useMemo(() => data?.projects || [], [data?.projects]);
@@ -1807,15 +1802,13 @@ function TaskContent() {
                     onSearchChange={setSearchQuery}
                 />
 
-                {/* Error State with Centered Reload Button */}
-                {loadError ? (
+                {/* Error or Timeout State with Centered Reload Button */}
+                {showTasksReload ? (
                     <div className="tasks-reload-center-box">
-                        <ReloadButton onReload={fetchUserAndTasks} isLoading={loading} />
+                        <ReloadButton onReload={onTasksReloadClick} isLoading={isTasksReloading} title="Reload tasks" />
                     </div>
                 ) : loading ? (
-                    <div className="tasks-reload-center-box">
-                        <ReloadButton onReload={fetchUserAndTasks} isLoading={true} />
-                    </div>
+                    <TaskSkeleton tasksPerColumn={2} />
                 ) : isUnauthorized ? (
                     <div className="tasks-reload-center-box" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <div style={{

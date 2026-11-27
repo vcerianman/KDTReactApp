@@ -1,0 +1,149 @@
+/* ==========================================================================
+   Profile Page Skeleton Loading Styles
+   Scoped under .profile-page-wrapper to prevent style leaks.
+   Animation duration: 2s (matches HomeSkeleton, TaskSkeleton, UsersSkeleton)
+   ========================================================================== */
+
+@keyframes profileSkeletonFlash {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.profile-page-wrapper .profile-skeleton-box {
+    display: inline-block;
+    background: linear-gradient(
+        90deg,
+        #e2e5e9 25%,
+        #c8cdd4 50%,
+        #e2e5e9 75%
+    );
+    background-size: 200% 100%;
+    animation: profileSkeletonFlash 2s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+.profile-page-wrapper .profile-skeleton-header-card,
+.profile-page-wrapper .profile-skeleton-tab-bar,
+.profile-page-wrapper .profile-skeleton-content-card {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Header Card Skeleton */
+.profile-page-wrapper .profile-skeleton-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 2px;
+    display: block;
+}
+
+.profile-page-wrapper .profile-skeleton-fullname {
+    display: block;
+    width: 220px;
+    max-width: 60%;
+    height: 24px;
+    margin-bottom: 6px;
+}
+
+.profile-page-wrapper .profile-skeleton-username {
+    display: block;
+    width: 130px;
+    max-width: 40%;
+    height: 14px;
+    margin-bottom: 12px;
+}
+
+.profile-page-wrapper .profile-skeleton-role {
+    display: block;
+    width: 110px;
+    max-width: 35%;
+    height: 15px;
+    margin-bottom: 16px;
+}
+
+.profile-page-wrapper .profile-skeleton-status {
+    width: 76px;
+    height: 14px;
+}
+
+.profile-page-wrapper .profile-skeleton-vote-btn {
+    width: 36px;
+    height: 32px;
+    border-radius: 6px;
+}
+
+.profile-page-wrapper .profile-skeleton-vote-count {
+    width: 24px;
+    height: 12px;
+}
+
+.profile-page-wrapper .profile-skeleton-vote-bar {
+    width: 120px;
+    height: 8px;
+    border-radius: 2px;
+}
+
+/* Tab Bar Skeleton */
+.profile-page-wrapper .profile-skeleton-tab-item {
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-page-wrapper .profile-skeleton-tab-label {
+    width: 68px;
+    height: 14px;
+}
+
+/* Content Cards Skeleton */
+.profile-page-wrapper .profile-skeleton-card-title {
+    display: block;
+    width: 130px;
+    height: 20px;
+    margin-bottom: 14px;
+}
+
+.profile-page-wrapper .profile-skeleton-line {
+    display: block;
+    height: 14px;
+    margin-bottom: 8px;
+}
+
+.profile-page-wrapper .profile-skeleton-line.w-65 {
+    width: 65%;
+}
+
+.profile-page-wrapper .profile-skeleton-line.w-50 {
+    width: 50%;
+}
+
+.profile-page-wrapper .profile-skeleton-line.w-58 {
+    width: 58%;
+    margin-bottom: 0;
+}
+
+.profile-page-wrapper .profile-skeleton-contact-btn {
+    width: 92px;
+    height: 30px;
+    border-radius: 6px;
+}
+
+.profile-page-wrapper .profile-skeleton-contact-text {
+    display: block;
+    width: 220px;
+    max-width: 75%;
+    height: 14px;
+}
+
+/* ── Dark Mode ─────────────────────────────────────────────────────────────── */
+.profile-page-wrapper.dark-mode .profile-skeleton-box {
+    background: linear-gradient(
+        90deg,
+        #3a3f45 25%,
+        #2b2f34 50%,
+        #3a3f45 75%
+    );
+    background-size: 200% 100%;
+    animation: profileSkeletonFlash 2s ease-in-out infinite;
+}

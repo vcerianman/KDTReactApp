@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
     useQuery,
+    useInfiniteQuery,
     useQueryClient
 } from '@tanstack/react-query';
 import './AdminPanel.css';
@@ -11,32 +12,27 @@ import request from './api/Request';
 import { resolveUserAvatar, getProjectStatusClass, getPriorityTagClass } from './utils';
 import { useTheme } from './useTheme';
 import { useCurrentUser, DEFAULT_AVATAR_URL } from './useCurrentUser';
+import AdminProjectCardSkeleton from './AdminProjectCardSkeleton';
+import ReloadButton, { useReloadTimeout } from './ReloadButton';
 
-// Section Reload Button Component matching the universal reload icon design
-function ReloadButton({ onReload, isLoading }) {
-    return (
-        <button
-            type="button"
-            className={`section-reload-btn ${isLoading ? 'loading' : ''}`}
-            onClick={onReload}
-            title="Reload"
-            aria-label="Reload"
-        >
-            <svg
-                viewBox="0 0 24 24"
-                width="28"
-                height="28"
-                fill="none"
-                stroke="#60646c"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-                <path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4" />
-                <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
-            </svg>
-        </button>
-    );
+// Wrapper that handles 10s load timeout / error state with centered ReloadButton
+function AdminTabPanelSection({ loading, error, hasData, onReload, title = 'Reload', children }) {
+    const { showReload, isReloading, handleReload } = useReloadTimeout({
+        loading,
+        error,
+        hasData,
+        onReload
+    });
+
+    if (showReload) {
+        return (
+            <div className="admin-reload-center-box">
+                <ReloadButton onReload={handleReload} isLoading={isReloading} title={title} />
+            </div>
+        );
+    }
+
+    return children;
 }
 
 // Action Menu with Edit, Manage Users, Archive, Delete
@@ -917,6 +913,7 @@ function DeleteConfirmModal({ project, onConfirm, onCancel }) {
 // Edit Projects Tab Content
 function ProjectsTabContent({
     projects,
+    loading,
     searchQuery,
     onSearchChange,
     onEditProject,
@@ -952,7 +949,11 @@ function ProjectsTabContent({
 
             {/* Global Projects List */}
             <div className="projects-scroll-wrapper">
-                {filteredProjects.length > 0 ? (
+                {loading && projects.length === 0 ? (
+                    Array.from({ length: 8 }, (_, idx) => (
+                        <AdminProjectCardSkeleton key={`project-skeleton-${idx}`} />
+                    ))
+                ) : filteredProjects.length > 0 ? (
                     filteredProjects.map((project) => (
                         <ProjectCardItem
                             key={project.id}
@@ -1478,7 +1479,7 @@ function TaskActionMenu({ task, onEdit, onToggleCancel, onDelete }) {
 }
 
 // Single Admin Task Card Component matching provided mockup design
-function AdminTaskCardItem({ task, onEdit, onToggleCancel, onDelete }) {
+function AdminTaskCardItem({ task, onEdit, onToggleCancel, onDelete, cardRef }) {
     const priority = (task.priority || 'MEDIUM').toUpperCase();
     const status = (task.status || 'TODO').toUpperCase();
 
@@ -1497,7 +1498,7 @@ function AdminTaskCardItem({ task, onEdit, onToggleCancel, onDelete }) {
     const tagClass = getPriorityTagClass(priority);
 
     return (
-        <div className={`admin-task-card-item ${borderClass}`} data-task-id={task.id}>
+        <div ref={cardRef} className={`admin-task-card-item ${borderClass}`} data-task-id={task.id}>
             {/* Left: ID + Title, Priority Tag, Status */}
             <div className="admin-task-left-section">
                 <div className="admin-task-id-badge">{task.id}</div>
@@ -1561,16 +1562,40 @@ function TasksTabContent({
     onToggleCancelTask,
     onDeleteTask,
     onCreateTask,
-    loading
+    loading,
+    hasMore,
+    isFetchingMore,
+    onLoadMore
 }) {
-    const filteredTasks = (tasks || [])
-        .filter(task => {
-            const query = searchQuery.toLowerCase().trim();
-            if (!query) return true;
-            const fullText = `${task.id} ${task.title} ${task.projectTitle || ''} ${task.projectId || ''} ${task.assignee || ''} ${task.assigner || ''} ${task.priority || ''} ${task.status || ''} ${task.description || ''} ${task.dates || ''}`.toLowerCase();
-            return fullText.includes(query);
-        })
-        .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+    const triggerCardRef = useRef(null);
+
+    const filteredTasks = (tasks || []).filter(task => {
+        const query = searchQuery.toLowerCase().trim();
+        if (!query) return true;
+        const fullText = `${task.id} ${task.title} ${task.projectTitle || ''} ${task.projectId || ''} ${task.assignee || ''} ${task.assigner || ''} ${task.priority || ''} ${task.status || ''} ${task.description || ''} ${task.dates || ''}`.toLowerCase();
+        return fullText.includes(query);
+    });
+
+    const triggerIndex = filteredTasks.length > 0 ? Math.max(0, filteredTasks.length - 3) : -1;
+
+    useEffect(() => {
+        const targetEl = triggerCardRef.current;
+        if (!targetEl || !hasMore || isFetchingMore || loading || typeof IntersectionObserver === 'undefined') {
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    onLoadMore?.();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        observer.observe(targetEl);
+        return () => observer.disconnect();
+    }, [filteredTasks.length, hasMore, isFetchingMore, loading, onLoadMore]);
 
     return (
         <div>
@@ -1604,15 +1629,23 @@ function TasksTabContent({
                         <p style={{ fontSize: '15px' }}>Loading global tasks...</p>
                     </div>
                 ) : filteredTasks.length > 0 ? (
-                    filteredTasks.map((task) => (
-                        <AdminTaskCardItem
-                            key={task.id}
-                            task={task}
-                            onEdit={onEditTask}
-                            onToggleCancel={onToggleCancelTask}
-                            onDelete={onDeleteTask}
-                        />
-                    ))
+                    <>
+                        {filteredTasks.map((task, idx) => (
+                            <AdminTaskCardItem
+                                key={task.id}
+                                task={task}
+                                onEdit={onEditTask}
+                                onToggleCancel={onToggleCancelTask}
+                                onDelete={onDeleteTask}
+                                cardRef={idx === triggerIndex ? triggerCardRef : undefined}
+                            />
+                        ))}
+                        {isFetchingMore && (
+                            <div style={{ textAlign: 'center', padding: '16px 0', color: '#888888', fontSize: '14px' }}>
+                                Loading more tasks...
+                            </div>
+                        )}
+                    </>
                 ) : (
                     <div style={{ textAlign: 'center', padding: '40px 0', color: '#888888' }}>
                         <p style={{ fontSize: '15px' }}>No tasks found matching "{searchQuery}".</p>
@@ -2716,13 +2749,16 @@ function AdminPanelContent() {
     const {
         currentUser,
         isAuthorizedAdmin,
-        isLoading: authChecking
+        isLoading: authChecking,
+        isFetching: authFetching,
+        refetch: refetchCurrentUser
     } = useCurrentUser();
 
     // 2. TanStack Query: Global Users List
     const {
         data: usersList = [],
         isLoading: loadingUsers,
+        isFetching: fetchingUsers,
         isError: usersError,
         refetch: fetchUsers
     } = useQuery({
@@ -2760,6 +2796,7 @@ function AdminPanelContent() {
     const {
         data: projects = [],
         isLoading: loading,
+        isFetching: fetchingProjects,
         isError: projectsError,
         refetch: fetchAllProjects
     } = useQuery({
@@ -2832,65 +2869,111 @@ function AdminPanelContent() {
         enabled: isAuthorizedAdmin
     });
 
-    // 4. TanStack Query: Global Tasks List
+    // 4. TanStack Query: Cursor-Paginated Global Tasks List (10 per page)
     const {
-        data: adminTasks = [],
+        data: adminTasksData,
         isLoading: tasksLoading,
+        isFetching: fetchingTasks,
         isError: tasksError,
+        fetchNextPage: fetchMoreTasks,
+        hasNextPage: hasMoreTasks,
+        isFetchingNextPage: loadingMoreTasks,
         refetch: fetchAllTasks
-    } = useQuery({
+    } = useInfiniteQuery({
         queryKey: ['adminTasks'],
-        queryFn: async () => {
-            let projs = [];
-            try {
-                const pData = await request.get('/api/projects');
-                projs = Array.isArray(pData) ? pData : (pData && Array.isArray(pData.data) ? pData.data : []);
-            } catch (pErr) {
-                console.error('Failed to get projects for task fetching:', pErr);
-            }
+        initialPageParam: null,
+        queryFn: async ({ pageParam }) => {
+            const url = pageParam !== null && pageParam !== undefined
+                ? `/api/tasks?cursor=${encodeURIComponent(pageParam)}&limit=10`
+                : '/api/tasks?limit=10';
+            const res = await request.get(url);
 
-            let allTasks = [];
-            if (projs && projs.length > 0) {
-                const taskPromises = projs.map(async (p) => {
-                    const projId = p.id;
-                    const projTitle = p.title || p.name || `Project ${projId}`;
-                    try {
-                        const taskRes = await request.get(`/api/projects/${projId}/tasks`);
-                        const tList = Array.isArray(taskRes) ? taskRes : (taskRes && Array.isArray(taskRes.data) ? taskRes.data : []);
-                        return tList.map(t => {
-                            const parsed = parseStartAndDueDate(t);
-                            const datesFormatted = t.dates || (parsed.startDate && parsed.dueDate
-                                ? `${parsed.startDate} - ${parsed.dueDate}`
-                                : (parsed.startDate || parsed.dueDate || ''));
+            const rawList = Array.isArray(res)
+                ? res
+                : (Array.isArray(res?.tasks)
+                    ? res.tasks
+                    : (Array.isArray(res?.items)
+                        ? res.items
+                        : (Array.isArray(res?.content)
+                            ? res.content
+                            : (Array.isArray(res?.data) ? res.data : []))));
 
-                            return {
-                                id: String(t.id || t._id || ''),
-                                title: t.title || t.name || 'Task',
-                                priority: (t.priority || 'MEDIUM').toUpperCase(),
-                                status: (t.status || 'TODO').toUpperCase(),
-                                projectId: String(projId),
-                                projectTitle: projTitle,
-                                description: t.description || t.desc || '',
-                                assignee: t.assignee || t.assignedTo || t.userName || t.username || 'No One',
-                                assigner: t.assigner || t.createdBy || t.owner || 'KDT',
-                                startDate: parsed.startDate,
-                                dueDate: parsed.dueDate,
-                                dates: datesFormatted
-                            };
-                        });
-                    } catch (tErr) {
-                        console.error(`Failed to fetch tasks for project ${projId}:`, tErr);
-                        return [];
-                    }
-                });
+            const nextCursor = res?.nextCursor ?? res?.next_cursor ?? null;
+            const hasMore = typeof res?.hasMore === 'boolean'
+                ? res.hasMore
+                : (typeof res?.has_more === 'boolean'
+                    ? res.has_more
+                    : (nextCursor !== null && nextCursor !== undefined && rawList.length > 0));
 
-                const results = await Promise.all(taskPromises);
-                allTasks = results.flat().sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-            }
-            return allTasks;
+            return {
+                tasks: rawList,
+                nextCursor,
+                hasMore
+            };
         },
+        getNextPageParam: (lastPage) => (
+            lastPage?.hasMore && lastPage?.nextCursor !== null && lastPage?.nextCursor !== undefined
+                ? lastPage.nextCursor
+                : undefined
+        ),
         enabled: isAuthorizedAdmin
     });
+
+    const projectTitleById = useMemo(() => {
+        const map = {};
+        (projects || []).forEach((p) => {
+            if (p?.id) {
+                map[String(p.id)] = p.title || p.name || `Project ${p.id}`;
+            }
+        });
+        return map;
+    }, [projects]);
+
+    const adminTasks = useMemo(() => {
+        const pages = adminTasksData?.pages || [];
+        const seen = new Set();
+        const flattened = [];
+
+        pages.forEach((page) => {
+            (page?.tasks || []).forEach((t) => {
+                const taskId = String(t.id || t._id || '');
+                if (taskId && seen.has(taskId)) return;
+                if (taskId) seen.add(taskId);
+
+                const projId = String(t.projectId ?? t.project_id ?? t.project?.id ?? '');
+                const projTitle = t.projectTitle
+                    || t.project_title
+                    || t.projectName
+                    || t.project_name
+                    || t.project?.title
+                    || t.project?.name
+                    || (projId ? projectTitleById[projId] : '')
+                    || (projId ? `Project ${projId}` : 'Project');
+
+                const parsed = parseStartAndDueDate(t);
+                const datesFormatted = t.dates || (parsed.startDate && parsed.dueDate
+                    ? `${parsed.startDate} - ${parsed.dueDate}`
+                    : (parsed.startDate || parsed.dueDate || ''));
+
+                flattened.push({
+                    id: taskId,
+                    title: t.title || t.name || 'Task',
+                    priority: (t.priority || 'MEDIUM').toUpperCase(),
+                    status: (t.status || 'TODO').toUpperCase(),
+                    projectId: projId,
+                    projectTitle: projTitle,
+                    description: t.description || t.desc || '',
+                    assignee: t.assignee || t.assignedTo || t.userName || t.username || 'No One',
+                    assigner: t.assigner || t.createdBy || t.owner || 'KDT',
+                    startDate: parsed.startDate,
+                    dueDate: parsed.dueDate,
+                    dates: datesFormatted
+                });
+            });
+        });
+
+        return flattened;
+    }, [adminTasksData, projectTitleById]);
 
 
 
@@ -2901,6 +2984,7 @@ function AdminPanelContent() {
     const {
         data: appealsList = [],
         isLoading: appealsLoading,
+        isFetching: fetchingAppeals,
         isError: appealsError,
         refetch: fetchAppeals
     } = useQuery({
@@ -2939,6 +3023,7 @@ function AdminPanelContent() {
     const {
         data: reportsList = [],
         isLoading: reportsLoading,
+        isFetching: fetchingReports,
         isError: reportsError,
         refetch: fetchReports
     } = useQuery({
@@ -3586,7 +3671,18 @@ function AdminPanelContent() {
     const normalizedRole = String(currentUser.role || '').toUpperCase();
     const isAuthorized = normalizedRole.includes('ADMIN') || normalizedRole.includes('GOD');
 
-    // 1. While auth is checking: display clean blank page with navbar
+    const {
+        showReload: showAuthReload,
+        isReloading: isAuthReloading,
+        handleReload: onAuthReloadClick
+    } = useReloadTimeout({
+        loading: authChecking || authFetching,
+        error: false,
+        hasData: !authChecking,
+        onReload: () => refetchCurrentUser({ cancelRefetch: true })
+    });
+
+    // 1. While auth is checking: display clean blank page with navbar (or reload button after 10s)
     if (authChecking) {
         return (
             <div className={`admin-panel-page-wrapper${isDark ? ' dark-mode' : ''}`}>
@@ -3600,6 +3696,11 @@ function AdminPanelContent() {
                         theme={isDark ? 'dark' : 'light'}
                     />
                 </div>
+                {showAuthReload && (
+                    <div className="unauthorized-container">
+                        <ReloadButton onReload={onAuthReloadClick} isLoading={isAuthReloading} title="Reload" />
+                    </div>
+                )}
             </div>
         );
     }
@@ -3621,7 +3722,11 @@ function AdminPanelContent() {
 
                 <div className="unauthorized-container">
                     <div className="unauthorized-message">Failed To load content</div>
-                    <ReloadButton onReload={() => { }} isLoading={false} />
+                    <ReloadButton
+                        onReload={() => refetchCurrentUser({ cancelRefetch: true })}
+                        isLoading={authFetching}
+                        title="Reload"
+                    />
                 </div>
             </div>
         );
@@ -3699,17 +3804,16 @@ function AdminPanelContent() {
                 {/* Main White Content Card */}
                 <div className="admin-main-card">
                     {activeTab === 'projects' && (
-                        projectsError ? (
-                            <div className="admin-reload-center-box">
-                                <ReloadButton onReload={fetchAllProjects} isLoading={loading} />
-                            </div>
-                        ) : loading && projects.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '60px 0', color: '#888888' }}>
-                                <p style={{ fontSize: '16px' }}>Loading global projects...</p>
-                            </div>
-                        ) : (
+                        <AdminTabPanelSection
+                            loading={loading || fetchingProjects}
+                            error={projectsError}
+                            hasData={projects.length > 0}
+                            onReload={() => fetchAllProjects({ cancelRefetch: true })}
+                            title="Reload projects"
+                        >
                             <ProjectsTabContent
                                 projects={projects}
+                                loading={loading}
                                 searchQuery={projectSearch}
                                 onSearchChange={setProjectSearch}
                                 onEditProject={handleEditProject}
@@ -3718,15 +3822,17 @@ function AdminPanelContent() {
                                 onDeleteProject={handleDeleteProject}
                                 onOpenProjectUsers={handleOpenProjectUsers}
                             />
-                        )
+                        </AdminTabPanelSection>
                     )}
 
                     {activeTab === 'tasks' && (
-                        tasksError ? (
-                            <div className="admin-reload-center-box">
-                                <ReloadButton onReload={fetchAllTasks} isLoading={tasksLoading} />
-                            </div>
-                        ) : (
+                        <AdminTabPanelSection
+                            loading={tasksLoading || fetchingTasks}
+                            error={tasksError}
+                            hasData={adminTasks.length > 0}
+                            onReload={() => fetchAllTasks({ cancelRefetch: true })}
+                            title="Reload tasks"
+                        >
                             <TasksTabContent
                                 tasks={adminTasks}
                                 searchQuery={taskSearch}
@@ -3736,16 +3842,21 @@ function AdminPanelContent() {
                                 onDeleteTask={handleDeleteTask}
                                 onCreateTask={() => setIsCreateTaskOpen(true)}
                                 loading={tasksLoading}
+                                hasMore={Boolean(hasMoreTasks)}
+                                isFetchingMore={loadingMoreTasks}
+                                onLoadMore={fetchMoreTasks}
                             />
-                        )
+                        </AdminTabPanelSection>
                     )}
 
                     {activeTab === 'users' && (
-                        usersError ? (
-                            <div className="admin-reload-center-box">
-                                <ReloadButton onReload={fetchUsers} isLoading={loadingUsers} />
-                            </div>
-                        ) : (
+                        <AdminTabPanelSection
+                            loading={loadingUsers || fetchingUsers}
+                            error={usersError}
+                            hasData={adminUsers.length > 0}
+                            onReload={() => fetchUsers({ cancelRefetch: true })}
+                            title="Reload users"
+                        >
                             <UsersTabContent
                                 users={adminUsers}
                                 searchQuery={userSearch}
@@ -3757,16 +3868,17 @@ function AdminPanelContent() {
                                 loading={loadingUsers}
                                 currentUserRole={currentUser.role}
                             />
-                        )
+                        </AdminTabPanelSection>
                     )}
 
-
                     {activeTab === 'reports' && (
-                        reportsError ? (
-                            <div className="admin-reload-center-box">
-                                <ReloadButton onReload={fetchReports} isLoading={reportsLoading} />
-                            </div>
-                        ) : (
+                        <AdminTabPanelSection
+                            loading={reportsLoading || fetchingReports}
+                            error={reportsError}
+                            hasData={reportsList.length > 0}
+                            onReload={() => fetchReports({ cancelRefetch: true })}
+                            title="Reload reports"
+                        >
                             <ReportsTabContent
                                 reports={reportsList}
                                 searchQuery={reportSearch}
@@ -3774,15 +3886,17 @@ function AdminPanelContent() {
                                 onViewReport={(report) => setViewingReport(report)}
                                 loading={reportsLoading}
                             />
-                        )
+                        </AdminTabPanelSection>
                     )}
 
                     {activeTab === 'appeals' && (
-                        appealsError ? (
-                            <div className="admin-reload-center-box">
-                                <ReloadButton onReload={fetchAppeals} isLoading={appealsLoading} />
-                            </div>
-                        ) : (
+                        <AdminTabPanelSection
+                            loading={appealsLoading || fetchingAppeals}
+                            error={appealsError}
+                            hasData={appealsList.length > 0}
+                            onReload={() => fetchAppeals({ cancelRefetch: true })}
+                            title="Reload appeals"
+                        >
                             <AppealsTabContent
                                 appeals={appealsList}
                                 searchQuery={appealSearch}
@@ -3792,7 +3906,7 @@ function AdminPanelContent() {
                                 onRejectAppeal={handleRejectAppeal}
                                 loading={appealsLoading}
                             />
-                        )
+                        </AdminTabPanelSection>
                     )}
                 </div>
             </div>

@@ -14,7 +14,7 @@ import {
 
 function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/ProfilePic/0.jpg", userRole = "", role = "", theme = "", themeTransition = false }) {
     const navigate = useNavigate();
-    const { currentUser: cachedUser } = useCurrentUser();
+    const { currentUser: cachedUser, invalidateCurrentUser } = useCurrentUser();
     // 1. SCRIPTS
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -47,6 +47,16 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
     const searchRef = useRef(null);
 
     const activeUserId = currentUserId && currentUserId !== '?' ? currentUserId : (cachedUser?.id && cachedUser.id !== '?' ? cachedUser.id : null);
+
+    // If a token is present but we still have no resolved user (e.g. right after login navigates here),
+    // force-invalidate the React Query cache so the NavBar re-fetches /api/auth/me immediately.
+    useEffect(() => {
+        if (activeUserId) return; // already resolved
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        if (token) {
+            invalidateCurrentUser();
+        }
+    }, [activeUserId, invalidateCurrentUser]);
 
     // Fetch user directory to resolve actorId -> @username in notifications
     useEffect(() => {
@@ -778,8 +788,54 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
                     </div>
                 </div>
 
-                {/* Right section: Profile badge, Notifications, Settings */}
+                {/* Right section: Auth buttons (logged out) OR Profile badge, Notifications, Settings (logged in) */}
                 <div className="nav-right" style={styles.navRight}>
+                    {!activeUserId ? (
+                        /* ── NOT LOGGED IN: show Log in + Sign Up ── */
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Link
+                                to="/login"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    padding: '6px 18px',
+                                    borderRadius: '6px',
+                                    border: isDark ? '1px solid #5a5e63' : '1px solid #b8bac0',
+                                    background: 'transparent',
+                                    color: isDark ? '#c5c8cc' : '#393b3d',
+                                    fontSize: '15px',
+                                    fontWeight: 500,
+                                    textDecoration: 'none',
+                                    fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif",
+                                    transition: 'border-color 0.15s, color 0.15s',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                Log in
+                            </Link>
+                            <Link
+                                to="/signup"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    padding: '6px 18px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: '#00a2ff',
+                                    color: '#ffffff',
+                                    fontSize: '15px',
+                                    fontWeight: 600,
+                                    textDecoration: 'none',
+                                    fontFamily: "'GothamSSm', Helvetica Neue, Calibri, sans-serif",
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                Sign Up
+                            </Link>
+                        </div>
+                    ) : (
+                        /* ── LOGGED IN: show avatar, comm, notifications, settings ── */
+                        <>
                     <div className="user-badge" style={styles.userBadge}>
                         <Link to={profilePath} style={styles.userBadgeLink} title="Go to my profile">
                             <img
@@ -940,6 +996,8 @@ function NavBar({ userId = "?", fullName = "?", userName = "?", userImg = "/Prof
                             </div>
                         )}
                     </div>
+                        </>
+                    )}
                 </div>
             </nav>
             <Blockbanner />

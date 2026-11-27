@@ -6,7 +6,7 @@
 // Also logs to the browser console (clears before each print).
 
 const API_BASE = 'https://kdttaskflow.onrender.com';
-const PING_INTERVAL_MS = 10_000;
+const PING_INTERVAL_MS = 20000;
 const DOT_ID = '__server-status-dot__';
 
 /** Create (or retrieve) the persistent status dot DOM element. */
@@ -16,15 +16,15 @@ function getOrCreateDot() {
         dot = document.createElement('div');
         dot.id = DOT_ID;
         Object.assign(dot.style, {
-            position:        'fixed',
-            bottom:          '0px',
-            left:            '0px',
-            width:           '5px',
-            height:          '5px',
-            borderRadius:    '50%',
+            position: 'fixed',
+            bottom: '0px',
+            left: '0px',
+            width: '5px',
+            height: '5px',
+            borderRadius: '50%',
             backgroundColor: '#888', // neutral grey until first ping resolves
-            zIndex:          '99999',
-            pointerEvents:   'none',
+            zIndex: '99999',
+            pointerEvents: 'none',
         });
         document.body.appendChild(dot);
     }

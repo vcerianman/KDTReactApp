@@ -3,36 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import './Projects.css';
 import NavBar from './NavBar';
 import request from './api/Request';
+import ProjectsSkeleton from './ProjectsSkeleton';
 import { getProjectStatusClass } from './utils';
 import { useTheme } from './useTheme';
 import useCurrentUser from './useCurrentUser';
-
-// Section Reload Button Component matching the reload icon design
-function ReloadButton({ onReload, isLoading }) {
-    return (
-        <button
-            type="button"
-            className={`section-reload-btn ${isLoading ? 'loading' : ''}`}
-            onClick={onReload}
-            title="Reload projects"
-            aria-label="Reload projects"
-        >
-            <svg
-                viewBox="0 0 24 24"
-                width="28"
-                height="28"
-                fill="none"
-                stroke="#60646c"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-                <path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4" />
-                <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
-            </svg>
-        </button>
-    );
-}
+import ReloadButton, { useReloadTimeout } from './ReloadButton';
 
 // Header Section (Title & Search Bar)
 function ProjectsHeader({ searchQuery, onSearchChange }) {
@@ -84,11 +59,28 @@ function ProjectCard({ project }) {
 
 // Projects List Container Component
 function ProjectsList({ projects, searchQuery, error, loading, onReload }) {
-    if (error) {
+    const { showReload, isReloading, handleReload } = useReloadTimeout({
+        loading,
+        error,
+        hasData: Boolean(projects && projects.length > 0),
+        onReload
+    });
+
+    if (showReload) {
         return (
             <div className="projects-outer-card">
                 <div className="projects-reload-center-box">
-                    <ReloadButton onReload={onReload} isLoading={loading} />
+                    <ReloadButton onReload={handleReload} isLoading={isReloading} title="Reload projects" />
+                </div>
+            </div>
+        );
+    }
+
+    if (loading && (!projects || projects.length === 0)) {
+        return (
+            <div className="projects-outer-card">
+                <div className="projects-scroll-wrapper">
+                    <ProjectsSkeleton count={5} />
                 </div>
             </div>
         );
@@ -138,12 +130,12 @@ function Projects() {
     const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
 
     // Current logged in user from shared cache
-    const { currentUser } = useCurrentUser();
+    const { currentUser, isLoading: userLoading, refetch: refetchCurrentUser } = useCurrentUser();
 
     // Projects state & error
     const [projects, setProjects] = useState([]);
     const [projectsError, setProjectsError] = useState(false);
-    const [projectsLoading, setProjectsLoading] = useState(false);
+    const [projectsLoading, setProjectsLoading] = useState(true);
 
     // Fetch logged-in user profile & their assigned projects via GET /api/users/{ID}
     const fetchUserAndProjects = useCallback(async () => {
@@ -222,8 +214,10 @@ function Projects() {
     useEffect(() => {
         if (currentUser && currentUser.id !== '?') {
             fetchUserAndProjects();
+        } else if (!userLoading) {
+            setProjectsLoading(false);
         }
-    }, [currentUser, fetchUserAndProjects]);
+    }, [currentUser, userLoading, fetchUserAndProjects]);
 
     // Synchronize query parameter if changed in URL
     useEffect(() => {
@@ -232,6 +226,14 @@ function Projects() {
             setSearchQuery(query);
         }
     }, [searchParams]);
+
+    const handleProjectsReload = useCallback(async () => {
+        if (!currentUser || currentUser.id === '?') {
+            await refetchCurrentUser();
+            return;
+        }
+        return fetchUserAndProjects();
+    }, [currentUser, refetchCurrentUser, fetchUserAndProjects]);
 
     return (
         <div className={`projects-page-wrapper${isDark ? ' dark-mode' : ''}`}>
@@ -252,7 +254,7 @@ function Projects() {
                     searchQuery={searchQuery}
                     error={projectsError}
                     loading={projectsLoading}
-                    onReload={fetchUserAndProjects}
+                    onReload={handleProjectsReload}
                 />
 
                 <NewProjectFooter />

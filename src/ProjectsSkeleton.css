@@ -1,0 +1,98 @@
+/* ==========================================================================
+   Projects Page Skeleton Loading Styles
+   Scoped under .projects-page-wrapper to prevent style leaks.
+   Animation duration: 2s (matches HomeSkeleton, TaskSkeleton, UsersSkeleton)
+   ========================================================================== */
+
+@keyframes projectsSkeletonFlash {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.projects-page-wrapper .projects-skeleton-box {
+    display: inline-block;
+    background: linear-gradient(
+        90deg,
+        #e2e5e9 25%,
+        #c8cdd4 50%,
+        #e2e5e9 75%
+    );
+    background-size: 200% 100%;
+    animation: projectsSkeletonFlash 2s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+.projects-page-wrapper .projects-skeleton-card {
+    border: 2px solid #d6d9dd;
+    pointer-events: none;
+    user-select: none;
+}
+
+.projects-page-wrapper .projects-skeleton-card:hover {
+    box-shadow: none;
+}
+
+.projects-page-wrapper .projects-skeleton-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.projects-page-wrapper .projects-skeleton-title {
+    width: 44%;
+    min-width: 140px;
+    height: 22px;
+}
+
+.projects-page-wrapper .projects-skeleton-id {
+    width: 44px;
+    height: 14px;
+}
+
+.projects-page-wrapper .projects-skeleton-desc {
+    display: block;
+    width: 72%;
+    height: 14px;
+    margin-top: 7px;
+}
+
+.projects-page-wrapper .projects-skeleton-status-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.projects-page-wrapper .projects-skeleton-status {
+    width: 105px;
+    height: 14px;
+}
+
+.projects-page-wrapper .projects-skeleton-dates {
+    width: 132px;
+    height: 12px;
+}
+
+.projects-page-wrapper .projects-skeleton-btn {
+    width: 100px;
+    height: 43px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+/* ── Dark Mode ─────────────────────────────────────────────────────────────── */
+.projects-page-wrapper.dark-mode .projects-skeleton-box {
+    background: linear-gradient(
+        90deg,
+        #3a3f45 25%,
+        #2b2f34 50%,
+        #3a3f45 75%
+    );
+    background-size: 200% 100%;
+    animation: projectsSkeletonFlash 2s ease-in-out infinite;
+}
+
+.projects-page-wrapper.dark-mode .projects-skeleton-card {
+    background-color: #2c3034;
+    border-color: #383c40;
+}

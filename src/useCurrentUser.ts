@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import request from './api/Request';
 import { User, CurrentUserContext } from './types/user';
@@ -85,7 +86,7 @@ export function useCurrentUser(): UseCurrentUserResult {
         staleTime: 1000 * 60 * 5,
     });
 
-    const currentUser: CurrentUserContext = query.data || ({
+    const currentUser: CurrentUserContext = useMemo(() => query.data || ({
         id: '?',
         username: '?',
         fullname: '?',
@@ -94,7 +95,7 @@ export function useCurrentUser(): UseCurrentUserResult {
         introVideoUrl: undefined,
         role: '',
         theme: undefined,
-    } as CurrentUserContext);
+    } as CurrentUserContext), [query.data]);
 
     const normalizedRole = String(currentUser.role || '').toUpperCase();
     const isAuthorizedAdmin = normalizedRole.includes('ADMIN') || normalizedRole.includes('GOD');

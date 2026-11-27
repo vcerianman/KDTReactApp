@@ -1,0 +1,174 @@
+/* ==========================================================================
+   Task Page Skeleton Styles (Matched to Task.css)
+   ========================================================================== */
+
+@keyframes taskSkeletonFlash {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.tasks-page-wrapper .task-skeleton-box {
+    display: inline-block;
+    border-radius: 6px;
+    background: linear-gradient(
+        90deg,
+        #e2e5e9 0%,
+        #e2e5e9 35%,
+        #c8cdd4 50%,
+        #e2e5e9 65%,
+        #e2e5e9 100%
+    );
+    background-size: 200% 100%;
+    animation: taskSkeletonFlash 2s ease-in-out infinite;
+}
+
+.tasks-page-wrapper .task-skeleton-col-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.tasks-page-wrapper .task-skeleton-col-count {
+    width: 24px;
+    height: 18px;
+    border-radius: 10px;
+}
+
+.tasks-page-wrapper .task-skeleton-card {
+    border: 2px solid #d6d9dd;
+    cursor: default;
+    pointer-events: none;
+    user-select: none;
+}
+
+.tasks-page-wrapper .task-skeleton-card:hover {
+    transform: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.tasks-page-wrapper .task-skeleton-title {
+    width: 48%;
+    height: 18px;
+}
+
+.tasks-page-wrapper .task-skeleton-tag {
+    width: 46px;
+    height: 16px;
+    border-radius: 4px;
+}
+
+.tasks-page-wrapper .task-skeleton-assigner {
+    width: 52px;
+    height: 16px;
+    border-radius: 4px;
+}
+
+.tasks-page-wrapper .task-skeleton-desc {
+    display: block;
+    width: 88%;
+    height: 13px;
+    border-radius: 4px;
+    margin-top: 2px;
+}
+
+.tasks-page-wrapper .task-skeleton-dates {
+    width: 112px;
+    height: 12px;
+    border-radius: 4px;
+}
+
+/* Bottom Project Switch Card Skeleton */
+.tasks-page-wrapper .task-skeleton-project-card {
+    border-color: #d6d9dd;
+    pointer-events: none;
+    user-select: none;
+}
+
+.tasks-page-wrapper .task-skeleton-project-title {
+    width: 56%;
+    height: 22px;
+}
+
+.tasks-page-wrapper .task-skeleton-project-id {
+    width: 42px;
+    height: 14px;
+}
+
+.tasks-page-wrapper .task-skeleton-project-desc {
+    display: block;
+    width: 82%;
+    height: 14px;
+    margin-top: 6px;
+    border-radius: 4px;
+}
+
+.tasks-page-wrapper .task-skeleton-users-text {
+    flex: 1;
+    max-width: 76%;
+    height: 14px;
+    border-radius: 4px;
+}
+
+.tasks-page-wrapper .task-skeleton-info-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tasks-page-wrapper .task-skeleton-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.tasks-page-wrapper .task-skeleton-project-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.tasks-page-wrapper .task-skeleton-project-status {
+    width: 108px;
+    height: 15px;
+    border-radius: 4px;
+}
+
+.tasks-page-wrapper .task-skeleton-project-owner {
+    width: 78px;
+    height: 12px;
+    border-radius: 4px;
+}
+
+.tasks-page-wrapper .task-skeleton-nav-btn {
+    pointer-events: none;
+    opacity: 0.65;
+}
+
+/* Dark Mode Overrides */
+.tasks-page-wrapper.dark-mode .task-skeleton-box {
+    background: linear-gradient(
+        90deg,
+        #3a3f45 0%,
+        #3a3f45 35%,
+        #2b2f34 50%,
+        #3a3f45 65%,
+        #3a3f45 100%
+    );
+    background-size: 200% 100%;
+}
+
+.tasks-page-wrapper.dark-mode .task-skeleton-card,
+.tasks-page-wrapper.dark-mode .task-skeleton-project-card {
+    background-color: #2c3034;
+    border-color: #383c40;
+}

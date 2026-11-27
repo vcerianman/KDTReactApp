@@ -3,36 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import './Users.css';
 import NavBar from './NavBar';
 import request from './api/Request';
+import UsersSkeleton from './UsersSkeleton';
 import { resolveUserAvatar } from './utils';
 import { useTheme } from './useTheme';
 import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
-
-// Section Reload Button Component matching the reload icon design
-function ReloadButton({ onReload, isLoading }) {
-    return (
-        <button
-            type="button"
-            className={`section-reload-btn ${isLoading ? 'loading' : ''}`}
-            onClick={onReload}
-            title="Reload users"
-            aria-label="Reload users"
-        >
-            <svg
-                viewBox="0 0 24 24"
-                width="28"
-                height="28"
-                fill="none"
-                stroke="#60646c"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-                <path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4" />
-                <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
-            </svg>
-        </button>
-    );
-}
+import ReloadButton, { useReloadTimeout } from './ReloadButton';
 
 // Header Component with Search and Category Dropdown
 function UsersHeader({ searchQuery, onSearchChange, category, onCategoryChange }) {
@@ -183,11 +158,29 @@ function UserCard({ user }) {
 
 // Users Grid and List Container
 function UsersList({ users, searchQuery, category, error, loading, onReload }) {
-    if (error) {
+    const { showReload, isReloading, handleReload } = useReloadTimeout({
+        loading,
+        error,
+        hasData: Boolean(users && users.length > 0),
+        onReload
+    });
+
+    if (showReload) {
         return (
             <div className="users-outer-card">
                 <div className="users-reload-center-box">
-                    <ReloadButton onReload={onReload} isLoading={loading} />
+                    <ReloadButton onReload={handleReload} isLoading={isReloading} title="Reload users" />
+                </div>
+            </div>
+        );
+    }
+
+    // Show skeleton while first load is in progress and no data yet
+    if (loading && (!users || users.length === 0)) {
+        return (
+            <div className="users-outer-card">
+                <div className="users-scroll-wrapper">
+                    <UsersSkeleton count={8} />
                 </div>
             </div>
         );
@@ -249,7 +242,7 @@ function Users() {
     const { currentUser } = useCurrentUser();
     const [users, setUsers] = useState([]);
     const [usersError, setUsersError] = useState(false);
-    const [usersLoading, setUsersLoading] = useState(false);
+    const [usersLoading, setUsersLoading] = useState(true);
 
     const fetchUsers = useCallback(async () => {
         setUsersLoading(true);

@@ -95,51 +95,25 @@
 
 /* #endregion */
 
-/* #region Reload Button */
-.section-reload-btn {
-    width: 52px;
-    height: 48px;
-    background-color: #f0f2f4;
-    border: 2px solid #b8bac0;
-    border-radius: 12px;
-    cursor: pointer;
-    display: inline-flex;
+/* #region Reload Center Container */
+.home-reload-center-box {
+    display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 10px;
-    margin-top: 2px;
-    transition: opacity 0.2s ease, transform 0.15s ease, background-color 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    outline: none;
+    width: 100%;
+    min-height: 140px;
 }
 
-.section-reload-btn:hover {
-    background-color: #e4e7ea;
-    border-color: #999da4;
+.home-reload-center-box.home-reload-users {
+    min-height: 138px;
 }
 
-.section-reload-btn:active {
-    opacity: 0.4;
-    transform: scale(0.94);
+.home-reload-center-box.home-reload-tasks {
+    min-height: 180px;
 }
 
-.section-reload-btn.loading {
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-.section-reload-btn.loading svg {
-    animation: reload-spin 1s linear infinite;
-}
-
-@keyframes reload-spin {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
+.home-reload-center-box.home-reload-projects {
+    min-height: 180px;
 }
 
 /* #endregion */

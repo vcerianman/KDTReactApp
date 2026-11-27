@@ -6,47 +6,33 @@ import request from './api/Request';
 import { getProjectStatusClass, getTaskPriorityClass, getPriorityTagClass, resolveUserAvatar } from './utils';
 import { useTheme } from './useTheme';
 import { useCurrentUser, DEFAULT_AVATAR_URL } from './useCurrentUser';
-
-// Section Reload Button Component matching the reload icon design
-function ReloadButton({ onReload, isLoading }) {
-    return (
-        <button
-            type="button"
-            className={`section-reload-btn ${isLoading ? 'loading' : ''}`}
-            onClick={onReload}
-            title="Reload section"
-            aria-label="Reload section"
-        >
-            <svg
-                viewBox="0 0 24 24"
-                width="28"
-                height="28"
-                fill="none"
-                stroke="#60646c"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-                <path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4" />
-                <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
-            </svg>
-        </button>
-    );
-}
+import { HomeUsersSkeleton, HomeTasksSkeleton, HomeProjectsSkeleton } from './HomeSkeleton';
+import ReloadButton, { useReloadTimeout } from './ReloadButton';
 
 // Users Row Component
 function UsersSection({ users, error, loading, onReload }) {
+    const { showReload, isReloading, handleReload } = useReloadTimeout({
+        loading,
+        error,
+        hasData: users.length > 0,
+        onReload
+    });
+
     return (
         <div className="home-section-block">
             <div className="section-header-row">
                 <Link to="/users" className="section-title-link">Users:</Link>
-                {!error && users.length > 0 && (
+                {!showReload && users.length > 0 && (
                     <Link to="/users" className="see-all-link">See All &rarr;</Link>
                 )}
             </div>
 
-            {error ? (
-                <ReloadButton onReload={onReload} isLoading={loading} />
+            {showReload ? (
+                <div className="home-reload-center-box home-reload-users">
+                    <ReloadButton onReload={handleReload} isLoading={isReloading} title="Reload users" />
+                </div>
+            ) : loading && users.length === 0 ? (
+                <HomeUsersSkeleton count={10} />
             ) : (
                 users.length > 0 && (
                     <div className="users-horizontal-row">
@@ -78,14 +64,25 @@ function TasksSection({ tasks, error, loading, onReload }) {
         .filter(task => !(task.status && task.status.toUpperCase().includes('CANCEL')))
         .slice(0, 6);
 
+    const { showReload, isReloading, handleReload } = useReloadTimeout({
+        loading,
+        error,
+        hasData: activeTasks.length > 0,
+        onReload
+    });
+
     return (
         <div className="home-section-block" id="tasks">
             <div className="section-header-row">
                 <Link to="/tasks" className="section-title-link">Continue &rarr;</Link>
             </div>
 
-            {error ? (
-                <ReloadButton onReload={onReload} isLoading={loading} />
+            {showReload ? (
+                <div className="home-reload-center-box home-reload-tasks">
+                    <ReloadButton onReload={handleReload} isLoading={isReloading} title="Reload tasks" />
+                </div>
+            ) : loading && activeTasks.length === 0 ? (
+                <HomeTasksSkeleton count={6} />
             ) : (
                 activeTasks.length > 0 && (
                     <div className="tasks-home-grid">
@@ -127,14 +124,25 @@ function TasksSection({ tasks, error, loading, onReload }) {
 
 // Projects Grid Component
 function ProjectsSection({ projects, error, loading, onReload }) {
+    const { showReload, isReloading, handleReload } = useReloadTimeout({
+        loading,
+        error,
+        hasData: Boolean(projects && projects.length > 0),
+        onReload
+    });
+
     return (
         <div className="home-section-block">
             <div className="section-header-row">
                 <Link to="/projects" className="section-title-link">Projects &rarr;</Link>
             </div>
 
-            {error ? (
-                <ReloadButton onReload={onReload} isLoading={loading} />
+            {showReload ? (
+                <div className="home-reload-center-box home-reload-projects">
+                    <ReloadButton onReload={handleReload} isLoading={isReloading} title="Reload projects" />
+                </div>
+            ) : loading && (!projects || projects.length === 0) ? (
+                <HomeProjectsSkeleton count={6} />
             ) : (
                 projects && projects.length > 0 && (
                     <div className="projects-home-grid">
@@ -170,26 +178,30 @@ function ProjectsSection({ projects, error, loading, onReload }) {
 // Main Home Component
 function Home() {
     const { isDark } = useTheme();
-    const { currentUser } = useCurrentUser();
+    const { currentUser, isLoading: authLoading, refetch: refetchCurrentUser } = useCurrentUser();
+    const targetUserId = !authLoading
+        ? (currentUser?.id && currentUser.id !== '?' ? String(currentUser.id) : '1')
+        : null;
 
     // Users data & error state
     const [users, setUsers] = useState([]);
     const [usersError, setUsersError] = useState(false);
-    const [usersLoading, setUsersLoading] = useState(false);
+    const [usersLoading, setUsersLoading] = useState(true);
 
     // Tasks data & error state
     const [tasks, setTasks] = useState([]);
     const [tasksError, setTasksError] = useState(false);
-    const [tasksLoading, setTasksLoading] = useState(false);
+    const [tasksLoading, setTasksLoading] = useState(true);
 
     // Projects data & error state
     const [projects, setProjects] = useState([]);
     const [projectsError, setProjectsError] = useState(false);
-    const [projectsLoading, setProjectsLoading] = useState(false);
+    const [projectsLoading, setProjectsLoading] = useState(true);
 
     // 2. Fetch users from /api/users
     const fetchUsers = useCallback(async () => {
         setUsersLoading(true);
+        setUsersError(false);
         try {
             const data = await request.get('/api/users');
             const userList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
@@ -216,6 +228,7 @@ function Home() {
 
     // 3. Fetch tasks for current logged-in user via GET /api/users/{ID} -> GET /api/projects/{ID}/tasks
     const fetchTasks = useCallback(async () => {
+        if (!targetUserId) return;
         setTasksLoading(true);
         setTasksError(false);
         try {
@@ -240,22 +253,21 @@ function Home() {
                 'CANCELED': 3
             };
 
-            // 1. Get logged-in user ID from shared cache
-            const userId = currentUser && currentUser.id !== '?' ? currentUser.id : "1";
-
-            // 2. Call GET /api/users/{ID} to get user's project IDs
-            const userRes = await request.get(`/api/users/${userId}`);
+            // 1. Call GET /api/users/{ID} to get user's project IDs
+            const userRes = await request.get(`/api/users/${targetUserId}`);
             const userData = userRes?.data || userRes;
             const projectIds = userData && Array.isArray(userData.projects) ? userData.projects : [];
 
             let allTasks = [];
 
             if (projectIds.length > 0) {
-                // 3. For each project ID, fetch tasks via GET /api/projects/{ID}/tasks
-                const taskPromises = projectIds.map(async (item) => {
-                    const projId = typeof item === 'object' && item !== null ? (item.id || item.projectId) : item;
-                    if (!projId) return [];
+                let failedCount = 0;
+                const validIds = projectIds
+                    .map(item => (typeof item === 'object' && item !== null ? (item.id || item.projectId) : item))
+                    .filter(Boolean);
 
+                // 2. For each project ID, fetch tasks via GET /api/projects/{ID}/tasks
+                const taskPromises = validIds.map(async (projId) => {
                     try {
                         const taskRes = await request.get(`/api/projects/${projId}/tasks`);
                         const taskList = Array.isArray(taskRes) ? taskRes : (taskRes && Array.isArray(taskRes.data) ? taskRes.data : []);
@@ -278,16 +290,20 @@ function Home() {
                             };
                         });
                     } catch (taskErr) {
+                        failedCount += 1;
                         console.error(`Failed to fetch tasks for project ${projId} (/api/projects/${projId}/tasks):`, taskErr);
                         return [];
                     }
                 });
 
                 const taskResults = await Promise.all(taskPromises);
+                if (validIds.length > 0 && failedCount === validIds.length) {
+                    throw new Error('All project task requests failed');
+                }
                 allTasks = taskResults.flat();
             }
 
-            // 4. Sort tasks: 1st by priority (URGENT > HIGH > MEDIUM > LOW), 2nd by completion status (TODO > IN_PROGRESS > DONE > CANCELLED)
+            // 3. Sort tasks: 1st by priority (URGENT > HIGH > MEDIUM > LOW), 2nd by completion status (TODO > IN_PROGRESS > DONE > CANCELLED)
             allTasks.sort((a, b) => {
                 const pA = priorityOrder[(a.priority || '').toUpperCase()] ?? 4;
                 const pB = priorityOrder[(b.priority || '').toUpperCase()] ?? 4;
@@ -309,10 +325,11 @@ function Home() {
         } finally {
             setTasksLoading(false);
         }
-    }, [currentUser]);
+    }, [targetUserId]);
 
     // 4. Fetch projects for current logged-in user via GET /api/users/{ID} -> GET /api/projects/{ID}
     const fetchProjects = useCallback(async () => {
+        if (!targetUserId) return;
         setProjectsLoading(true);
         setProjectsError(false);
         try {
@@ -327,18 +344,17 @@ function Home() {
                 'ARCHIVED': 4
             };
 
-            // 1. Get logged-in user ID from shared cache
-            const userId = currentUser && currentUser.id !== '?' ? currentUser.id : "1";
-
-            // 2. Call GET /api/users/{ID} to get user's project IDs
-            const userRes = await request.get(`/api/users/${userId}`);
+            // 1. Call GET /api/users/{ID} to get user's project IDs
+            const userRes = await request.get(`/api/users/${targetUserId}`);
             const userData = userRes?.data || userRes;
             const projectIds = userData && Array.isArray(userData.projects) ? userData.projects : [];
 
             let allProjects = [];
 
             if (projectIds.length > 0) {
-                // 3. For each project ID, fetch details via GET /api/projects/{ID}
+                let failedCount = 0;
+
+                // 2. For each project ID, fetch details via GET /api/projects/{ID}
                 const projectPromises = projectIds.map(async (item) => {
                     if (typeof item === 'object' && item !== null && item.title) {
                         return item;
@@ -366,30 +382,29 @@ function Home() {
                             };
                         }
                     } catch (projErr) {
+                        failedCount += 1;
                         console.error(`Failed to fetch project ${projId} (/api/projects/${projId}):`, projErr);
-                        return {
-                            id: String(projId),
-                            title: typeof item === 'string' ? item : `Project ${projId}`,
-                            desc: '',
-                            status: 'ACTIVE',
-                            dates: ''
-                        };
+                        return null;
                     }
                     return null;
                 });
 
                 const projectResults = await Promise.all(projectPromises);
                 allProjects = projectResults.filter(Boolean);
+
+                if (allProjects.length === 0 && failedCount > 0) {
+                    throw new Error('All project detail requests failed');
+                }
             }
 
-            // 4. Sort projects by status: ACTIVE, ON_HOLD, PLANNING, COMPLETED, ARCHIVED
+            // 3. Sort projects by status: ACTIVE, ON_HOLD, PLANNING, COMPLETED, ARCHIVED
             allProjects.sort((a, b) => {
                 const sA = statusOrder[(a.status || '').toUpperCase()] ?? 5;
                 const sB = statusOrder[(b.status || '').toUpperCase()] ?? 5;
                 return sA - sB;
             });
 
-            // 5. Display only 6 of them (3 on each row)
+            // 4. Display only 6 of them (3 on each row)
             setProjects(allProjects.slice(0, 6));
             setProjectsError(false);
         } catch (err) {
@@ -399,13 +414,33 @@ function Home() {
         } finally {
             setProjectsLoading(false);
         }
-    }, [currentUser]);
+    }, [targetUserId]);
 
     useEffect(() => {
         fetchUsers();
+    }, [fetchUsers]);
+
+    useEffect(() => {
+        if (!targetUserId) return;
         fetchTasks();
         fetchProjects();
-    }, [fetchUsers, fetchTasks, fetchProjects]);
+    }, [targetUserId, fetchTasks, fetchProjects]);
+
+    const handleReloadTasks = useCallback(async () => {
+        if (!targetUserId) {
+            await refetchCurrentUser();
+            return;
+        }
+        return fetchTasks();
+    }, [targetUserId, refetchCurrentUser, fetchTasks]);
+
+    const handleReloadProjects = useCallback(async () => {
+        if (!targetUserId) {
+            await refetchCurrentUser();
+            return;
+        }
+        return fetchProjects();
+    }, [targetUserId, refetchCurrentUser, fetchProjects]);
 
     return (
         <div className={`home-page-wrapper${isDark ? ' dark-mode' : ''}`}>
@@ -429,13 +464,13 @@ function Home() {
                         tasks={tasks}
                         error={tasksError}
                         loading={tasksLoading}
-                        onReload={fetchTasks}
+                        onReload={handleReloadTasks}
                     />
                     <ProjectsSection
                         projects={projects}
                         error={projectsError}
                         loading={projectsLoading}
-                        onReload={fetchProjects}
+                        onReload={handleReloadProjects}
                     />
                 </div>
             </div>

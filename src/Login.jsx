@@ -1,11 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import './Login.css';
 import request from './api/Request';
+import { CURRENT_USER_QUERY_KEY } from './useCurrentUser';
 
 // Custom Hook to manage Login form state & request execution
 function useLoginForm() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -40,6 +43,9 @@ function useLoginForm() {
                 localStorage.setItem('token', token);
             }
 
+            // Bust the cached /api/auth/me query so NavBar picks up the new user immediately
+            await queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+
             // Navigate programmatically using React Router
             navigate('/home');
         } catch (error) {
@@ -48,7 +54,7 @@ function useLoginForm() {
         } finally {
             setLoading(false);
         }
-    }, [username, password, navigate]);
+    }, [username, password, navigate, queryClient]);
 
     return {
         username,

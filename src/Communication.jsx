@@ -9,6 +9,7 @@ import './Communication.css';
 import NavBar from './NavBar';
 import Notification from './Notification';
 import request from './api/Request';
+import ReloadButton, { useReloadTimeout } from './ReloadButton';
 import { resolveUserAvatar, getProjectStatusClass } from './utils';
 import useCurrentUser, { DEFAULT_AVATAR_URL } from './useCurrentUser';
 import {
@@ -311,33 +312,6 @@ function normalizePostImages(rawImages, postId = null) {
         })
         .filter(Boolean)
         .slice(0, 4);
-}
-
-// Reload button
-function ReloadButton({ onReload, isLoading, title = "Reload" }) {
-    return (
-        <button
-            type="button"
-            className={`section-reload-btn ${isLoading ? 'loading' : ''}`}
-            onClick={onReload}
-            title={title}
-            aria-label={title}
-        >
-            <svg
-                viewBox="0 0 24 24"
-                width="28"
-                height="28"
-                fill="none"
-                stroke="#60646c"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-                <path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4" />
-                <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
-            </svg>
-        </button>
-    );
 }
 
 function formatTimestamp(ts) {
@@ -1420,6 +1394,7 @@ function CommunicationContent() {
     const {
         data: projects = [],
         isLoading: loadingProjects,
+        isFetching: fetchingProjects,
         isError: projectsError,
         refetch: refetchProjects
     } = useQuery({
@@ -1643,6 +1618,7 @@ function CommunicationContent() {
     const {
         data: currentPosts,
         isLoading: loadingPosts,
+        isFetching: fetchingPosts,
         isError: postsError,
         refetch: refetchPosts
     } = useQuery({
@@ -1654,17 +1630,9 @@ function CommunicationContent() {
             let data = null;
             if (isGlobal) {
                 try {
-                    data = await request.get('/api/posts?projectId=null');
+                    data = await request.get('/api/posts');
                 } catch (err1) {
-                    try {
-                        data = await request.get('/api/posts');
-                    } catch (err2) {
-                        try {
-                            data = await request.get('/api/post');
-                        } catch (err3) {
-                            throw err3;
-                        }
-                    }
+                    data = await request.get('/api/post');
                 }
             } else {
                 try {
@@ -1734,9 +1702,7 @@ function CommunicationContent() {
 
             return combinedPosts;
         },
-        enabled: Boolean(activeProjectId),
-        refetchInterval: 3500, // Seamless fallback: keeps posts in sync even if SSE stream is buffered, closed or drops
-        refetchIntervalInBackground: false
+        enabled: Boolean(activeProjectId)
     });
 
     // Real-time SSE Connection for Posts & Replies
@@ -2048,6 +2014,28 @@ function CommunicationContent() {
     } : (projects.find(p => String(p.id) === String(activeProjectId)) || projects[0]));
 
     const showLoading = loadingPosts && currentPosts === undefined;
+
+    const {
+        showReload: showProjectsReload,
+        isReloading: isProjectsReloading,
+        handleReload: onProjectsReloadClick
+    } = useReloadTimeout({
+        loading: loadingProjects || fetchingProjects,
+        error: projectsError,
+        hasData: projects.length > 0,
+        onReload: () => refetchProjects({ cancelRefetch: true })
+    });
+
+    const {
+        showReload: showPostsReload,
+        isReloading: isPostsReloading,
+        handleReload: onPostsReloadClick
+    } = useReloadTimeout({
+        loading: showLoading || fetchingPosts,
+        error: postsError,
+        hasData: Array.isArray(currentPosts),
+        onReload: () => refetchPosts({ cancelRefetch: true })
+    });
 
     // Add New Post Handler
     const handleCreatePost = async (title, content, imageFiles = []) => {
@@ -2543,9 +2531,9 @@ function CommunicationContent() {
                     <div className="communication-sidebar-card">
                         <div className="communication-sidebar-projects-list">
                             <div className="communication-sidebar-section-title">Projects</div>
-                            {projectsError ? (
+                            {showProjectsReload ? (
                                 <div className="communication-reload-center-box">
-                                    <ReloadButton onReload={() => refetchProjects()} isLoading={loadingProjects} title="Reload projects" />
+                                    <ReloadButton onReload={onProjectsReloadClick} isLoading={isProjectsReloading} title="Reload projects" />
                                 </div>
                             ) : loadingProjects && projects.length === 0 ? (
                                 <div className="communication-sidebar-loading">Loading projects...</div>
@@ -2662,11 +2650,11 @@ function CommunicationContent() {
 
                         {/* Main White Card containing scrollable Posts */}
                         <div className="communication-posts-main-card">
-                            {postsError ? (
+                            {showPostsReload ? (
                                 <div className="communication-reload-center-box">
                                     <ReloadButton
-                                        onReload={() => refetchPosts()}
-                                        isLoading={loadingPosts}
+                                        onReload={onPostsReloadClick}
+                                        isLoading={isPostsReloading}
                                         title="Reload posts"
                                     />
                                 </div>

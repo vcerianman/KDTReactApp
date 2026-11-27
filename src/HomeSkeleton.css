@@ -1,0 +1,141 @@
+/* ==========================================================================
+   Home Page Skeleton Styles (Matched to Home.css)
+   ========================================================================== */
+
+@keyframes homeSkeletonFlash {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.home-page-wrapper .home-skeleton-box {
+    display: inline-block;
+    border-radius: 6px;
+    background: linear-gradient(
+        90deg,
+        #e2e5e9 0%,
+        #e2e5e9 35%,
+        #c8cdd4 50%,
+        #e2e5e9 65%,
+        #e2e5e9 100%
+    );
+    background-size: 200% 100%;
+    animation: homeSkeletonFlash 2s ease-in-out infinite;
+}
+
+/* Users Row Skeleton (10 circular avatars + names) */
+.home-page-wrapper .home-skeleton-user-col {
+    pointer-events: none;
+    user-select: none;
+}
+
+.home-page-wrapper .home-skeleton-avatar {
+    border-radius: 50%;
+    border-color: #d6d9dd;
+}
+
+.home-page-wrapper .home-skeleton-user-name {
+    width: 80px;
+    height: 15px;
+    border-radius: 4px;
+}
+
+/* Task & Project Cards Skeleton (3x2 Grids) */
+.home-page-wrapper .home-skeleton-card {
+    border: 2px solid #d6d9dd;
+    pointer-events: none;
+    user-select: none;
+}
+
+.home-page-wrapper .home-skeleton-card:hover {
+    transform: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.home-page-wrapper .home-skeleton-task-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.home-page-wrapper .home-skeleton-task-title {
+    width: 65%;
+    height: 22px;
+}
+
+.home-page-wrapper .home-skeleton-priority-tag {
+    width: 46px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.home-page-wrapper .home-skeleton-assigner {
+    width: 96px;
+    height: 20px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.home-page-wrapper .home-skeleton-project-title {
+    width: 58%;
+    height: 24px;
+}
+
+.home-page-wrapper .home-skeleton-project-id {
+    width: 42px;
+    height: 14px;
+}
+
+.home-page-wrapper .home-skeleton-desc-line {
+    display: block;
+    width: 90%;
+    height: 13px;
+    margin-top: 10px;
+    border-radius: 4px;
+}
+
+.home-page-wrapper .home-skeleton-desc-line.short {
+    width: 62%;
+    margin-top: 6px;
+}
+
+.home-page-wrapper .home-skeleton-footer-status {
+    width: 92px;
+    height: 12px;
+    border-radius: 4px;
+}
+
+.home-page-wrapper .home-skeleton-footer-dates {
+    width: 116px;
+    height: 12px;
+    border-radius: 4px;
+}
+
+/* Dark Mode Overrides */
+.home-page-wrapper.dark-mode .home-skeleton-box {
+    background: linear-gradient(
+        90deg,
+        #3a3f45 0%,
+        #3a3f45 35%,
+        #2b2f34 50%,
+        #3a3f45 65%,
+        #3a3f45 100%
+    );
+    background-size: 200% 100%;
+}
+
+.home-page-wrapper.dark-mode .home-skeleton-card {
+    background-color: #2c3034;
+    border-color: #383c40;
+}
+
+.home-page-wrapper.dark-mode .home-skeleton-avatar {
+    border-color: #383c40;
+}

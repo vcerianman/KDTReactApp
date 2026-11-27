@@ -8,37 +8,12 @@ import {
 import './Profile.css';
 import NavBar from './NavBar';
 import request from './api/Request';
+import ProfileSkeleton from './ProfileSkeleton';
 import { getProjectStatusClass, resolveUserAvatar } from './utils';
 import { useTheme } from './useTheme';
 import { useCurrentUser, DEFAULT_AVATAR_URL } from './useCurrentUser';
 import { PLACEHOLDER_IMAGE_URL } from './api/cloudinaryUpload';
-
-// Section Reload Button Component
-function ReloadButton({ onReload, isLoading }) {
-    return (
-        <button
-            type="button"
-            className={`section-reload-btn ${isLoading ? 'loading' : ''}`}
-            onClick={onReload}
-            title="Reload profile"
-            aria-label="Reload profile"
-        >
-            <svg
-                viewBox="0 0 24 24"
-                width="28"
-                height="28"
-                fill="none"
-                stroke="#60646c"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-                <path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4" />
-                <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
-            </svg>
-        </button>
-    );
-}
+import ReloadButton, { useReloadTimeout } from './ReloadButton';
 
 // Profile Header (Avatar, Names, Role, Actions, Reputation Votes)
 function ProfileHeader({ profile, onOpenStats, targetUserId, loggedInUserId }) {
@@ -618,6 +593,17 @@ function Profile() {
         fetchUserViewing();
     }, [fetchUserViewing]);
 
+    const {
+        showReload: showProfileReload,
+        isReloading: isProfileReloading,
+        handleReload: onProfileReloadClick
+    } = useReloadTimeout({
+        loading,
+        error: loadError,
+        hasData: Boolean(userViewing || userNotFound),
+        onReload: fetchUserViewing
+    });
+
     return (
         <div className={`profile-page-wrapper${isDark ? ' dark-mode' : ''}`}>
             <div id="navbar-root">
@@ -630,12 +616,12 @@ function Profile() {
                 />
             </div>
 
-            {loading ? (
-                <div className="page-container user-not-found-container" />
-            ) : loadError ? (
+            {showProfileReload ? (
                 <div className="page-container user-not-found-container">
-                    <ReloadButton onReload={fetchUserViewing} isLoading={loading} />
+                    <ReloadButton onReload={onProfileReloadClick} isLoading={isProfileReloading} title="Reload profile" />
                 </div>
+            ) : loading ? (
+                <ProfileSkeleton />
             ) : userNotFound || !userViewing ? (
                 <div className="page-container user-not-found-container">
                     <h2 className="user-not-found-text">This user doesn't exist</h2>
