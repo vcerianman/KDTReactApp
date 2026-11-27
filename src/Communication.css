@@ -641,11 +641,19 @@
     margin-top: 6px;
 }
 
+.post-replies-container.expanded {
+    height: 650px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
 .post-replies-meta-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
+    flex-shrink: 0;
 }
 
 .post-replies-count {
@@ -674,6 +682,29 @@
     flex-direction: column;
     gap: 10px;
     margin-bottom: 12px;
+}
+
+.post-replies-container.expanded .post-replies-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.post-replies-container.expanded .post-replies-list > .reply-item-row:first-child {
+    margin-top: auto;
+}
+
+.post-replies-container.expanded .reply-input-row {
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
+.replies-loading-more {
+    text-align: center;
+    padding: 10px 0;
+    font-size: 12.5px;
+    color: #888888;
 }
 
 .reply-item-row {
@@ -1302,6 +1333,7 @@
         opacity: 0;
         transform: translateY(-4px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);

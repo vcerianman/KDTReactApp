@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     useQuery,
+    useInfiniteQuery,
     useQueryClient
 } from '@tanstack/react-query';
 import './Communication.css';
@@ -312,6 +313,111 @@ function normalizePostImages(rawImages, postId = null) {
         })
         .filter(Boolean)
         .slice(0, 4);
+}
+
+function parsePagedPostsResponse(res, pageSize = 10) {
+    const items = Array.isArray(res)
+        ? res
+        : (Array.isArray(res?.items)
+            ? res.items
+            : (Array.isArray(res?.posts)
+                ? res.posts
+                : (Array.isArray(res?.replies)
+                    ? res.replies
+                    : (Array.isArray(res?.content)
+                        ? res.content
+                        : (Array.isArray(res?.data) ? res.data : [])))));
+
+    const nextCursor = res?.nextCursor ?? res?.next_cursor ?? null;
+    const hasMore = typeof res?.hasMore === 'boolean'
+        ? res.hasMore
+        : (typeof res?.has_more === 'boolean'
+            ? res.has_more
+            : (nextCursor !== null && nextCursor !== undefined && items.length >= pageSize));
+    const rawTotal = res?.total ?? res?.totalCount ?? res?.totalElements ?? res?.count ?? null;
+    const totalCount = typeof rawTotal === 'number' && !Number.isNaN(rawTotal) ? rawTotal : null;
+
+    return { items, nextCursor, hasMore, totalCount };
+}
+
+function sortRepliesChronological(replies) {
+    if (!Array.isArray(replies)) return [];
+    return [...replies].sort((a, b) => {
+        if (Boolean(a?._optimistic) !== Boolean(b?._optimistic)) {
+            return a?._optimistic ? 1 : -1;
+        }
+        const idA = Number(a?.id);
+        const idB = Number(b?.id);
+        if (!Number.isNaN(idA) && !Number.isNaN(idB) && idA !== idB) {
+            return idA - idB;
+        }
+        const timeA = a?.created_at ? new Date(a.created_at).getTime() : NaN;
+        const timeB = b?.created_at ? new Date(b.created_at).getTime() : NaN;
+        if (!Number.isNaN(timeA) && !Number.isNaN(timeB) && timeA !== timeB) {
+            return timeA - timeB;
+        }
+        return 0;
+    });
+}
+
+function insertReplyIntoPages(oldData, newReply, requestStartTime = 0) {
+    if (!oldData || !Array.isArray(oldData.pages) || oldData.pages.length === 0) {
+        return {
+            pages: [{ replies: [newReply], nextCursor: null, hasMore: false, totalCount: 1 }],
+            pageParams: [null]
+        };
+    }
+
+    const allReplies = oldData.pages.flatMap((p) => p?.replies || []);
+    const targetId = newReply?.id !== undefined && newReply?.id !== null ? String(newReply.id) : '';
+
+    if (targetId && !newReply._optimistic && allReplies.some((r) => String(r.id) === targetId)) {
+        return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+                ...page,
+                replies: (page.replies || []).map((r) =>
+                    String(r.id) === targetId ? { ...r, ...newReply, _optimistic: false } : r
+                )
+            }))
+        };
+    }
+
+    const optimisticIdx = allReplies.findIndex((r) =>
+        r._optimistic &&
+        String(r.content || '').trim() === String(newReply.content || '').trim() &&
+        String(r.authorId || '') === String(newReply.authorId || '')
+    );
+    if (optimisticIdx !== -1) {
+        const optId = String(allReplies[optimisticIdx].id);
+        return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+                ...page,
+                replies: (page.replies || []).map((r) =>
+                    String(r.id) === optId ? { ...newReply, _optimistic: false } : r
+                )
+            }))
+        };
+    }
+
+    if (newReply._optimistic && allReplies.some((r) =>
+        (r._receivedAt || 0) >= requestStartTime &&
+        String(r.content || '').trim() === String(newReply.content || '').trim() &&
+        String(r.authorId || '') === String(newReply.authorId || '')
+    )) {
+        return oldData;
+    }
+
+    const pages = oldData.pages.map((page, idx) => {
+        const nextTotal = typeof page.totalCount === 'number' ? page.totalCount + 1 : page.totalCount;
+        if (idx === 0) {
+            return { ...page, totalCount: nextTotal, replies: [newReply, ...(page.replies || [])] };
+        }
+        return nextTotal !== page.totalCount ? { ...page, totalCount: nextTotal } : page;
+    });
+
+    return { ...oldData, pages };
 }
 
 function formatTimestamp(ts) {
@@ -941,6 +1047,7 @@ function CreatePostModal({ isOpen, onClose, onSubmit, onError, projectTitle, isS
 // Single Post Card Component with Dynamic Profile Links & "..." Options Menu
 function PostCard({
     post,
+    formatPostItem,
     onAddReply,
     onImageClick,
     onError,
@@ -962,6 +1069,55 @@ function PostCard({
     const addMenuRef = useRef(null);
     const imageInputRef = useRef(null);
     const replyImagesRef = useRef([]);
+    const repliesListRef = useRef(null);
+    const triggerReplyRef = useRef(null);
+    const prevShowAllRef = useRef(false);
+    const prevLayoutMetricsRef = useRef({ firstId: null, lastId: null, count: 0, loadingMore: false });
+    const scrollSnapshotRef = useRef({ scrollHeight: 0, scrollTop: 0, clientHeight: 0, wasAtBottom: true });
+
+    const normalizedPostId = post?.id !== undefined && post?.id !== null ? String(post.id) : '';
+    const isRealPostId = Boolean(normalizedPostId && !post?._optimistic);
+
+    const {
+        data: repliesData,
+        isLoading: loadingReplies,
+        isFetchingNextPage: loadingMoreReplies,
+        hasNextPage: hasMoreRepliesFromServer,
+        fetchNextPage: fetchMoreReplies
+    } = useInfiniteQuery({
+        queryKey: ['postReplies', normalizedPostId],
+        initialPageParam: null,
+        enabled: isRealPostId,
+        queryFn: async ({ pageParam }) => {
+            const params = new URLSearchParams();
+            params.set('reply', normalizedPostId);
+            params.set('limit', '10');
+            if (pageParam !== null && pageParam !== undefined) {
+                params.set('cursor', String(pageParam));
+            }
+            const qs = params.toString();
+
+            let res;
+            try {
+                res = await request.get(`/api/posts?${qs}`);
+            } catch (err) {
+                res = await request.get(`/api/post?${qs}`);
+            }
+
+            const parsed = parsePagedPostsResponse(res, 10);
+            return {
+                replies: parsed.items.map((item) => formatPostItem(item)),
+                nextCursor: parsed.nextCursor,
+                hasMore: parsed.hasMore,
+                totalCount: parsed.totalCount
+            };
+        },
+        getNextPageParam: (lastPage) => (
+            lastPage?.hasMore && lastPage?.nextCursor !== null && lastPage?.nextCursor !== undefined
+                ? lastPage.nextCursor
+                : undefined
+        )
+    });
 
     useEffect(() => {
         replyImagesRef.current = replyImages;
@@ -1012,10 +1168,154 @@ function PostCard({
         });
     };
 
-    const replies = post.replies || [];
-    // Show only the 2 newest replies unless showAllReplies is true
-    const visibleReplies = showAllReplies ? replies : replies.slice(-2);
-    const hasMoreReplies = replies.length > 2;
+    const replies = useMemo(() => {
+        const pages = repliesData?.pages;
+        if (Array.isArray(pages) && pages.length > 0) {
+            const flat = pages.flatMap((page) => page?.replies || []);
+            const seen = new Set();
+            const unique = [];
+            for (const r of flat) {
+                const key = String(r.id);
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    unique.push(r);
+                }
+            }
+            return sortRepliesChronological(unique);
+        }
+        return sortRepliesChronological(Array.isArray(post.replies) ? post.replies : []);
+    }, [repliesData, post.replies]);
+
+    const serverTotalCount = repliesData?.pages?.[0]?.totalCount ?? post.replyCount ?? null;
+    const totalRepliesCount = typeof serverTotalCount === 'number'
+        ? Math.max(serverTotalCount, replies.length)
+        : replies.length;
+
+    // Collapsed mode always shows only the 2 newest replies (highest IDs at the bottom)
+    const collapsedReplies = useMemo(() => replies.slice(-2), [replies]);
+    const visibleReplies = showAllReplies ? replies : collapsedReplies;
+    const hasMoreReplies = replies.length > 2 || Boolean(hasMoreRepliesFromServer);
+
+    // Since newest batch is at the bottom and older batches prepend above when scrolling up,
+    // the 7th newest reply of the oldest loaded batch sits at (oldestBatchCount - 7) from the top.
+    const lastFetchedPage = repliesData?.pages?.[repliesData.pages.length - 1];
+    const oldestBatchCount = Array.isArray(lastFetchedPage?.replies) && lastFetchedPage.replies.length > 0
+        ? lastFetchedPage.replies.length
+        : visibleReplies.length;
+    const triggerIndex = showAllReplies && visibleReplies.length > 0
+        ? Math.min(visibleReplies.length - 1, Math.max(0, oldestBatchCount - 7))
+        : -1;
+
+    const handleRepliesScroll = useCallback(() => {
+        const el = repliesListRef.current;
+        if (!el || !showAllReplies) return;
+        const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+        scrollSnapshotRef.current = {
+            scrollHeight: el.scrollHeight,
+            scrollTop: el.scrollTop,
+            clientHeight: el.clientHeight,
+            wasAtBottom: distanceFromBottom <= 24
+        };
+    }, [showAllReplies]);
+
+    // Start scrollbar at bottom when expanding, and preserve scroll position when older batches prepend at top
+    useLayoutEffect(() => {
+        const el = repliesListRef.current;
+        const justExpanded = showAllReplies && !prevShowAllRef.current;
+        prevShowAllRef.current = showAllReplies;
+
+        if (!showAllReplies || !el) {
+            prevLayoutMetricsRef.current = {
+                firstId: visibleReplies[0]?.id ?? null,
+                lastId: visibleReplies[visibleReplies.length - 1]?.id ?? null,
+                count: visibleReplies.length,
+                loadingMore: loadingMoreReplies
+            };
+            return;
+        }
+
+        const firstId = visibleReplies[0]?.id ?? null;
+        const lastId = visibleReplies[visibleReplies.length - 1]?.id ?? null;
+        const prev = prevLayoutMetricsRef.current;
+        const snap = scrollSnapshotRef.current;
+
+        if (justExpanded) {
+            el.scrollTop = el.scrollHeight;
+        } else {
+            const prependedOlder = firstId !== prev.firstId && visibleReplies.length > prev.count;
+            const appendedNewer = lastId !== prev.lastId && visibleReplies.length > prev.count;
+            const loaderChanged = loadingMoreReplies !== prev.loadingMore;
+
+            if (prependedOlder || loaderChanged) {
+                const delta = el.scrollHeight - snap.scrollHeight;
+                if (snap.wasAtBottom) {
+                    el.scrollTop = el.scrollHeight;
+                } else if (delta !== 0) {
+                    el.scrollTop = Math.max(0, snap.scrollTop + delta);
+                }
+            } else if (appendedNewer && snap.wasAtBottom) {
+                el.scrollTop = el.scrollHeight;
+            }
+        }
+
+        const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+        scrollSnapshotRef.current = {
+            scrollHeight: el.scrollHeight,
+            scrollTop: el.scrollTop,
+            clientHeight: el.clientHeight,
+            wasAtBottom: distanceFromBottom <= 24
+        };
+        prevLayoutMetricsRef.current = {
+            firstId,
+            lastId,
+            count: visibleReplies.length,
+            loadingMore: loadingMoreReplies
+        };
+    }, [showAllReplies, visibleReplies, loadingMoreReplies]);
+
+    useEffect(() => {
+        const targetEl = triggerReplyRef.current;
+        const rootEl = repliesListRef.current;
+        if (
+            !showAllReplies ||
+            !targetEl ||
+            !hasMoreRepliesFromServer ||
+            loadingMoreReplies ||
+            loadingReplies ||
+            typeof IntersectionObserver === 'undefined'
+        ) {
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    fetchMoreReplies();
+                }
+            },
+            { root: rootEl || null, threshold: 0.1 }
+        );
+
+        observer.observe(targetEl);
+        return () => observer.disconnect();
+    }, [showAllReplies, visibleReplies.length, triggerIndex, hasMoreRepliesFromServer, loadingMoreReplies, loadingReplies, fetchMoreReplies]);
+
+    // Priority: post.replyCount (from top-level post payload) > serverTotalCount (from paginated response) > loaded count
+    const displayTotal = post.replyCount ?? (typeof serverTotalCount === 'number' ? totalRepliesCount : null);
+
+    const repliesCountLabel = typeof displayTotal === 'number'
+        ? `${displayTotal} ${displayTotal === 1 ? 'reply' : 'replies'}`
+        : (hasMoreRepliesFromServer
+            ? `${replies.length}+ replies`
+            : `${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`);
+
+    const toggleRepliesLabel = showAllReplies
+        ? 'Show newest 2 only'
+        : (typeof displayTotal === 'number'
+            ? `View all ${displayTotal} replies`
+            : (hasMoreRepliesFromServer
+                ? `View all ${replies.length}+ replies`
+                : `View all ${replies.length} replies`));
 
     const handleReplySubmit = async (e) => {
         e.preventDefault();
@@ -1127,26 +1427,33 @@ function PostCard({
             />
 
             {/* Replies Section */}
-            <div className="post-replies-container">
+            <div className={`post-replies-container${showAllReplies ? ' expanded' : ''}`}>
                 {replies.length > 0 && (
                     <div className="post-replies-meta-row">
-                        <span className="post-replies-count">{replies.length} {replies.length === 1 ? 'reply' : 'replies'}</span>
+                        <span className="post-replies-count">{repliesCountLabel}</span>
                         {hasMoreReplies && (
                             <button
                                 type="button"
                                 className="btn-toggle-replies"
                                 onClick={() => setShowAllReplies(prev => !prev)}
                             >
-                                {showAllReplies ? 'Show newest 2 only' : `View all ${replies.length} replies`}
+                                {toggleRepliesLabel}
                             </button>
                         )}
                     </div>
                 )}
 
                 {/* Visible Replies List */}
-                {visibleReplies.length > 0 && (
-                    <div className="post-replies-list">
-                        {visibleReplies.map((reply) => {
+                {(showAllReplies || visibleReplies.length > 0) && (
+                    <div
+                        className="post-replies-list"
+                        ref={repliesListRef}
+                        onScroll={handleRepliesScroll}
+                    >
+                        {showAllReplies && loadingMoreReplies && (
+                            <div className="replies-loading-more">Loading older replies...</div>
+                        )}
+                        {visibleReplies.map((reply, idx) => {
                             // Resolve exact reply author profile (id, fullname, username)
                             const replyProfile = resolveAuthorProfile(reply.authorId, reply.authorHandle, reply.author, usersMap);
                             const replyAuthorId = replyProfile.id;
@@ -1165,7 +1472,11 @@ function PostCard({
                             const canDeleteReply = isReplyAuthor || isAdminOrGod;
 
                             return (
-                                <div key={reply.id} className="reply-item-row">
+                                <div
+                                    key={reply.id}
+                                    className="reply-item-row"
+                                    ref={idx === triggerIndex ? triggerReplyRef : undefined}
+                                >
                                     <Link to={`/profile/${replyAuthorId}`} className="author-avatar-link" title={`View profile of ${replyFullName} (ID: ${replyAuthorId})`}>
                                         <img
                                             src={
@@ -1205,7 +1516,7 @@ function PostCard({
                                                     timestamp: reply.timestamp
                                                 })}
                                                 onEdit={() => onOpenEditReply(post.id, reply)}
-                                                onDelete={() => onDelete && onDelete(reply.id, 'reply')}
+                                                onDelete={() => onDelete && onDelete(reply.id, 'reply', post.id)}
                                                 onReport={() => onReport({
                                                     type: 'reply',
                                                     id: reply.id,
@@ -1506,6 +1817,8 @@ function CommunicationContent() {
         const rawImages = item.images || item.imageUrls || item.image_urls || item.attachments || (item.imageUrl ? [item.imageUrl] : []);
         const images = normalizePostImages(rawImages, item.id || item._id || null);
 
+        const rawReplyCount = item.replyCount ?? item.repliesCount ?? item.reply_count ?? item.replies_count ?? null;
+
         return {
             id: item.id || item._id,
             reply: item.reply ?? null,
@@ -1520,6 +1833,7 @@ function CommunicationContent() {
             created_at: item.created_at || item.createdAt || null,
             updated_at: item.updated_at || item.updatedAt || null,
             timestamp: formatTimestamp(item.createdAt || item.created_at || item.timestamp),
+            replyCount: typeof rawReplyCount === 'number' && !Number.isNaN(rawReplyCount) ? rawReplyCount : null,
             replies: []
         };
     }, []);
@@ -1614,7 +1928,7 @@ function CommunicationContent() {
         enabled: Boolean(activeProjectId)
     });
 
-    // Fetch posts & replies for active project
+    // Fetch top-level posts for active project (replies are cursor-paginated per post)
     const {
         data: currentPosts,
         isLoading: loadingPosts,
@@ -1630,22 +1944,23 @@ function CommunicationContent() {
             let data = null;
             if (isGlobal) {
                 try {
-                    data = await request.get('/api/posts');
+                    data = await request.get('/api/posts?topLevelOnly=true');
                 } catch (err1) {
-                    data = await request.get('/api/post');
+                    data = await request.get('/api/post?topLevelOnly=true');
                 }
             } else {
+                const encodedId = encodeURIComponent(activeProjectId);
                 try {
-                    data = await request.get(`/api/posts?projectId=${encodeURIComponent(activeProjectId)}`);
+                    data = await request.get(`/api/posts?projectId=${encodedId}&topLevelOnly=true`);
                 } catch (err1) {
                     try {
-                        data = await request.get(`/api/post?projectId=${encodeURIComponent(activeProjectId)}`);
+                        data = await request.get(`/api/post?projectId=${encodedId}&topLevelOnly=true`);
                     } catch (err2) {
                         try {
-                            data = await request.get(`/api/posts?project_id=${encodeURIComponent(activeProjectId)}`);
+                            data = await request.get(`/api/posts?project_id=${encodedId}&topLevelOnly=true`);
                         } catch (err3) {
                             try {
-                                data = await request.get('/api/posts');
+                                data = await request.get('/api/posts?topLevelOnly=true');
                             } catch (err4) {
                                 throw err4;
                             }
@@ -1654,7 +1969,13 @@ function CommunicationContent() {
                 }
             }
 
-            const rawList = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : (data?.posts || null));
+            const rawList = Array.isArray(data)
+                ? data
+                : (data?.items && Array.isArray(data.items)
+                    ? data.items
+                    : (data?.data && Array.isArray(data.data)
+                        ? data.data
+                        : (data?.posts || null)));
 
             if (!rawList || rawList.length === 0) {
                 return [];
@@ -1669,38 +1990,15 @@ function CommunicationContent() {
             });
 
             const topLevelPosts = [];
-            const repliesByParent = {};
-
             projectItems.forEach(item => {
                 const rawParent = item.reply ?? item.reply_id ?? item.replyId ?? null;
                 const isReply = rawParent !== null && rawParent !== undefined && rawParent !== 0 && rawParent !== '';
-                if (isReply) {
-                    const parentId = String(rawParent);
-                    if (!repliesByParent[parentId]) {
-                        repliesByParent[parentId] = [];
-                    }
-                    repliesByParent[parentId].push(formatPostItem(item));
-                } else {
-                    const formatted = formatPostItem(item);
-                    if (Array.isArray(item.replies) && item.replies.length > 0) {
-                        formatted.replies = item.replies.map(formatPostItem);
-                    }
-                    topLevelPosts.push(formatted);
+                if (!isReply) {
+                    topLevelPosts.push(formatPostItem(item));
                 }
             });
 
-            const combinedPosts = topLevelPosts.map(post => {
-                const nestedReplies = Array.isArray(post.replies) && post.replies.length > 0 ? post.replies : [];
-                const flatReplies = repliesByParent[String(post.id)] || [];
-                const allReplies = [...nestedReplies, ...flatReplies];
-                const uniqueReplies = Array.from(new Map(allReplies.map(r => [String(r.id), r])).values());
-                return {
-                    ...post,
-                    replies: uniqueReplies
-                };
-            });
-
-            return combinedPosts;
+            return topLevelPosts;
         },
         enabled: Boolean(activeProjectId)
     });
@@ -1753,44 +2051,16 @@ function CommunicationContent() {
                 _receivedAt: Date.now()
             };
 
+            if (isReply && parentId) {
+                client.setQueryData(['postReplies', parentId], (oldData) =>
+                    insertReplyIntoPages(oldData, formattedItem)
+                );
+                client.invalidateQueries({ queryKey: ['postReplies', parentId] });
+                return;
+            }
+
             client.setQueryData(['commPosts', activeProjectId], (old = []) => {
                 if (!Array.isArray(old)) return old;
-
-                if (isReply && parentId) {
-                    return old.map(post => {
-                        if (String(post.id) === parentId) {
-                            const existingReplies = post.replies || [];
-                            const existsById = existingReplies.some(r => String(r.id) === String(formattedItem.id));
-                            if (existsById) {
-                                return {
-                                    ...post,
-                                    replies: existingReplies.map(r =>
-                                        String(r.id) === String(formattedItem.id)
-                                            ? { ...r, ...formattedItem, _optimistic: false }
-                                            : r
-                                    )
-                                };
-                            }
-
-                            const optimisticIdx = existingReplies.findIndex(r =>
-                                r._optimistic &&
-                                String(r.content || '').trim() === String(formattedItem.content || '').trim() &&
-                                String(r.authorId || '') === String(formattedItem.authorId || '')
-                            );
-                            if (optimisticIdx !== -1) {
-                                const updatedReplies = [...existingReplies];
-                                updatedReplies[optimisticIdx] = formattedItem;
-                                return { ...post, replies: updatedReplies };
-                            }
-
-                            return {
-                                ...post,
-                                replies: [...existingReplies, formattedItem]
-                            };
-                        }
-                        return post;
-                    });
-                }
 
                 const existsById = old.some(p => String(p.id) === String(formattedItem.id));
                 if (existsById) {
@@ -1826,39 +2096,56 @@ function CommunicationContent() {
 
             const formattedItem = formatPostItem(rawPost);
             const targetId = String(formattedItem.id);
+            const rawParent = (
+                (typeof rawPost.reply === 'object' && rawPost.reply !== null ? (rawPost.reply.id ?? rawPost.reply._id) : rawPost.reply) ??
+                (typeof rawPost.reply_id === 'object' && rawPost.reply_id !== null ? (rawPost.reply_id.id ?? rawPost.reply_id._id) : rawPost.reply_id) ??
+                rawPost.parentId ??
+                rawPost.parent_id
+            );
+            const isReply = rawParent !== null && rawParent !== undefined && rawParent !== 0 && rawParent !== '';
+
+            if (isReply) {
+                const parentId = String(rawParent);
+                client.setQueryData(['postReplies', parentId], (oldData) => {
+                    if (!oldData || !Array.isArray(oldData.pages)) return oldData;
+                    return {
+                        ...oldData,
+                        pages: oldData.pages.map((page) => ({
+                            ...page,
+                            replies: (page.replies || []).map((r) =>
+                                String(r.id) === targetId ? { ...r, ...formattedItem } : r
+                            )
+                        }))
+                    };
+                });
+                client.invalidateQueries({ queryKey: ['postReplies', parentId] });
+                return;
+            }
 
             client.setQueryData(['commPosts', activeProjectId], (old = []) => {
                 if (!Array.isArray(old)) return old;
+                return old.map(p =>
+                    String(p.id) === targetId
+                        ? { ...p, ...formattedItem, replies: p.replies || [] }
+                        : p
+                );
+            });
 
-                const isTopLevel = old.some(p => String(p.id) === targetId);
-                if (isTopLevel) {
-                    return old.map(p => {
-                        if (String(p.id) === targetId) {
-                            return {
-                                ...p,
-                                ...formattedItem,
-                                replies: p.replies || []
-                            };
-                        }
-                        return p;
-                    });
-                }
-
-                return old.map(p => {
-                    const hasReply = (p.replies || []).some(r => String(r.id) === targetId);
-                    if (hasReply) {
-                        return {
-                            ...p,
-                            replies: (p.replies || []).map(r => {
-                                if (String(r.id) === targetId) {
-                                    return { ...r, ...formattedItem };
-                                }
-                                return r;
-                            })
-                        };
-                    }
-                    return p;
-                });
+            client.setQueriesData({ queryKey: ['postReplies'] }, (oldData) => {
+                if (!oldData || !Array.isArray(oldData.pages)) return oldData;
+                const found = oldData.pages.some((page) =>
+                    (page.replies || []).some((r) => String(r.id) === targetId)
+                );
+                if (!found) return oldData;
+                return {
+                    ...oldData,
+                    pages: oldData.pages.map((page) => ({
+                        ...page,
+                        replies: (page.replies || []).map((r) =>
+                            String(r.id) === targetId ? { ...r, ...formattedItem } : r
+                        )
+                    }))
+                };
             });
 
             client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
@@ -1870,20 +2157,32 @@ function CommunicationContent() {
 
             client.setQueryData(['commPosts', activeProjectId], (old = []) => {
                 if (!Array.isArray(old)) return old;
-
-                return old
-                    .filter(p => String(p.id) !== deletedId)
-                    .map(p => {
-                        if (Array.isArray(p.replies) && p.replies.some(r => String(r.id) === deletedId)) {
-                            return {
-                                ...p,
-                                replies: p.replies.filter(r => String(r.id) !== deletedId)
-                            };
-                        }
-                        return p;
-                    });
+                return old.filter(p => String(p.id) !== deletedId);
             });
 
+            const replyQueries = client.getQueriesData({ queryKey: ['postReplies'] });
+            replyQueries.forEach(([qKey, oldData]) => {
+                if (!oldData || !Array.isArray(oldData.pages)) return;
+                const hasMatch = oldData.pages.some((page) =>
+                    (page.replies || []).some((r) => String(r.id) === deletedId)
+                );
+                if (hasMatch) {
+                    client.setQueryData(qKey, (prev) => {
+                        if (!prev || !Array.isArray(prev.pages)) return prev;
+                        return {
+                            ...prev,
+                            pages: prev.pages.map((page) => ({
+                                ...page,
+                                totalCount: typeof page.totalCount === 'number' ? Math.max(0, page.totalCount - 1) : page.totalCount,
+                                replies: (page.replies || []).filter((r) => String(r.id) !== deletedId)
+                            }))
+                        };
+                    });
+                    client.invalidateQueries({ queryKey: qKey });
+                }
+            });
+
+            client.removeQueries({ queryKey: ['postReplies', deletedId] });
             client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
         };
 
@@ -2210,39 +2509,15 @@ function CommunicationContent() {
                 avatar: resolveUserAvatar(currentUser),
                 content: replyContent,
                 images: responseImages,
+                created_at: rData?.created_at || rData?.createdAt || new Date().toISOString(),
                 timestamp: 'Just now'
             };
 
-            client.setQueryData(['commPosts', activeProjectId], (old = []) =>
-                old.map(p => {
-                    if (String(p.id) === String(postId)) {
-                        const existingReplies = p.replies || [];
-                        if (createdReplyId && existingReplies.some(r => String(r.id) === String(createdReplyId))) {
-                            return {
-                                ...p,
-                                replies: existingReplies.map(r =>
-                                    String(r.id) === String(createdReplyId)
-                                        ? { ...newReply, ...r }
-                                        : r
-                                )
-                            };
-                        }
-                        if (!createdReplyId && existingReplies.some(r =>
-                            (r._receivedAt || 0) >= requestStartTime &&
-                            String(r.content || '').trim() === String(replyContent || '').trim() &&
-                            String(r.authorId || '') === String(newReply.authorId || '')
-                        )) {
-                            return p;
-                        }
-                        return {
-                            ...p,
-                            replies: [...existingReplies, newReply]
-                        };
-                    }
-                    return p;
-                })
+            const normalizedParentId = String(postId);
+            client.setQueryData(['postReplies', normalizedParentId], (oldData) =>
+                insertReplyIntoPages(oldData, newReply, requestStartTime)
             );
-            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
+            client.invalidateQueries({ queryKey: ['postReplies', normalizedParentId] });
 
             showToast('Reply sent.', 'success');
             return true;
@@ -2259,7 +2534,7 @@ function CommunicationContent() {
     };
 
     // Delete Post or Reply Handler (exclusive to author, ADMIN, and GOD)
-    const handleDeleteMessage = async (targetId, type = 'post') => {
+    const handleDeleteMessage = async (targetId, type = 'post', parentPostId = null) => {
         if (!targetId) return;
 
         const label = type === 'reply' ? 'reply' : 'post';
@@ -2277,25 +2552,32 @@ function CommunicationContent() {
         };
 
         const publicIdsToDestroy = [];
-        if (Array.isArray(cachedPosts)) {
-            if (type === 'reply') {
-                for (const p of cachedPosts) {
-                    const targetReply = (p.replies || []).find(r => String(r.id) === deletedId);
+        if (type === 'reply') {
+            const replyQueries = parentPostId
+                ? [[['postReplies', String(parentPostId)], client.getQueryData(['postReplies', String(parentPostId)])]]
+                : client.getQueriesData({ queryKey: ['postReplies'] });
+            for (const [, qData] of replyQueries) {
+                if (!qData || !Array.isArray(qData.pages)) continue;
+                for (const page of qData.pages) {
+                    const targetReply = (page.replies || []).find(r => String(r.id) === deletedId);
                     if (targetReply) {
                         publicIdsToDestroy.push(...extractImagePublicIds(targetReply));
                         break;
                     }
                 }
-            } else {
-                const targetPost = cachedPosts.find(p => String(p.id) === deletedId);
-                if (targetPost) {
-                    publicIdsToDestroy.push(...extractImagePublicIds(targetPost));
-                    if (Array.isArray(targetPost.replies)) {
-                        targetPost.replies.forEach((r) => {
-                            publicIdsToDestroy.push(...extractImagePublicIds(r));
-                        });
-                    }
-                }
+            }
+        } else if (Array.isArray(cachedPosts)) {
+            const targetPost = cachedPosts.find(p => String(p.id) === deletedId);
+            if (targetPost) {
+                publicIdsToDestroy.push(...extractImagePublicIds(targetPost));
+            }
+            const postRepliesData = client.getQueryData(['postReplies', deletedId]);
+            if (postRepliesData && Array.isArray(postRepliesData.pages)) {
+                postRepliesData.pages.forEach((page) => {
+                    (page.replies || []).forEach((r) => {
+                        publicIdsToDestroy.push(...extractImagePublicIds(r));
+                    });
+                });
             }
         }
         const uniquePublicIds = [...new Set(publicIdsToDestroy)];
@@ -2329,18 +2611,32 @@ function CommunicationContent() {
                 );
             }
 
-            client.setQueryData(['commPosts', activeProjectId], (old = []) => {
-                if (!Array.isArray(old)) return old;
-                return old
-                    .filter(p => String(p.id) !== deletedId)
-                    .map(p => ({
-                        ...p,
-                        replies: Array.isArray(p.replies)
-                            ? p.replies.filter(r => String(r.id) !== deletedId)
-                            : []
-                    }));
-            });
-            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
+            if (type === 'reply') {
+                const targetKeys = parentPostId
+                    ? [['postReplies', String(parentPostId)]]
+                    : client.getQueriesData({ queryKey: ['postReplies'] }).map(([k]) => k);
+                targetKeys.forEach((qKey) => {
+                    client.setQueryData(qKey, (oldData) => {
+                        if (!oldData || !Array.isArray(oldData.pages)) return oldData;
+                        return {
+                            ...oldData,
+                            pages: oldData.pages.map((page) => ({
+                                ...page,
+                                totalCount: typeof page.totalCount === 'number' ? Math.max(0, page.totalCount - 1) : page.totalCount,
+                                replies: (page.replies || []).filter((r) => String(r.id) !== deletedId)
+                            }))
+                        };
+                    });
+                    client.invalidateQueries({ queryKey: qKey });
+                });
+            } else {
+                client.setQueryData(['commPosts', activeProjectId], (old = []) => {
+                    if (!Array.isArray(old)) return old;
+                    return old.filter(p => String(p.id) !== deletedId);
+                });
+                client.removeQueries({ queryKey: ['postReplies', deletedId] });
+                client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
+            }
 
             showToast(`${type === 'reply' ? 'Reply' : 'Post'} deleted successfully.`, 'success');
         } catch (err) {
@@ -2440,23 +2736,20 @@ function CommunicationContent() {
                 console.warn('Backend edit reply notification:', err);
             }
 
-            client.setQueryData(['commPosts', activeProjectId], (old = []) =>
-                old.map(p => {
-                    if (String(p.id) === String(postId)) {
-                        return {
-                            ...p,
-                            replies: (p.replies || []).map(r => {
-                                if (String(r.id) === String(replyId)) {
-                                    return { ...r, content: newContent };
-                                }
-                                return r;
-                            })
-                        };
-                    }
-                    return p;
-                })
-            );
-            client.invalidateQueries({ queryKey: ['commPosts', activeProjectId] });
+            const normalizedParentId = String(postId);
+            client.setQueryData(['postReplies', normalizedParentId], (oldData) => {
+                if (!oldData || !Array.isArray(oldData.pages)) return oldData;
+                return {
+                    ...oldData,
+                    pages: oldData.pages.map((page) => ({
+                        ...page,
+                        replies: (page.replies || []).map((r) =>
+                            String(r.id) === String(replyId) ? { ...r, content: newContent } : r
+                        )
+                    }))
+                };
+            });
+            client.invalidateQueries({ queryKey: ['postReplies', normalizedParentId] });
 
             setEditReplyModal({ isOpen: false, postId: null, reply: null });
             showToast('Reply updated successfully.', 'success');
@@ -2673,6 +2966,7 @@ function CommunicationContent() {
                                         <PostCard
                                             key={post.id}
                                             post={post}
+                                            formatPostItem={formatPostItem}
                                             onAddReply={handleAddReply}
                                             onImageClick={handleOpenImageLightbox}
                                             onError={(msg) => showToast(msg, 'error')}
