@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './ReloadButton.css';
 
-export const DEFAULT_RELOAD_TIMEOUT_MS = 3000;
+export const DEFAULT_RELOAD_TIMEOUT_MS = 6000;
 
 /**
  * Shared hook that triggers a fallback reload button if a section errors out
